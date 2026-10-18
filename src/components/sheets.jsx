@@ -36,7 +36,7 @@ function MinisterSheet({ k }) {
     const t = totals(), rank = rankFor(t.level);
     return (
       <>
-        <DrawerHeader className="flex-row items-center gap-3"><Emblem k="president" size={48} /><div><Ar className="block text-2xl leading-tight text-gold">الرئيس المُستنير</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">The President</DrawerTitle></div></DrawerHeader>
+        <DrawerHeader className="flex-row items-center gap-3"><Emblem k="president" size={48} /><div><Ar className="block text-left text-2xl leading-tight text-gold">الرئيس المُستنير</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">The President</DrawerTitle></div></DrawerHeader>
         <p className="text-[15px]">Level {t.level}, {rank.en}. {t.logged} days logged, {t.perfect} perfect.</p>
         <div className="my-4 flex flex-col gap-2">
           {[1, 3, 6, 9, 12].map((L) => { const rk = rankFor(L); return (
@@ -59,7 +59,7 @@ function MinisterSheet({ k }) {
   const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure], habits: ["Up for Fajr", T.fajr] }[k];
   return (
     <>
-      <DrawerHeader className="flex-row items-center gap-3"><Emblem k={k} size={48} /><div className="min-w-0"><Ar className="block text-2xl leading-tight">{m.ar}</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">{m.en} · {m.agenda}</DrawerTitle></div></DrawerHeader>
+      <DrawerHeader className="flex-row items-center gap-3"><Emblem k={k} size={48} /><div className="min-w-0"><Ar className="block text-left text-2xl leading-tight">{m.ar}</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">{m.en} · {m.agenda}</DrawerTitle></div></DrawerHeader>
       <div className="flex items-center gap-4 rounded-2xl bg-muted/60 p-4">
         <Ring value={v || 0} color={`var(--m-${k})`} size={72} stroke={7} label="Approval"><span className="text-base">{pctTxt(v)}</span></Ring>
         <div><div className={cn("font-semibold", cls === "ok" && "text-ok", cls === "warn" && "text-warn", cls === "bad" && "text-bad")}>{txt}</div><Hint>{period ? `${period.label} of the term` : "Last 30 days"}</Hint></div>

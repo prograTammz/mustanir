@@ -20,14 +20,14 @@ function TipBox({ active, payload, unit, digits, smooth }) {
 }
 
 // Daily values as faint dots, the rolling average as the line, an optional goal as a dashed rule.
-export function TrendChart({ points, unit = "", digits = 0, color = "var(--primary)", smooth = 7, goal = null, height = 170, id = "c" }) {
+export function TrendChart({ points, unit = "", digits = 0, color = "var(--primary)", smooth = 7, goal = null, height = 170, id = "c", min = null, max = null }) {
   const data = useMemo(() => (points || []).map((p, i, a) => {
     const w = a.slice(Math.max(0, i - smooth + 1), i + 1);
     return { d: p[0], v: p[1], avg: w.reduce((s, q) => s + q[1], 0) / w.length };
   }), [points, smooth]);
   if (data.length < 2) return <div className="grid h-24 place-items-center text-sm text-muted-foreground">Not enough data yet</div>;
   const vals = data.map((x) => x.v).concat(goal != null ? [goal] : []);
-  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.12 || 1; lo -= pad; hi += pad;
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.12 || 1; lo -= pad; hi += pad; if (min != null) lo = Math.max(lo, min); if (max != null) hi = Math.min(hi, max);
   const gid = "g-" + id;
   return (
     <div style={{ height }} className="-mx-1">

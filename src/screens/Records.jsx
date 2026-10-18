@@ -75,7 +75,7 @@ function Agenda({ hs }) {
       </Section>
       {charts.map(([title, unit, digits, pts, color, goal], i) => (
         <Section key={title} title={title} right={<span className="text-sm text-muted-foreground tnum">{pts.length ? `${pts.length} days` : ""}</span>}>
-          <TrendChart id={"a" + i} points={pts} unit={unit} digits={digits} color={color} goal={goal} smooth={pts.length > 60 ? 7 : 1} />
+          <TrendChart id={"a" + i} min={0} points={pts} unit={unit} digits={digits} color={color} goal={goal} smooth={pts.length > 60 ? 7 : 1} />
         </Section>
       ))}
       <Hint className="text-center">{ls ? `Apple Health last synced ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.` : hs.loading ? "Loading Apple Health…" : hs.failed ? "Couldn’t load Apple Health data right now." : "Apple Health hasn’t synced yet. Set it up in the Diwan."}</Hint>

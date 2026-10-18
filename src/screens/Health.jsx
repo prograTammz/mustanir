@@ -142,7 +142,7 @@ function VitalityHistory() {
   const avg = (k) => { const v = days.map((d) => (S.days[d] || {})[k]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
   return (
     <Section title="Vitality" ar="الحيوية" right={<span className="text-sm text-muted-foreground">last 30 days</span>}>
-      <TrendChart id="vit" points={pts} unit="of 5" digits={0} color="var(--m-body)" goal={4} smooth={7} />
+      <TrendChart id="vit" points={pts} unit="of 5" digits={0} color="var(--m-body)" goal={4} smooth={7} min={0} max={5} />
       <div className="mt-3 grid grid-cols-3 gap-2">
         {VITALS.map((x) => { const a = avg(x.k); return <Stat key={x.k} value={a == null ? "—" : x.fmt(a)} label={`${x.en} avg`} tone={a != null && a >= goals[x.k] ? "ok" : undefined} />; })}
       </div>

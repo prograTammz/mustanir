@@ -51,7 +51,7 @@ export function Section({ title, ar, desc, right, children, className, contentCl
             <CardTitle>{title}</CardTitle>
             {desc && <CardDescription className="mt-1">{desc}</CardDescription>}
           </div>
-          {right ?? (ar && <Ar className="text-gold text-lg leading-none pt-0.5">{ar}</Ar>)}
+          {right ?? (ar && <Ar className="text-gold text-lg leading-none pt-0.5 whitespace-nowrap shrink-0">{ar}</Ar>)}
         </CardHeader>
       )}
       <CardContent className={contentClassName}>{children}</CardContent>

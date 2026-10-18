@@ -181,10 +181,10 @@ function BodyDecree({ s, r, dn }) {
           {m.exported_at ? <Badge variant="ok">In Health</Badge> : <Button size="icon-sm" variant="ghost" aria-label="Remove meal" onClick={async () => { await deleteMeal(s, m.id).catch(() => {}); bump(); }}><X /></Button>}
         </div>
       ))}
-      <div className="mt-2 grid grid-cols-[1fr_1.4fr_1fr_auto] gap-2">
+      <Input className="mt-2" placeholder="What did you eat?" value={food.name} onChange={(e) => setFood({ ...food, name: e.target.value })} />
+      <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
         <Input type="number" inputMode="numeric" placeholder="kcal" value={food.kcal} onChange={(e) => setFood({ ...food, kcal: e.target.value })} />
-        <Input placeholder="What" value={food.name} onChange={(e) => setFood({ ...food, name: e.target.value })} />
-        <Input type="number" inputMode="numeric" placeholder="Protein" value={food.protein} onChange={(e) => setFood({ ...food, protein: e.target.value })} />
+        <Input type="number" inputMode="numeric" placeholder="Protein (g)" value={food.protein} onChange={(e) => setFood({ ...food, protein: e.target.value })} />
         <Button size="icon" className="size-11" aria-label="Add meal" onClick={addFood}><Plus /></Button>
       </div>
       <Hint className="mt-2">{foodMsg || (eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : "Meals go to Apple Health with the nightly Shortcut.")}</Hint>
@@ -220,7 +220,7 @@ function HabitsDecree({ r }) {
     <Decree k="habits" side={`Window ${S.settings.bedtime} to ${S.settings.wake} · aim ${S.settings.sleepTarget} h`}>
       <Row label="Sleep">{tg("bed", "In bed by " + S.settings.bedtime)}{tg("wake", "Up for Fajr")}</Row>
       <Row label="Hours slept" sub={(r.sleepH || 0) >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h${String(r.source || "").startsWith("Apple Health") && r.sleepH != null ? " · from the watch" : ""}`}>
-        <Input className="w-24 text-right" type="number" inputMode="decimal" step="0.25" placeholder="h" key={"sl" + S.selected} defaultValue={r.sleepH ?? ""} onBlur={(e) => { const n = parseFloat(e.target.value); set("sleepH", isNaN(n) ? null : n); }} />
+        <Input className="w-24 text-right" type="number" inputMode="decimal" step="0.25" placeholder="h" key={"sl" + S.selected} defaultValue={r.sleepH != null ? Math.round(r.sleepH * 100) / 100 : ""} onBlur={(e) => { const n = parseFloat(e.target.value); set("sleepH", isNaN(n) ? null : n); }} />
       </Row>
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>
