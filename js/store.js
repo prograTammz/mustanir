@@ -108,23 +108,36 @@ export async function load() {
   } catch (e) { if (S.mode !== "signin") { S.mode = "error"; S.err = e.message; onChange(); } }
 }
 
-// Health history for statistics: daily rollups for the metrics the charts use, plus the last sync.
-export const CHART_METRICS = ["steps", "activeKcal", "restingHR", "hrv", "weight", "sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "exerciseMin", "vo2max"];
-export async function loadHealth(days = 730) {
+// Health history for statistics, the vitals and the biological-age estimate: daily rollups in one call.
+export const CHART_METRICS = ["steps", "activeKcal", "restingHR", "hrv", "weight", "sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "exerciseMin", "vo2max",
+  "standHours", "daylightMin", "bmi", "height", "bodyFat", "leanMass", "walking_speed", "respRate", "spo2"];
+const rpc = (fn, args) => rest("rpc/" + fn, { method: "POST", body: JSON.stringify(args || {}) });
+export async function loadHealth(days = 1500) {
   if (!SESSION) return null;
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const [rows, sync] = await Promise.all([
-    all(`health_daily?select=day,metric,value&metric=in.(${CHART_METRICS.join(",")})&day=gte.${since}&order=day`),
+  const [series, sync] = await Promise.all([
+    rpc("health_series", { p_metrics: CHART_METRICS, p_from: since }),
     rest("health_syncs?select=received_at,kind,samples,workouts,first_day,last_day&order=received_at.desc&limit=1"),
   ]);
   const byMetric = {};
-  for (const r of rows) (byMetric[r.metric] ||= []).push([r.day, r.value]);
+  for (const [k, pts] of Object.entries(series || {})) byMetric[k] = pts.map(([d, v]) => [d, Number(v)]);
   // Total sleep = the asleep stages combined.
   const sleep = {};
   for (const k of ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep"]) for (const [d, v] of byMetric[k] || []) sleep[d] = (sleep[d] || 0) + v;
   byMetric.sleepH = Object.entries(sleep).sort().map(([d, v]) => [d, v / 60]);
   S.health = { byMetric, lastSync: sync && sync[0] ? sync[0] : null, loadedAt: Date.now() };
   return S.health;
+}
+// Every metric at a glance: latest value, this month against last, the year's average.
+export async function loadHealthSummary() {
+  const [rows, cat] = await Promise.all([rpc("health_summary"), rest("health_metrics?select=key,label,unit,agg,category,better,sort&order=sort")]);
+  S.healthSummary = { rows: rows || [], catalog: cat || [], loadedAt: Date.now() };
+  return S.healthSummary;
+}
+export async function loadMetricSeries(metric, days = 1500) {
+  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const out = await rpc("health_series", { p_metrics: [metric], p_from: since });
+  return ((out || {})[metric] || []).map(([d, v]) => [d, Number(v)]);
 }
 
 export async function newShortcutKey() {

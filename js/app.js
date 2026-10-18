@@ -4,9 +4,11 @@ import {
   periods, intervalFor, TRAINED, manual, lastMastBefore, violation, day, dayMinisters, score, verdict, currentApproval,
   dayXP, totals, rankFor, streak, bestStreak, T, medals, pct,
   SPORTS, DOW, hmMin, minHM, slotName, slotsOn, matchDay, checklistFor, hasSchedule, MAX_DAY_XP,
+  VITALS, vitalityFor, VITALITY_XP, bioAge, ageOn, bioInputs, DEFAULTS,
 } from "./logic.js";
 import { SESSION, LS, HEALTH_URL, setRenderer, setStatus, saveDay, saveSettings, load, flushOutbox, loadHealth, newShortcutKey, signIn, signUp, signOut,
-  pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews, loadMeals, addMeal, deleteMeal, PALACE_URL } from "./store.js";
+  pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews, loadMeals, addMeal, deleteMeal, PALACE_URL,
+  loadHealthSummary, loadMetricSeries } from "./store.js";
 import { lineChart, heatmap, ministerBars } from "./charts.js";
 import { xpFloat, levelUp, burst } from "./fx.js";
 
@@ -281,6 +283,7 @@ function renderDecrees() {
     row("Tracking", toggle("watch", "Watch worn and charged"))));
 
   kids.push(checklistCard(s));
+  kids.push(vitalityCard(s));
 
   // reflection
   const note = (k, label, ph) => row(label, h("textarea", { class: "txt", placeholder: ph, oninput: (e) => { rec()[k] = e.target.value; saveDay(S.selected); } }, r[k] || ""));
@@ -370,6 +373,19 @@ function checklistCard(s) {
     h("p", { class: "hint" }, `Productivity counts up to ${20} XP a day. Edit the standing list in the Diwan.`));
 }
 
+/* ---------- vitality ---------- */
+function vitalityCard(s) {
+  const v = vitalityFor(s);
+  return h("section", { class: "card decree", style: { "--mc": "var(--m-body)" } },
+    h("div", { class: "decree-h" }, emblemSVG("body"), h("div", { class: "decree-id" }, ar("الحيوية"), h("span", null, v.seen ? `Vitality · ${v.hits} of ${v.total}` : "Vitality · waiting for the watch")),
+      ring(v.frac || 0, "var(--m-body)", 44, "Vitality today")),
+    h("div", { class: "vitals" }, ...v.items.map((x) => h("div", { class: "vital" + (x.hit ? " on" : "") },
+      ring(x.frac, x.hit ? "var(--ok)" : "var(--m-body)", 40, x.en),
+      h("strong", null, x.val == null ? "—" : x.fmt(x.val)),
+      h("span", null, `${x.en} · ${x.goal}${x.unit ? " " + x.unit : ""}`)))),
+    h("p", { class: "hint" }, `Filled by the watch. Each vital you keep is worth ${VITALITY_XP / VITALS.length} XP on days you log; 4 of 5 for 7 days wins the Vitality medal. Goals are in the Diwan.`));
+}
+
 /* ---------- sheets ---------- */
 function openSheet(title, arTitle, nodes) {
   const bg = h("div", { class: "sheet-bg", onclick: (e) => { if (e.target === bg) close(); } });
@@ -416,8 +432,13 @@ let healthLoading = false, healthFailedAt = 0;
 const healthDue = () => !S.health && !healthLoading && SESSION && Date.now() - healthFailedAt > 60000;
 const fetchHealth = (tab) => { healthLoading = true; loadHealth().then(() => { healthLoading = false; if (S.tab === tab) render(); }).catch(() => { healthLoading = false; healthFailedAt = Date.now(); if (S.tab === tab) render(); }); };
 function renderRecords() {
-  const kids = [];
   if (healthDue()) fetchHealth("records");
+  const sw = h("div", { class: "seg", role: "group", "aria-label": "View" }, ...[["agenda", "Agenda"], ["health", "Health"]].map(([k, l]) => chip(l, (S.recTab || "agenda") === k, () => { S.recTab = k; render(); })));
+  if (S.recTab === "health") return [sw, ...renderHealth()];
+  return [sw, ...renderAgenda()];
+}
+function renderAgenda() {
+  const kids = [];
   const t = totals(), to = today(), days = S.range, from = addDays(to, -days + 1);
   kids.push(h("div", { class: "seg", role: "group", "aria-label": "Range" }, ...[[30, "30 days"], [90, "90 days"], [365, "1 year"], [730, "2 years"]].map(([n, l]) => chip(l, S.range === n, () => { S.range = n; render(); }))));
 
@@ -469,6 +490,137 @@ function renderRecords() {
   return kids;
 }
 
+/* ---------- health: biological age, vitals, every metric ---------- */
+const SHORT = { day: "numeric", month: "short", year: "numeric" };
+let summaryLoading = false, summaryFailedAt = 0;
+const CATS = [["activity", "Activity", "النشاط"], ["heart", "Heart", "القلب"], ["sleep", "Sleep", "النوم"], ["body", "Body", "الجسم"], ["mobility", "Mobility", "الحركة"],
+  ["vitals", "Vitals", "الحيوية"], ["environment", "Environment", "البيئة"], ["nutrition", "Nutrition", "التغذية"], ["sport", "Sport", "الرياضة"], ["mind", "Mind", "العقل"]];
+function fmtVal(v, unit, key) {
+  if (v == null || !isFinite(v)) return "—";
+  if (unit === "min" && /^sleep/.test(key || "")) return fmtMin(Math.round(v));
+  const a = Math.abs(v);
+  const n = a >= 1000 ? Math.round(v).toLocaleString("en") : a >= 100 ? String(Math.round(v)) : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2).replace(/0$/, "") : v.toFixed(3).replace(/0+$/, "");
+  return unit ? `${n} ${unit}` : n;
+}
+function renderHealth() {
+  const kids = [];
+  if (!S.healthSummary && !summaryLoading && SESSION && Date.now() - summaryFailedAt > 60000) {
+    summaryLoading = true;
+    loadHealthSummary().then(() => { summaryLoading = false; if (S.tab === "records") render(); }).catch(() => { summaryLoading = false; summaryFailedAt = Date.now(); if (S.tab === "records") render(); });
+  }
+  kids.push(bioCard());
+  kids.push(vitalityHistoryCard());
+  kids.push(explorerCard());
+  return kids;
+}
+
+function bioCard() {
+  const H = S.health?.byMetric;
+  const card = (...k) => h("section", { class: "card bio" }, h("div", { class: "card-h" }, h("h2", null, "Biological age"), ar("العمر البيولوجي")), ...k);
+  if (!S.settings.birthDate) {
+    return card(h("p", null, "Your watch data can estimate how old your body behaves. Add your birth date to see it."),
+      h("div", { class: "foodadd two" }, h("input", { id: "f-birth", class: "txt", type: "date" }),
+        h("button", { class: "chip", onclick: () => { const v = document.getElementById("f-birth").value; if (v) { S.settings.birthDate = v; saveSettings(); render(); } } }, "Save")));
+  }
+  if (!H) return card(h("p", { class: "hint" }, healthLoading ? "Reading three years of Apple Health…" : "No Apple Health data yet."));
+  const t = today(), age = ageOn(S.settings.birthDate, t);
+  const b = bioAge(age, bioInputs(H, t), S.settings.sex);
+  if (!b || !b.factors.length) return card(h("p", { class: "hint" }, "Not enough recent watch data for an estimate yet."));
+  const younger = b.delta < 0;
+  const max = Math.max(4, ...b.factors.map((f) => Math.abs(f.years)));
+  const bar = (y) => {
+    const w = (Math.abs(y) / max) * 50;
+    return h("div", { class: "dbar", role: "img", "aria-label": `${y > 0 ? "+" : ""}${y} years` },
+      h("i", { class: "mid" }), h("b", { class: y > 0 ? "older" : "younger", style: { width: w + "%", [y > 0 ? "left" : "right"]: "50%" } }));
+  };
+  // month by month: the gap between body and calendar
+  const first = (H.steps || [])[0]?.[0] || t;
+  const trend = [];
+  for (let d = new Date(first + "T12:00:00"); ; d.setMonth(d.getMonth() + 1)) {
+    let k = d.toISOString().slice(0, 10); if (k > t) k = t;
+    const x = bioAge(ageOn(S.settings.birthDate, k), bioInputs(H, k), S.settings.sex);
+    if (x && x.factors.length >= 3) trend.push([k, Math.round(x.delta * 10) / 10]);
+    if (k === t) break;
+  }
+  return card(
+    h("div", { class: "bio-hero" },
+      h("div", null, h("strong", { class: "bio-num" }, b.bio.toFixed(1)), h("span", null, "body age")),
+      h("div", null, h("strong", { class: "bio-num muted" }, age.toFixed(1)), h("span", null, "calendar age")),
+      h("span", { class: "bio-delta " + (younger ? "good" : "bad") }, `${younger ? "▼" : "▲"} ${Math.abs(b.delta).toFixed(1)} years ${younger ? "younger" : "older"}`)),
+    b.fitnessAge ? h("p", { class: "hint" }, `Fitness age from VO₂ max: ${b.fitnessAge.toFixed(0)}.`) : null,
+    h("div", { class: "subhead" }, "What moves it"),
+    ...b.factors.map((f) => h("div", { class: "factor" },
+      h("div", { class: "factor-t" }, h("strong", null, f.en), h("span", { class: "fy " + (f.years > 0 ? "older" : f.years < 0 ? "younger" : "") }, f.years === 0 ? "±0" : `${f.years > 0 ? "+" : "−"}${Math.abs(f.years).toFixed(1)} y`)),
+      bar(f.years), h("span", { class: "muted small" }, f.note))),
+    h("div", { class: "legend" }, h("span", null, h("i", { class: "sw younger" }), "makes you younger"), h("span", null, h("i", { class: "sw older" }), "makes you older")),
+    trend.length > 2 ? [h("div", { class: "subhead" }, "Years older than your age, month by month"), lineChart({ points: trend, unit: "y", digits: 1, color: "var(--m-purity)", goal: 0, smooth: 1 })] : null,
+    h("p", { class: "hint" }, "Estimate from your last 60 days: each measure's link to long-term health in large studies, converted to years. It shows direction, not a diagnosis."));
+}
+
+function vitalityHistoryCard() {
+  const t = today(), days = range(addDays(t, -29), addDays(t, 1));
+  const pts = days.map((k) => [k, vitalityFor(k)]).filter(([, v]) => v.seen).map(([k, v]) => [k, v.hits]);
+  const avg = (k) => { const v = days.map((d) => (S.days[d] || {})[k]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const goals = { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Vitality"), h("span", { class: "muted" }, "last 30 days")),
+    lineChart({ points: pts, unit: "of 5", digits: 0, color: "var(--m-body)", goal: 4, smooth: 7 }),
+    h("div", { class: "tiles five" }, ...VITALS.map((x) => { const a = avg(x.k); return h("div", { class: "tile" + (a != null && a >= goals[x.k] ? " ok" : "") }, h("strong", null, a == null ? "—" : x.fmt(a)), h("span", null, `${x.en} avg`)); })));
+}
+
+function explorerCard() {
+  const sum = S.healthSummary;
+  const cat = S.hcat || "activity";
+  const head = h("div", { class: "card-h" }, h("h2", null, "Every measure"), ar("كل المقاييس"));
+  if (!sum) return h("section", { class: "card" }, head, h("p", { class: "hint" }, summaryLoading ? "Loading…" : "Couldn’t load the measures right now."));
+  const rows = new Map(sum.rows.map((r) => [r.metric, r]));
+  const metas = sum.catalog.filter((m) => m.category !== "private" && rows.has(m.key));
+  const cats = CATS.filter(([k]) => metas.some((m) => m.category === k));
+  const list = metas.filter((m) => m.category === cat);
+  return h("section", { class: "card" }, head,
+    h("p", { class: "hint" }, `${metas.length} measures from Apple Health · ${sum.rows.reduce((a, r) => a + r.days, 0).toLocaleString("en")} daily records.`),
+    h("div", { class: "seg scroll" }, ...cats.map(([k, l]) => chip(l, k === cat, () => { S.hcat = k; render(); }))),
+    ...list.map((m) => {
+      const r = rows.get(m.key);
+      const ch = r.avg30 != null && r.prev30 ? (r.avg30 - r.prev30) / Math.abs(r.prev30) : null;
+      const good = ch == null || !m.better || Math.abs(ch) < 0.02 ? null : (ch > 0) === (m.better > 0);
+      return h("button", { class: "metric", onclick: () => openMetric(m, r) },
+        h("div", null, h("strong", null, m.label), h("span", { class: "muted small" },
+          r.avg30 != null ? `30-day avg ${fmtVal(r.avg30, m.unit, m.key)}` : `last on ${fmt(r.latest_day, SHORT)}`,
+          ch != null && Math.abs(ch) >= 0.02 ? h("span", { class: "chg " + (good == null ? "" : good ? "good" : "bad") }, ` ${ch > 0 ? "▲" : "▼"} ${Math.abs(ch * 100).toFixed(0)}%${good == null ? "" : good ? " better" : " worse"}`) : null)),
+        h("span", { class: "metric-v" }, fmtVal(r.latest, m.unit, m.key)));
+    }));
+}
+
+function openMetric(m, r) {
+  openSheet(m.label, null, (close) => {
+    const body = h("div", null, h("p", { class: "hint" }, "Loading…"));
+    loadMetricSeries(m.key).then((pts) => {
+      const unitShown = m.unit === "min" && /^sleep/.test(m.key) ? "h" : m.unit;
+      const p = unitShown === "h" ? pts.map(([d, v]) => [d, v / 60]) : pts;
+      body.replaceChildren(
+        lineChart({ points: p, unit: unitShown, digits: Math.abs(p.at(-1)?.[1] || 0) >= 100 ? 0 : 1, color: "var(--m-knowledge)", smooth: p.length > 60 ? 7 : 1 }),
+        h("div", { class: "tiles" },
+          h("div", { class: "tile" }, h("strong", null, fmtVal(r.latest, m.unit, m.key)), h("span", null, `latest · ${fmt(r.latest_day, SHORT)}`)),
+          h("div", { class: "tile" }, h("strong", null, fmtVal(r.avg30, m.unit, m.key)), h("span", null, "30-day average")),
+          h("div", { class: "tile" }, h("strong", null, fmtVal(r.avg365, m.unit, m.key)), h("span", null, "1-year average")),
+          h("div", { class: "tile" }, h("strong", null, r.days.toLocaleString("en")), h("span", null, `days since ${fmt(r.first_day, SHORT)}`))));
+    }).catch(() => body.replaceChildren(h("p", { class: "hint" }, "Couldn’t load this measure.")));
+    return [body];
+  });
+}
+
+function profileCard() {
+  const g = { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
+  const setG = (k, v) => { S.settings.vitality = { ...g, [k]: Math.max(0, parseFloat(v) || 0) }; saveSettings(); render(); };
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Body profile & vitals"), ar("الملف الصحي")),
+    h("div", { class: "field" }, h("label", { for: "f-birthDate" }, "Birth date (for biological age)"),
+      h("input", { id: "f-birthDate", type: "date", value: S.settings.birthDate || "", onchange: (e) => { S.settings.birthDate = e.target.value; saveSettings(); render(); } })),
+    h("div", { class: "field" }, h("label", null, "Sex (for the fitness norms)"),
+      h("div", { class: "seg" }, ...[["male", "Male"], ["female", "Female"]].map(([k, l]) => chip(l, (S.settings.sex || "male") === k, () => { S.settings.sex = k; saveSettings(); render(); })))),
+    ...VITALS.map((x) => h("div", { class: "field" }, h("label", { for: "v-" + x.k }, `Daily ${x.en.toLowerCase()} goal${x.unit ? ` (${x.unit})` : ""}`),
+      h("input", { id: "v-" + x.k, type: "number", inputmode: "decimal", min: "0", step: x.k === "sleepH" ? "0.5" : "1", value: String(g[x.k]), onchange: (e) => setG(x.k, e.target.value) }))));
+}
+
 /* ---------- council (monthly review) ---------- */
 function renderCouncil() {
   const t = today(), ps = periods();
@@ -514,6 +666,7 @@ function renderDiwan() {
       h("div", { class: "field" }, h("label", null, "Bedtime, set by the window"), h("strong", null, S.settings.bedtime)),
       f("Impeachment line (%)", "threshold", "number", { min: "0", max: "100" }),
       f("Current book", "book", "text", { placeholder: "Book title" })),
+    profileCard(),
     trainingCard(),
     checklistEditCard(),
     scheduleCard(f),

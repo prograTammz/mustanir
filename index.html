@@ -393,6 +393,47 @@ details.more[open] summary::after{transform:rotate(90deg)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 /* no text selection on chrome; keep it in inputs and the journal */
 .nav,.top,.card-h,.chip,.btn,.ltitle,.prayer,.minrow,.datebar,.medal{-webkit-user-select:none;user-select:none}
+
+/* vitality */
+.vitals{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:4px 0 2px}
+.vital{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;min-width:0}
+.vital .ring>span{font-size:11px}
+.vital strong{font:600 15px var(--rounded)}
+.vital>span{font-size:11px;color:var(--muted);line-height:1.2}
+.vital.on strong{color:var(--ok)}
+/* biological age */
+.bio-hero{display:flex;align-items:flex-end;flex-wrap:wrap;gap:22px;margin:6px 0 10px}
+.bio-hero>div{display:flex;flex-direction:column}
+.bio-hero>div>span{font-size:13px;color:var(--muted)}
+.bio-num{font:700 46px/1 var(--rounded);letter-spacing:-.02em}
+.bio-num.muted{font-size:30px;color:var(--muted)}
+.bio-delta{font:600 14px var(--rounded);padding:6px 12px;border-radius:999px;align-self:center}
+.bio-delta.good{color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.bio-delta.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,transparent)}
+.factor{padding:9px 0;border-top:.5px solid var(--sep);display:flex;flex-direction:column;gap:5px}
+.factor-t{display:flex;justify-content:space-between;gap:10px;font-size:15px}
+.fy{font:600 14px var(--rounded);color:var(--muted)} .fy.older{color:var(--text)} .fy.younger{color:var(--text)}
+.dbar{position:relative;height:8px;border-radius:4px;background:var(--field)}
+.dbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1.5px;background:var(--faint)}
+.dbar b{position:absolute;top:0;bottom:0;border-radius:4px}
+.dbar b.older,.sw.older{background:var(--m-body)} .dbar b.younger,.sw.younger{background:var(--m-knowledge)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0 2px}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.small{font-size:12px}
+/* explorer */
+.seg.scroll{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:4px -4px 6px;padding:0 4px}
+.seg.scroll::-webkit-scrollbar{display:none}
+.seg.scroll .chip{flex:none}
+.metric{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border:0;border-top:.5px solid var(--sep);background:none;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.metric>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.metric strong{font-size:16px;font-weight:500}
+.metric-v{font:600 16px var(--rounded);white-space:nowrap}
+.chg.good{color:var(--ok)} .chg.bad{color:var(--bad)}
+.tiles.five{grid-template-columns:repeat(5,1fr)}
+.tiles.five .tile strong{font-size:16px}
+.tiles.five .tile span{font-size:11px}
+.tile.ok strong{color:var(--ok)}
+@media (max-width:420px){.tiles.five{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>

@@ -14,8 +14,11 @@ Ahmed 2.0's daily record: a PWA hosted on GitHub Pages at https://mustanir.ahmed
 - **Training** (`settings.training`, `settings.trainingOnce`): weekly and one-off slots per sport, edited in the Diwan. Each slot is matched against the watch: exact workouts (Health Auto Export) or hour-by-hour Exercise Minutes (the Shortcut), with 30 minutes of slack each side. Half the planned time or more counts as done; you can mark a slot done or skipped by hand. The slots drive the calendar feed and the 30-minute reminders.
 - **Food** (`meals` table): logged in the app, written to Apple Health as Dietary Energy by the nightly Shortcut (`GET /palace/export`, then `POST /palace/export/ack`). Intake = Apple Health's total + meals not yet written.
 - **Walking pad**: `POST /palace/walkpad` with the Shortcut key toggles a timer; stopping it logs the minutes.
+- **Health catalog** (`health_metrics`): every column Health Auto Export knows (124 measures) with its unit, how a day is totalled (sum, average, last, min, max, minutes), category and which direction is better. Incoming names are matched through its aliases; kJ, lb, mi and °F are converted on arrival. A day exported as a daily summary (`source = 'HAE history'`) is Apple's own de-duplicated total and wins over finer samples for that day. `health_summary()` and `health_series()` feed the Health page. The full history (Sept 2023 onward) was imported from the Health Auto Export CSV export.
+- **Vitality** (Decrees and Records → Health): steps, exercise, stand hours, sleep and daylight against goals set in the Diwan; up to 20 XP a day on days you log, and the Vitality medals for 4 of 5 kept 7 or 30 days running.
+- **Biological age** (Records → Health): from the last 60 days of VO₂ max, resting heart rate, steps, sleep, BMI, HRV and walking speed. Each measure's link to all-cause mortality in large studies is converted to years with the Gompertz law (risk doubles about every 8 years). An estimate, not a diagnosis. Needs the birth date in the Diwan.
 - **Daily checklist** (`settings.checklist`, per-day `checks` and `extraTasks`): productivity = share ticked, worth up to 20 XP a day.
-- **Game** (`js/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25, the checklist up to 20 (145 max). Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
+- **Game** (`js/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25, the checklist up to 20, vitality up to 20 (165 max). Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
 
 The publishable key in `index.html` is meant to be public; the data is protected by sign-in and row-level security.
 
@@ -57,3 +60,5 @@ Rules for all three:
 - Sleep counts toward the morning you wake. Dates without an offset are read as Cairo time (Egypt's DST is handled).
 - A range longer than three days is treated as history: stored and charted, never scored.
 - Autofill on daily syncs, only into blank fields: in bed on time (30-min grace), up for Fajr (10-min grace), training type from workout names, diet on target from the deficit, watch worn from stand hours or overnight sleep. Measured values (sleep hours, steps, energy, weight, walking minutes, exercise, resting HR) are always refreshed.
+
+**Maintenance.** `POST /functions/v1/health` with the `x-cron-token` header and `{ "user", "from", "to" }` recomputes daily totals and the tracker for a range (used after imports).

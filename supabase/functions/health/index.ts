@@ -71,12 +71,37 @@ const SLEEP_STAGES: Record<string, string> = {
 const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const ALIAS_N: Record<string, string> = Object.fromEntries(Object.entries(ALIASES).map(([k, v]) => [norm(k), v]));
 
+// The metric catalog (health_metrics) knows every Health Auto Export column by its aliases.
+let CATALOG: Record<string, string> = {};
+let catalogAt = 0;
+async function loadCatalog() {
+  if (Date.now() - catalogAt < 600000) return;
+  const { data } = await admin.from("health_metrics").select("key,aliases");
+  const c: Record<string, string> = {};
+  for (const r of data || []) { c[norm(r.key)] = r.key; for (const a of r.aliases || []) c[norm(a)] = r.key; }
+  CATALOG = c; catalogAt = Date.now();
+}
+const snake = (s: unknown) => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64);
+
 function metricOf(type: unknown, value: unknown): string | null {
   const t = norm(type);
   if (!t) return null;
   if (ALIAS_N[t]) return ALIAS_N[t];
-  if (t.startsWith("sleep")) return SLEEP_STAGES[norm(value)] || SLEEP_STAGES[t.replace(/^sleep(analysis)?/, "")] || null;
-  return String(type).trim().slice(0, 64); // unknown types are kept as sent
+  if (t.startsWith("sleep") && !t.includes("temperature")) return SLEEP_STAGES[norm(value)] || SLEEP_STAGES[t.replace(/^sleep(analysis)?/, "")] || null;
+  if (CATALOG[t]) return CATALOG[t];
+  if (t.startsWith("dietary") && CATALOG[t.slice(7)]) return CATALOG[t.slice(7)];
+  return snake(type); // unknown types are kept, in the catalog's snake_case form
+}
+// Values arrive in whatever units the phone uses; store them in the catalog's.
+function toUnit(value: number, unit: unknown): [number, string | null] {
+  const u = String(unit ?? "").trim();
+  const l = u.toLowerCase();
+  if (l === "kj") return [value / 4.184, "kcal"];
+  if (l === "lb" || l === "lbs") return [value * 0.45359237, "kg"];
+  if (l === "mi") return [value * 1.609344, "km"];
+  if (l === "degf") return [(value - 32) / 1.8, "°C"];
+  if (l === "count/min") return [value, "bpm"];
+  return [value, u || null];
 }
 
 // Cairo calendar day for an instant (handles Egypt's daylight-saving switch).
@@ -127,10 +152,15 @@ function normalize(b: any): { samples: any[]; workouts: any[] } {
           // aggregated night: stage totals in hours, laid end to end from sleepStart so durations are kept
           let t = parseDate(p.sleepStart ?? p.inBedStart ?? p.startDate ?? p.date);
           if (!t) continue;
+          const staged = (num(p.core) || 0) + (num(p.deep) || 0) + (num(p.rem) || 0);
+          const total = num(p.totalSleep);
+          // "asleep" is the unstaged remainder; when a total is given, it is total minus the stages
+          const rest = total != null && staged > 0 ? Math.max(0, total - staged) : staged > 0 ? 0 : num(p.asleep) ?? total;
+          const bedS = parseDate(p.inBedStart), bedE = parseDate(p.inBedEnd);
+          if (bedS && bedE && bedE > bedS) samples.push({ type: "Sleep", value: "In Bed", start: bedS.toISOString(), end: bedE.toISOString(), source: p.source || "Health Auto Export" });
           for (const [stage, key] of [["Core", "core"], ["Deep", "deep"], ["REM", "rem"], ["Asleep", "asleep"]] as const) {
-            let h = num(p[key]);
-            if (key === "asleep" && (num(p.core) || num(p.deep) || num(p.rem))) h = null; // asleep is the total when stages exist
-            if (!h || h <= 0) continue;
+            const h = key === "asleep" ? rest : num(p[key]);
+            if (!h || h <= 0.01) continue;
             const end = new Date(t.getTime() + h * 3600000);
             samples.push({ type: "Sleep", value: stage, start: t.toISOString(), end: end.toISOString(), source: p.source || "Health Auto Export" }); t = end;
           }
@@ -138,12 +168,19 @@ function normalize(b: any): { samples: any[]; workouts: any[] } {
         }
         const value = p.qty ?? p.Avg ?? p.avg ?? p.value;
         if (value == null) continue;
-        samples.push({ type: name, start: p.date ?? p.startDate, end: p.endDate ?? p.date, value, unit: m.units, source: p.source || "Health Auto Export" });
+        const src = p.source || "Health Auto Export";
+        samples.push({ type: name, start: p.date ?? p.startDate, end: p.endDate ?? p.date, value, unit: m.units, source: src });
+        if (p.Min != null && p.Max != null && /heart_?rate$/i.test(name)) {
+          samples.push({ type: "heart_rate_min", start: p.date ?? p.startDate, end: p.endDate ?? p.date, value: p.Min, unit: m.units, source: src });
+          samples.push({ type: "heart_rate_max", start: p.date ?? p.startDate, end: p.endDate ?? p.date, value: p.Max, unit: m.units, source: src });
+        }
       }
     }
     for (const w of b.data.workouts || []) {
       const q = (x: unknown) => (x && typeof x === "object" ? (x as { qty?: unknown }).qty : x);
-      workouts.push({ activity: w.name, start: w.start, end: w.end, energy: q(w.activeEnergyBurned ?? w.activeEnergy), distance: q(w.distance),
+      const u = (x: unknown) => (x && typeof x === "object" ? (x as { units?: unknown }).units : undefined);
+      workouts.push({ activity: w.name, start: w.start, end: w.end, energy: q(w.activeEnergyBurned ?? w.activeEnergy), energyUnit: u(w.activeEnergyBurned ?? w.activeEnergy),
+        distance: q(w.distance), distanceUnit: u(w.distance),
         avgHR: q(w.avgHeartRate ?? w.heartRate?.avg), maxHR: q(w.maxHeartRate ?? w.heartRate?.max), source: "Health Auto Export" });
     }
   }
@@ -201,6 +238,16 @@ async function chunked<T>(rows: T[], size: number, fn: (part: T[]) => Promise<vo
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error: "Use POST." }, 405);
+  // Maintenance: recompute totals and the tracker for a range (pg_cron / SQL, with the cron token).
+  if (req.headers.get("x-cron-token")) {
+    const { data: sec } = await admin.from("app_secrets").select("value").eq("name", "cron_token").single();
+    if (!sec || req.headers.get("x-cron-token") !== sec.value) return json({ ok: false }, 401);
+    const r = await req.json().catch(() => ({}));
+    if (!r.user || !/^\d{4}-\d{2}-\d{2}$/.test(r.from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(r.to || "")) return json({ ok: false, error: "user, from, to" }, 400);
+    if (r.rollup !== false) { const { error } = await admin.rpc("health_rollup", { p_user: r.user, p_from: r.from, p_to: r.to }); if (error) return json({ ok: false, error: error.message }, 500); }
+    const n = await refreshTracker(r.user, r.from, r.to, r.kind === "daily" ? "daily" : "backfill");
+    return json({ ok: true, days: n });
+  }
   const key = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!key) return json({ ok: false, error: "Missing key." }, 401);
   const keyHash = await sha256(key);
@@ -211,6 +258,7 @@ Deno.serve(async (req) => {
   // deno-lint-ignore no-explicit-any
   let b: any;
   try { b = await req.json(); } catch { return json({ ok: false, error: "Body must be JSON." }, 400); }
+  await loadCatalog();
   const { samples: rawSamples, workouts: rawWorkouts } = normalize(b);
   if (rawSamples.length + rawWorkouts.length > MAX_ITEMS) return json({ ok: false, error: `Send at most ${MAX_ITEMS} items per request; split the range.` }, 413);
 
@@ -223,11 +271,12 @@ Deno.serve(async (req) => {
     const end = parseDate(r.end ?? r.endDate) || start;
     if (!metric || !start || !end) { if (skipped.length < 5) skipped.push(JSON.stringify(r).slice(0, 120)); continue; }
     const isSleep = metric.startsWith("sleep");
-    const value = isSleep ? (end.getTime() - start.getTime()) / 60000 : num(r.value);
-    if (value === null) { if (skipped.length < 5) skipped.push(JSON.stringify(r).slice(0, 120)); continue; }
+    const raw = isSleep ? (end.getTime() - start.getTime()) / 60000 : num(r.value);
+    if (raw === null) { if (skipped.length < 5) skipped.push(JSON.stringify(r).slice(0, 120)); continue; }
+    const [value, unit] = isSleep ? [raw, "min"] : toUnit(raw, r.unit);
     const day = cairoDay(isSleep ? end : start); // sleep counts toward the morning you wake
     days.add(day);
-    const row = { user_id: uid, metric, start_at: start.toISOString(), end_at: end.toISOString(), value, unit: r.unit ? String(r.unit).slice(0, 32) : null, source: String(r.source ?? "").slice(0, 120), day };
+    const row = { user_id: uid, metric, start_at: start.toISOString(), end_at: end.toISOString(), value, unit: unit ? unit.slice(0, 32) : null, source: String(r.source ?? "").slice(0, 120), day };
     sampleMap.set(`${metric}|${row.start_at}|${row.end_at}|${row.source}`, row); // dedupe within the batch
   }
   const workoutMap = new Map<string, Record<string, unknown>>();
@@ -241,7 +290,8 @@ Deno.serve(async (req) => {
     const row = {
       user_id: uid, activity, start_at: start.toISOString(), end_at: end.toISOString(),
       duration_min: num(w.duration) ?? (end.getTime() - start.getTime()) / 60000,
-      energy_kcal: num(w.energy), distance_km: num(w.distance), avg_hr: num(w.avgHR), max_hr: num(w.maxHR),
+      energy_kcal: w.energyUnit && /kj/i.test(String(w.energyUnit)) ? num(w.energy)! / 4.184 : num(w.energy),
+      distance_km: w.distanceUnit && /mi/i.test(String(w.distanceUnit)) ? num(w.distance)! * 1.609344 : num(w.distance), avg_hr: num(w.avgHR), max_hr: num(w.maxHR),
       source: String(w.source ?? "").slice(0, 120), day,
     };
     workoutMap.set(`${activity}|${row.start_at}`, row);
@@ -276,20 +326,41 @@ Deno.serve(async (req) => {
   return json({ ok: true, kind, samples: samples.length, workouts: workouts.length, days: sorted.length, from: sorted[0] ?? null, to: sorted[sorted.length - 1] ?? null, skipped });
 });
 
+// PostgREST returns at most 1,000 rows per request, so read in pages.
+// deno-lint-ignore no-explicit-any
+async function allRows(q: () => any): Promise<any[]> {
+  const out = [];
+  for (let i = 0; ; i += 1000) {
+    const { data, error } = await q().range(i, i + 999);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 1000) return out;
+  }
+}
+
 // Copy the day's Health totals into the tracker. Measured values are always refreshed.
 // Judgements (in bed on time, up for Fajr, training type, diet on target) are filled only when blank,
 // and only on daily syncs, so a two-year backfill never invents verdicts for days before the term.
 async function refreshTracker(uid: string, from: string, to: string, kind: string) {
-  const [{ data: st }, { data: daily }, { data: wks }, { data: rows }, { data: sleepRows }] = await Promise.all([
+  const NOT_TIMED = '("daily total","HAE history")'; // day totals carry no time of day
+  const [{ data: st }, daily, wksAll, rows, sleepRows, hourRows] = await Promise.all([
     admin.from("settings").select("data").eq("user_id", uid).maybeSingle(),
-    admin.from("health_daily").select("day,metric,value").eq("user_id", uid).gte("day", from).lte("day", to),
-    admin.from("health_workouts").select("day,activity,duration_min,start_at,end_at,energy_kcal").eq("user_id", uid).gte("day", from).lte("day", to).order("start_at"),
-    admin.from("days").select("date,data").eq("user_id", uid).gte("date", from).lte("date", to),
-    admin.from("health_samples").select("day,start_at,end_at").eq("user_id", uid).in("metric", ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "sleepInBed"]).gte("day", from).lte("day", to),
+    allRows(() => admin.from("health_daily").select("day,metric,value").eq("user_id", uid).gte("day", from).lte("day", to).order("day")),
+    allRows(() => admin.from("health_workouts").select("day,activity,duration_min,start_at,end_at,energy_kcal").eq("user_id", uid).gte("day", from).lte("day", to).order("start_at")),
+    allRows(() => admin.from("days").select("date,data").eq("user_id", uid).gte("date", from).lte("date", to).order("date")),
+    allRows(() => admin.from("health_samples").select("day,start_at,end_at").eq("user_id", uid).in("metric", ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "sleepInBed"]).not("source", "in", NOT_TIMED).gte("day", from).lte("day", to).order("start_at")),
+    // When during the day you were active, hour by hour (Cairo time).
+    allRows(() => admin.from("health_samples").select("day,metric,start_at,value").eq("user_id", uid).in("metric", ["exerciseMin", "activeKcal"]).not("source", "in", NOT_TIMED).gte("day", from).lte("day", to).order("start_at")),
   ]);
   const s = { bedtime: "21:00", wake: "05:00", sleepTarget: 7, deficitMin: 500, pagesPerDay: 20, ...(st?.data || {}) };
-  // When during the day you were active, hour by hour (Cairo time).
-  const { data: hourRows } = await admin.from("health_samples").select("day,metric,start_at,value").eq("user_id", uid).in("metric", ["exerciseMin", "activeKcal"]).neq("source", "daily total").gte("day", from).lte("day", to);
+  // The same workout can arrive twice (the history export and the live sync differ by seconds): keep one.
+  const seen: { a: string; t: number }[] = [];
+  const wks = wksAll.filter((w) => {
+    const t = Date.parse(w.start_at);
+    if (seen.some((x) => x.a === w.activity && Math.abs(x.t - t) < 180000)) return false;
+    seen.push({ a: w.activity, t });
+    return true;
+  });
   const hourMap = new Map<string, { ex: Record<string, number>; kc: Record<string, number> }>();
   for (const r of hourRows || []) {
     const e = hourMap.get(r.day) || { ex: {}, kc: {} }, h = String(parseInt(cairoTime(new Date(r.start_at)), 10));
@@ -325,7 +396,8 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
     const d: any = { prayers: {}, ...(existing.get(day) || {}) };
     const asleep = (m.sleepCore || 0) + (m.sleepDeep || 0) + (m.sleepREM || 0) + (m.sleepAsleep || 0);
     if (asleep > 0) d.sleepH = Math.round((asleep / 60) * 100) / 100;
-    for (const k of ["activeKcal", "basalKcal", "dietaryKcal", "steps", "exerciseMin", "standHours", "restingHR"]) if (m[k] != null) d[k] = Math.round(m[k]);
+    for (const k of ["activeKcal", "basalKcal", "dietaryKcal", "steps", "exerciseMin", "standHours", "restingHR", "daylightMin", "hrv"]) if (m[k] != null) d[k] = Math.round(m[k]);
+    if (m.vo2max != null) d.vo2max = Math.round(m.vo2max * 10) / 10;
     if (m.weight != null) d.weight = Math.round(m.weight * 10) / 10;
     if (m.dietaryKcal > 0 && (m.activeKcal > 0 || m.basalKcal > 0)) d.deficit = Math.round((m.activeKcal || 0) + (m.basalKcal || 0) - m.dietaryKcal);
     const w = wByDay.get(day);
@@ -357,4 +429,5 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
     out.push({ user_id: uid, date: day, data: d, scores: scores(d, s) });
   }
   await chunked(out, 500, async (part) => { await admin.from("days").upsert(part, { onConflict: "user_id,date" }); });
+  return out.length;
 }

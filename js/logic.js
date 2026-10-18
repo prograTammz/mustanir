@@ -5,6 +5,9 @@ export const DEFAULTS = {
   windowHours: 8, sleepTarget: 7, deficitMin: 500, threshold: 70, book: "", revNotes: {},
   trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
+  // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
+  birthDate: "", sex: "male",
+  vitality: { steps: 8000, exerciseMin: 30, standHours: 10, sleepH: 7, daylightMin: 20 },
   // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
   training: [
     { id: "tennis-mw", sport: "tennis", days: ["MON", "WED"], start: "19:00", end: "21:00" },
@@ -223,13 +226,87 @@ export function currentApproval(s = today()) {
 }
 
 /* ---------- XP, levels, ranks ---------- */
-export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, MAX_DAY_XP = 5 * 20 + 25 + 20;
+export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20;
 export function dayXP(s) {
   const m = dayMinisters(s);
   const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
   const perfect = Object.values(m).every((v) => v >= 0.9);
   const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
-  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP);
+  const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP);
+}
+
+/* ---------- vitality: the five things the watch keeps every day ---------- */
+export const VITALS = [
+  { k: "steps", en: "Steps", ar: "خطوات", unit: "", fmt: (v) => Math.round(v).toLocaleString("en") },
+  { k: "exerciseMin", en: "Exercise", ar: "تمرين", unit: "min", fmt: (v) => Math.round(v) },
+  { k: "standHours", en: "Stand hours", ar: "وقوف", unit: "h", fmt: (v) => Math.round(v) },
+  { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
+  { k: "daylightMin", en: "Daylight", ar: "شمس", unit: "min", fmt: (v) => Math.round(v) },
+];
+export function vitalityFor(s) {
+  const d = S.days[s] || {}, goals = { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
+  const items = VITALS.map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
+  const seen = items.some((i) => i.val != null);
+  const hits = items.filter((i) => i.hit).length;
+  return { items, hits, total: items.length, frac: seen ? hits / items.length : null, seen };
+}
+
+/* ---------- biological age ----------
+   Each measure's effect on all-cause mortality, from large cohort studies and meta-analyses, turned into
+   years with the Gompertz law (risk roughly doubles every 8 years of age): years = 8 × log2(hazard ratio).
+   An estimate for direction and motivation, not a medical test. */
+const YRS = (hr) => 8 * Math.log2(hr);
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+export const vo2Norm = (age) => 48 - 0.49 * (age - 25); // FRIEND registry, men, 50th percentile
+export function ageOn(birth, date = today()) {
+  if (!birth) return null;
+  const b = new Date(birth + "T12:00:00"), d = new Date(date + "T12:00:00");
+  return (d - b) / (365.2425 * 86400000);
+}
+// inputs: averages over the window { vo2max, restingHR, steps, sleepH, bmi, hrv, walking_speed }
+export function bioAge(age, m, sex = "male") {
+  if (age == null) return null;
+  const f = [];
+  const add = (k, en, ar, value, years, note) => { if (value != null && isFinite(value)) f.push({ k, en, ar, value, years: Math.round(years * 10) / 10, note }); };
+  const norm = sex === "female" ? vo2Norm(age) - 6.5 : vo2Norm(age);
+  if (m.vo2max != null) add("vo2max", "Cardio fitness", "اللياقة", m.vo2max, clamp(YRS(0.87) * (m.vo2max - norm) / 3.5, -8, 8), `VO₂ max ${m.vo2max.toFixed(1)} vs ${norm.toFixed(1)} typical for your age · each extra MET (3.5) ≈ 13% lower risk`);
+  if (m.restingHR != null) add("restingHR", "Resting heart rate", "نبض الراحة", m.restingHR, clamp(YRS(1.09) * (m.restingHR - 60) / 10, -2, 4), `${Math.round(m.restingHR)} bpm · each 10 bpm above 60 ≈ 9% higher risk`);
+  if (m.steps != null) {
+    const st = m.steps, base = 7000;
+    const y = st < base ? YRS(1 / 0.88) * (base - st) / 1000 : -YRS(1 / 0.88) * 0.5 * (Math.min(st, 12000) - base) / 1000;
+    add("steps", "Daily steps", "الخطوات", st, clamp(y, -4, 6), `${Math.round(st).toLocaleString("en")} a day · each 1,000 steps up to ~10k ≈ 12% lower risk`);
+  }
+  if (m.sleepH != null) {
+    const h = m.sleepH, y = h < 7 ? YRS(1.06) * (7 - h) : h > 9 ? YRS(1.13) * (h - 9) : 0;
+    add("sleepH", "Sleep", "النوم", h, clamp(y, 0, 4), `${h.toFixed(1)} h a night · 7–9 h is the lowest-risk band`);
+  }
+  if (m.bmi != null) {
+    const b = m.bmi, y = b > 25 ? YRS(1.31) * (b - 25) / 5 : b < 18.5 ? YRS(1.5) * (18.5 - b) / 2 : 0;
+    add("bmi", "Body mass index", "كتلة الجسم", b, clamp(y, 0, 10), `BMI ${b.toFixed(1)} · each 5 points above 25 ≈ 31% higher risk`);
+  }
+  if (m.hrv != null) { const hn = 70 - 0.7 * age; add("hrv", "Heart rate variability", "تقلب النبض", m.hrv, clamp(-0.08 * (m.hrv - hn), -2, 2), `${Math.round(m.hrv)} ms vs ~${Math.round(hn)} typical for your age`); }
+  if (m.walking_speed != null) add("walking_speed", "Walking speed", "سرعة المشي", m.walking_speed, clamp(-1.5 * (m.walking_speed - 4.6), -1.5, 2), `${m.walking_speed.toFixed(1)} km/h · brisk walkers live longer`);
+  const delta = f.reduce((a, x) => a + x.years, 0);
+  const fitnessAge = m.vo2max != null ? Math.max(18, 25 + (48 - (sex === "female" ? m.vo2max + 6.5 : m.vo2max)) / 0.49) : null;
+  return { age, bio: age + delta, delta, factors: f.sort((a, b) => b.years - a.years), fitnessAge };
+}
+// Average a daily series over [from, to]; "last" takes the latest reading within `lookback` days.
+export function windowAvg(series, from, to) {
+  const v = (series || []).filter(([d]) => d >= from && d <= to).map(([, x]) => x);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+export function lastWithin(series, to, lookback) {
+  const from = addDays(to, -lookback); let out = null;
+  for (const [d, x] of series || []) if (d >= from && d <= to) out = x;
+  return out;
+}
+export function bioInputs(H, to, days = 60) {
+  const from = addDays(to, -days + 1);
+  return {
+    vo2max: lastWithin(H.vo2max, to, 240), restingHR: windowAvg(H.restingHR, from, to), steps: windowAvg(H.steps, from, to),
+    sleepH: windowAvg(H.sleepH, from, to), bmi: lastWithin(H.bmi, to, 400), hrv: windowAvg(H.hrv, from, to), walking_speed: windowAvg(H.walking_speed, from, to),
+  };
 }
 export const levelStart = (L) => 50 * L * (L - 1); // XP needed to reach level L
 export function levelFor(xp) {
@@ -265,6 +342,7 @@ export function bestStreak(test) {
 }
 export const T = {
   productive: (d, s) => (checklistFor(s).frac || 0) >= 0.8,
+  vital: (d, s) => manual(d) && vitalityFor(s).hits >= 4,
   office: (d) => manual(d),
   prayers: (d, s) => day(s).faith === 1,
   pure: (d) => d.pornFree === true,
@@ -288,6 +366,8 @@ export const MEDALS = [
   { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", test: () => Object.values(S.days).filter((d) => TRAINED.includes(d.train)).length >= 30 },
   { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", test: () => Object.values(S.days).filter((d) => d.diet === true).length >= 30 },
   { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", test: () => bestStreak(T.productive) >= 7 },
+  { id: "vital7", ar: "الحيوية", en: "Vitality · 7", how: "4 of the 5 vitals 7 days in a row", test: () => bestStreak(T.vital) >= 7 },
+  { id: "vital30", ar: "الجسد الحي", en: "Vitality · 30", how: "4 of the 5 vitals 30 days in a row", test: () => bestStreak(T.vital) >= 30 },
   { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", test: () => bestStreak(T.office) >= 30 },
   { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
 ];
