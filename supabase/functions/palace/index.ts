@@ -3,6 +3,9 @@
 //   POST /palace/notify             → called by pg_cron every 5 minutes (x-cron-token); sends reminders that are due
 //   GET  /palace/calendar?t=<token> → private iCalendar feed of the daily schedule
 //   POST /palace/test               → sends a test notification to the signed-in user's devices
+//   GET  /palace/export             → (Shortcut key) meals logged in the app, not yet written to Apple Health
+//   POST /palace/export/ack         → (Shortcut key) { batch } marks that export as written
+//   POST /palace/walkpad            → (Shortcut key) starts or stops the walking-pad timer
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
@@ -44,14 +47,29 @@ function settingsOf(raw: Record<string, unknown> | null): Settings {
 }
 const trainingDays = (s: Settings) => String(s.trainingDays || "").split(",").map((x) => x.trim().toUpperCase()).filter(Boolean);
 
+// Training slots: weekly { id, sport, label?, days[], start, end } and one-off { id, sport, label?, date, start, end }.
+type Slot = { id: string; sport: string; label?: string; days?: string[]; date?: string; start: string; end: string };
+const SPORT: Record<string, string> = { tennis: "Tennis", gym: "Gym", walk: "Walking pad", run: "Running", swim: "Swimming", other: "Training" };
+const AR: Record<string, string> = { tennis: "التنس", gym: "الحديد", walk: "المشي", run: "الجري", swim: "السباحة", other: "التدريب" };
+const slotName = (x: Slot) => x.label || SPORT[x.sport] || "Training";
+function weeklySlots(s: Settings): Slot[] {
+  if (Array.isArray(s.training)) return s.training.filter((x: Slot) => x && x.start && x.end && Array.isArray(x.days) && x.days.length);
+  const t = hm(s.trainingTime); // older single-time setting
+  return t == null ? [] : [{ id: "legacy", sport: "other", days: trainingDays(s), start: s.trainingTime, end: toHM(t + Number(s.trainingMin || 60)) }];
+}
+const onceSlots = (s: Settings): Slot[] => (Array.isArray(s.trainingOnce) ? s.trainingOnce : []).filter((x: Slot) => x && x.date && x.start && x.end);
+const slotsOn = (s: Settings, day: string) => [...weeklySlots(s).filter((x) => x.days!.map((d) => d.toUpperCase()).includes(dowOf(day))), ...onceSlots(s).filter((x) => x.date === day)];
+
 // The day's schedule, shared by reminders and the calendar.
 function blocks(s: Settings, day: string) {
   const wake = hm(s.wake) ?? 300, bed = s.bedtimeMin as number, out = [];
   out.push({ key: "sleep", title: "Sleep · النوم", start: bed, end: wake + 1440 * (bed > wake ? 1 : 0), note: `Lights out ${s.bedtime}, up for Fajr ${s.wake}.` });
   out.push({ key: "windDown", title: "Wind-down · phone away", start: bed - Number(s.windDownMin || 45), end: bed, note: "Phone out of the bedroom. Night skin and teeth." });
   const r = hm(s.readingTime); if (r != null) out.push({ key: "reading", title: "Reading · المعرفة", start: r, end: r + Number(s.readingMin || 30), note: `Today's minimum: ${s.pagesPerDay} pages.` });
-  const t = hm(s.trainingTime);
-  if (t != null && trainingDays(s).includes(dowOf(day))) out.push({ key: "training", title: "Training · البدن", start: t, end: t + Number(s.trainingMin || 60), note: "Ministry of Body: today's session." });
+  for (const x of slotsOn(s, day)) {
+    const a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
+    out.push({ key: "training:" + x.id, title: `${slotName(x)} · ${AR[x.sport] || "البدن"}`, start: a, end: b > a ? b : b + 1440, note: "Ministry of Body: " + slotName(x) + "." });
+  }
   return out;
 }
 
@@ -88,14 +106,14 @@ async function sendTo(userId: string, msg: { title: string; body: string; url?: 
 
 /* ---------- reminders ---------- */
 // deno-lint-ignore no-explicit-any
-function openItems(d: any) {
+function openItems(d: any, training = true) {
   if (!d) return ["everything"];
   const out = [];
   const pr = d.prayers || {}; const n = ["fajr", "dhuhr", "asr", "maghrib", "isha"].filter((k) => pr[k]).length;
   if (n < 5) out.push(`prayers (${n} of 5)`);
   if (!(d.pages > 0)) out.push("reading");
   if (d.pornFree == null) out.push("purity");
-  if (!d.train) out.push("training");
+  if (training && !d.train) out.push("training");
   if (!d.good && !d.fix) out.push("journal");
   return out;
 }
@@ -116,11 +134,11 @@ async function notifyRun() {
     if (s.notify.morning) due.push({ key: "morning", at: wake + 20, title: "Morning decrees · صباح الخير", body: "Seal Fajr, last night's sleep and your morning routine.", url: APP + "#decrees" });
     for (const b of blocks(s, now.day)) {
       if (b.key === "reading" && s.notify.reading) due.push({ key: "reading", at: b.start, title: "وزير المعرفة · Reading time", body: `${s.readingMin} minutes, ${s.pagesPerDay} pages minimum.` });
-      if (b.key === "training" && s.notify.training) due.push({ key: "training", at: b.start - 30, title: "وزير البدن · Training in 30 min", body: `Session at ${s.trainingTime}. Pack your bag.` });
+      if (b.key.startsWith("training:") && s.notify.training) due.push({ key: b.key, at: b.start - 30, title: `وزير البدن · ${b.title.split(" · ")[0]} in 30 min`, body: `${toHM(b.start)}–${toHM(b.end)}. Pack your bag.` });
       if (b.key === "windDown" && s.notify.windDown) due.push({ key: "windDown", at: b.start, title: "Wind-down · وقت الهدوء", body: `Phone out of the bedroom. Lights out at ${s.bedtime}.` });
     }
     if (s.notify.evening) {
-      const open = openItems(today?.data);
+      const open = openItems(today?.data, slotsOn(s, now.day).length > 0);
       if (open.length) due.push({ key: "evening", at: hm(s.checkinTime) ?? 1200, title: "Evening decrees · مراسيم المساء", body: "Still open: " + open.join(", ") + ".", url: APP + "#decrees" });
     }
     for (const r of due) {
@@ -167,12 +185,15 @@ async function calendar(token: string) {
     L.push("BEGIN:VEVENT", `UID:${uid}-${tok.user_id}@mustanir`, `DTSTAMP:${stamp}`, `DTSTART;TZID=${TZ}:${local(startDay, start)}`, `DTEND;TZID=${TZ}:${local(startDay, end)}`,
       rrule, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(note + "\n" + APP)}`, "TRANSP:OPAQUE", "END:VEVENT");
   };
-  for (const b of blocks(s, from)) if (b.key !== "training") ev(b.key, b.title, b.note, from, b.start, b.end, `RRULE:FREQ=DAILY;UNTIL=${until}`);
-  const days = trainingDays(s), t = hm(s.trainingTime);
-  if (days.length && t != null) {
+  for (const b of blocks(s, from)) if (!b.key.startsWith("training:")) ev(b.key, b.title, b.note, from, b.start, b.end, `RRULE:FREQ=DAILY;UNTIL=${until}`);
+  for (const x of weeklySlots(s)) {
+    const days = x.days!.map((d) => d.toUpperCase()), a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
     let first = from; for (let i = 0; i < 7 && !days.includes(dowOf(first)); i++) first = addDays(first, 1);
-    const by = days.map((d) => d.slice(0, 2)).join(",");
-    ev("training", "Training · البدن", "Ministry of Body: today's session.", first, t, t + Number(s.trainingMin || 60), `RRULE:FREQ=WEEKLY;BYDAY=${by};UNTIL=${until}`);
+    ev("train-" + x.id, `${slotName(x)} · ${AR[x.sport] || "البدن"}`, "Ministry of Body: " + slotName(x) + ".", first, a, b > a ? b : b + 1440, `RRULE:FREQ=WEEKLY;BYDAY=${days.map((d) => d.slice(0, 2)).join(",")};UNTIL=${until}`);
+  }
+  for (const x of onceSlots(s)) {
+    if (x.date < from) continue; const a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
+    ev("once-" + x.id, `${slotName(x)} · ${AR[x.sport] || "البدن"}`, "Ministry of Body: " + slotName(x) + " (one-off).", x.date, a, b > a ? b : b + 1440, "X-MUSTANIR:ONCE");
   }
   [1, 2, 3].forEach((i) => {
     const d = addMonths(s.termStart, i).replace(/-/g, "");
@@ -181,6 +202,41 @@ async function calendar(token: string) {
   });
   L.push("END:VCALENDAR");
   return new Response(L.map(fold).join("\r\n") + "\r\n", { headers: { ...CORS, "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+async function keyUser(req: Request) {
+  const key = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!key) return null;
+  const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const { data } = await admin.from("ingest_tokens").select("user_id").eq("token_hash", hash).maybeSingle();
+  return data?.user_id as string | undefined || null;
+}
+const cairoISO = (iso: string) => { // "2026-11-03T13:05:00+02:00", what Shortcuts' Log Health Sample reads best
+  const d = new Date(iso), p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "longOffset" }).formatToParts(d).map((x) => [x.type, x.value]));
+  const off = String(p.timeZoneName || "GMT+02:00").replace("GMT", "") || "+00:00";
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}${off.length === 3 ? off + ":00" : off}`;
+};
+async function exportMeals(uid: string) {
+  const since = addDays(cairoNow().day, -14);
+  const { data } = await admin.from("meals").select("id,eaten_at,name,kcal,protein,carbs,fat").eq("user_id", uid).is("exported_at", null).gte("day", since).order("eaten_at");
+  const batch = crypto.randomUUID();
+  if (data?.length) await admin.from("meals").update({ export_batch: batch }).in("id", data.map((m) => m.id));
+  return { batch, count: data?.length || 0, meals: (data || []).map((m) => ({ at: cairoISO(m.eaten_at), kcal: Number(m.kcal), protein: m.protein == null ? 0 : Number(m.protein), carbs: m.carbs == null ? 0 : Number(m.carbs), fat: m.fat == null ? 0 : Number(m.fat), name: m.name || "Meal" })) };
+}
+async function walkpad(uid: string) {
+  const { data: open } = await admin.from("walkpad_sessions").select("id,started_at").eq("user_id", uid).is("ended_at", null).order("started_at", { ascending: false }).limit(1).maybeSingle();
+  const now = new Date();
+  if (!open) {
+    await admin.from("walkpad_sessions").insert({ user_id: uid, started_at: now.toISOString() });
+    return { state: "started", message: `Walking pad started at ${toHM(cairoNow().min)}. Tap again when you stop.` };
+  }
+  const start = new Date(open.started_at), minutes = Math.round((now.getTime() - start.getTime()) / 60000);
+  await admin.from("walkpad_sessions").update({ ended_at: now.toISOString() }).eq("id", open.id);
+  if (minutes < 1 || minutes > 600) return { state: "stopped", minutes: 0, message: minutes > 600 ? "That timer ran over 10 hours, so it wasn’t logged." : "Stopped. Under a minute, so nothing was logged." };
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(start);
+  await admin.from("health_workouts").upsert({ user_id: uid, activity: "Walking Pad", start_at: start.toISOString(), end_at: now.toISOString(), duration_min: minutes, source: "Walking Pad shortcut", day }, { onConflict: "user_id,activity,start_at" });
+  await admin.rpc("add_walk_minutes", { p_user: uid, p_day: day, p_min: minutes });
+  return { state: "stopped", minutes, message: `Walking pad · ${minutes} min logged.` };
 }
 
 Deno.serve(async (req) => {
@@ -200,6 +256,18 @@ Deno.serve(async (req) => {
       if (!u?.user) return json({ ok: false, error: "Sign in first." }, 401);
       const n = await sendTo(u.user.id, { title: "المُستنير · Al-Mustanir", body: "Notifications are working. The cabinet will remind you on time.", tag: "test" });
       return json({ ok: n > 0, devices: n, error: n ? undefined : "No device is subscribed yet." });
+    }
+    if (route === "export" || (route === "ack" && url.pathname.includes("/export/")) || route === "walkpad") {
+      const uid = await keyUser(req);
+      if (!uid) return json({ ok: false, error: "Wrong or missing key." }, 401);
+      if (route === "export" && req.method === "GET") return json({ ok: true, ...(await exportMeals(uid)) });
+      if (route === "ack" && req.method === "POST") {
+        const b = await req.json().catch(() => ({}));
+        if (!b.batch) return json({ ok: false, error: "Send { batch } from the export." }, 400);
+        const { data } = await admin.from("meals").update({ exported_at: new Date().toISOString() }).eq("user_id", uid).eq("export_batch", String(b.batch)).is("exported_at", null).select("id");
+        return json({ ok: true, written: data?.length || 0 });
+      }
+      if (route === "walkpad" && req.method === "POST") return json({ ok: true, ...(await walkpad(uid)) });
     }
     return json({ ok: false, error: "Unknown route" }, 404);
   } catch (e) {

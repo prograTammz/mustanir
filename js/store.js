@@ -179,6 +179,26 @@ export async function newCalendarLink() {
   return PALACE_URL.replace(/^https:/, "webcal:") + "/calendar?t=" + t;
 }
 
+/* ---------- food (written to Apple Health by the nightly Shortcut) ---------- */
+export async function loadMeals(date) {
+  if (!SESSION) return [];
+  const rows = (await rest(`meals?select=id,eaten_at,name,kcal,protein,exported_at&day=eq.${date}&order=eaten_at`)) || [];
+  (S.meals ||= {})[date] = rows;
+  return rows;
+}
+export async function addMeal(date, meal) {
+  const now = new Date(), isToday = date === new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const at = isToday ? now : new Date(date + "T13:00:00"); // a past day's meal lands at lunchtime
+  const row = { day: date, eaten_at: at.toISOString(), name: meal.name || null, kcal: meal.kcal, protein: meal.protein ?? null };
+  const out = await rest("meals", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(row) });
+  ((S.meals ||= {})[date] ||= []).push(out[0]);
+  return out[0];
+}
+export async function deleteMeal(date, id) {
+  await rest("meals?id=eq." + id, { method: "DELETE" });
+  if (S.meals?.[date]) S.meals[date] = S.meals[date].filter((m) => m.id !== id);
+}
+
 /* ---------- the advisor's weekly reports ---------- */
 export async function loadReviews() {
   if (!SESSION) return [];

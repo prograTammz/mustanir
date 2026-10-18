@@ -3,9 +3,10 @@ import {
   S, PRAYERS, MINISTERS, DECREE_ORDER, AYAH, addDays, diff, today, fmt, hijri, range, syncBed, termEnd, termLength, termDay,
   periods, intervalFor, TRAINED, manual, lastMastBefore, violation, day, dayMinisters, score, verdict, currentApproval,
   dayXP, totals, rankFor, streak, bestStreak, T, medals, pct,
+  SPORTS, DOW, hmMin, minHM, slotName, slotsOn, matchDay, checklistFor, hasSchedule, MAX_DAY_XP,
 } from "./logic.js";
 import { SESSION, LS, HEALTH_URL, setRenderer, setStatus, saveDay, saveSettings, load, flushOutbox, loadHealth, newShortcutKey, signIn, signUp, signOut,
-  pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews } from "./store.js";
+  pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews, loadMeals, addMeal, deleteMeal, PALACE_URL } from "./store.js";
 import { lineChart, heatmap, ministerBars } from "./charts.js";
 import { xpFloat, levelUp, burst } from "./fx.js";
 
@@ -194,7 +195,7 @@ function openMinister(key) {
   } else {
     const m = M[key], v = r ? r[key] : null, [cls, txt] = verdict(v, m.immune);
     const detail = r ? {
-      body: `Training ${pct(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions), diet on target ${pct(r.diet)} of days.`,
+      body: `Training ${pct(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions${r.plannedMin ? `, ${fmtMin(r.trainMin)} of ${fmtMin(r.plannedMin)} on court and in the gym` : ""}), diet on target ${pct(r.diet)} of days.`,
       faith: "Average share of the five prayers kept; a made-up prayer counts half.",
       knowledge: `Days at ${S.settings.pagesPerDay} pages or more.`,
       purity: `Porn-free ${pct(r.porn)} of days, within the spacing schedule ${pct(r.plan)}.`,
@@ -243,7 +244,7 @@ function renderDecrees() {
     h("button", { "aria-label": "Previous day", onclick: () => { S.selected = addDays(s, -1); render(); } }, "‹"),
     h("div", { class: "d" }, h("strong", null, fmt(s)), ar(hijri(s), "sm"), h("span", null, dn < 1 ? "Rehearsal day" : dn > termLength() ? "After term I" : `Day ${dn} · week ${Math.floor((dn - 1) / 7) + 1}`)),
     h("button", { "aria-label": "Next day", disabled: s >= today(), onclick: () => { if (s < today()) { S.selected = addDays(s, 1); render(); } } }, "›")));
-  kids.push(h("div", { class: "dayxp" }, h("strong", null, `${xp} XP`), h("span", null, "earned this day · up to 125"), h("span", { class: "status", id: "status" })));
+  kids.push(h("div", { class: "dayxp" }, h("strong", null, `${xp} XP`), h("span", null, `earned this day · up to ${MAX_DAY_XP}`), h("span", { class: "status", id: "status" })));
 
   // faith
   const pr = r.prayers || {};
@@ -253,15 +254,7 @@ function renderDecrees() {
     h("p", { class: "hint" }, "Tap once for on time, twice for made up, a third time to clear. Combined prayers while travelling count as on time.")));
 
   // body
-  const wkStart = dn >= 1 ? addDays(S.settings.termStart, Math.floor((dn - 1) / 7) * 7) : addDays(s, -6);
-  const wk = range(wkStart, addDays(s, 1)).filter((k) => TRAINED.includes((S.days[k] || {}).train)).length;
-  kids.push(decree("body", `${wk} of ${S.settings.sessionsPerWeek} sessions this week`,
-    row("Training today", ...[["gym", "Gym"], ["tennis", "Tennis"], ["walk", "Walking pad"], ["rest", "Rest"]].map(([k, l]) => chip(l, r.train === k, () => set("train", r.train === k ? null : k)))),
-    row("Walking pad (minutes)", stepper("walkMin", 10), fromHealth(r, "walkMin")),
-    row("Calorie deficit (kcal)", numIn("deficit", "50", "e.g. 600", (v) => { if (v != null) rec().diet = v >= S.settings.deficitMin; }), fromHealth(r, "deficit")),
-    row("On my deficit target", ...yesNo("diet", "Yes", "No")),
-    h("p", { class: "hint" }, `Target ${S.settings.deficitMin} kcal or more.` + (r.dietaryKcal ? ` Burned ${((r.activeKcal || 0) + (r.basalKcal || 0)).toLocaleString("en")}, ate ${r.dietaryKcal.toLocaleString("en")} kcal.` : " Apple Health fills this after midnight if your food is logged.")),
-    row("Weight (kg)", numIn("weight", "0.1", "e.g. 89.4"), fromHealth(r, "weight"), r.steps ? h("span", { class: "hint inline" }, `${r.steps.toLocaleString("en")} steps`) : null)));
+  kids.push(bodyDecree(s, r, dn));
 
   // knowledge
   kids.push(decree("knowledge", `${r.pages || 0} of ${S.settings.pagesPerDay} pages`,
@@ -287,12 +280,135 @@ function renderDecrees() {
     row("Night", toggle("skinPm", "Skin"), toggle("teethPm", "Teeth")),
     row("Tracking", toggle("watch", "Watch worn and charged"))));
 
+  kids.push(checklistCard(s));
+
   // reflection
   const note = (k, label, ph) => row(label, h("textarea", { class: "txt", placeholder: ph, oninput: (e) => { rec()[k] = e.target.value; saveDay(S.selected); } }, r[k] || ""));
   kids.push(h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "The president’s journal"), ar("مذكرات الرئيس")),
     note("good", "What went well today?", "e.g. Prayed Fajr on time, hit 30 pages"),
     note("fix", "What got in the way, and what changes tomorrow?", "e.g. Slept late after a call; phone stays outside the bedroom")));
   return kids;
+}
+
+/* ---------- Ministry of Body: sessions, walking pad, food ---------- */
+const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} m` : `${m} min`);
+const sportEn = (k) => (SPORTS[k] || SPORTS.other).en;
+function weekWindow(s, dn) { return dn >= 1 ? addDays(S.settings.termStart, Math.floor((dn - 1) / 7) * 7) : addDays(s, -6); }
+function bodyDecree(s, r, dn) {
+  const ms = matchDay(s);
+  const wk = range(weekWindow(s, dn), addDays(s, 1)).flatMap((k) => matchDay(k));
+  const wkPlanned = wk.length, wkDone = wk.filter((m) => m.status === "done").length;
+  const mark = (id, val, sport) => {
+    const marks = { ...(rec().slotMarks || {}) };
+    if (val) marks[id] = val; else delete marks[id];
+    if (val === "done" && sport) rec().train = sport;
+    set("slotMarks", marks);
+  };
+  const statusLine = (m) => ({
+    done: m.done ? `${fmtMin(m.done)} active${m.kcal ? ` · ${m.kcal} kcal` : ""}` : "Done",
+    partial: `${fmtMin(m.done)} of ${fmtMin(m.planned)}${m.kcal ? ` · ${m.kcal} kcal` : ""}`,
+    live: `${fmtMin(m.done)} so far`, missed: "No activity recorded", upcoming: "Upcoming", skipped: "Skipped",
+  }[m.status]);
+  const marked = (m) => ((rec().slotMarks || {})[m.slot.id]);
+  const sessions = ms.length ? ms.map((m) => h("div", { class: "slot st-" + m.status },
+      h("div", { class: "slot-main" },
+        h("strong", null, slotName(m.slot)), h("span", { class: "muted" }, `${m.slot.start}–${m.slot.end}${m.slot.date ? " · one-off" : ""}`),
+        h("span", { class: "slot-status" }, h("i", { class: "dot", "aria-hidden": "true" }), statusLine(m), m.source && !marked(m) ? h("span", { class: "hk" }, "Watch") : null)),
+      h("div", { class: "slot-act" },
+        marked(m) ? h("button", { class: "chip sm", onclick: () => mark(m.slot.id, null) }, "Undo")
+          : [m.status !== "done" ? h("button", { class: "chip sm", onclick: () => mark(m.slot.id, "done", m.slot.sport) }, "Done") : null,
+             m.status === "upcoming" || m.status === "missed" ? h("button", { class: "chip sm", onclick: () => mark(m.slot.id, "skipped") }, "Skip") : null])))
+    : [h("p", { class: "hint" }, hasSchedule() ? "Rest day. Nothing scheduled." : "No training schedule yet. Add your slots in the Diwan.")];
+
+  // food
+  if (SESSION && !(S.meals || {})[s] && !mealsLoading.has(s)) { mealsLoading.add(s); loadMeals(s).then(() => { mealsLoading.delete(s); render(); }).catch(() => mealsLoading.delete(s)); }
+  const meals = (S.meals || {})[s] || [];
+  const pending = meals.filter((m) => !m.exported_at).reduce((a, m) => a + Number(m.kcal), 0);
+  const eaten = (r.dietaryKcal || 0) + pending, burned = (r.activeKcal || 0) + (r.basalKcal || 0);
+  const deficit = burned && eaten ? burned - eaten : null;
+  const foodMsg = (t) => { const el = document.getElementById("foodmsg"); if (el) el.textContent = t; };
+  const addFood = async () => {
+    const kcal = parseFloat(document.getElementById("f-kcal").value), name = document.getElementById("f-name").value.trim(), protein = parseFloat(document.getElementById("f-prot").value);
+    if (!(kcal > 0)) { foodMsg("Enter the calories."); return; }
+    try { await addMeal(s, { kcal, name, protein: isNaN(protein) ? null : protein }); render(); }
+    catch { foodMsg("Couldn’t save the meal. Food needs a connection."); }
+  };
+
+  return decree("body", wkPlanned ? `${wkDone} of ${wkPlanned} sessions this week` : "Training and diet",
+    h("div", { class: "subhead" }, "Today’s sessions"),
+    ...sessions,
+    h("button", { class: "chip wide", onclick: () => openSlotSheet({ date: s }) }, "Add a session today"),
+    h("div", { class: "subhead" }, "Walking pad"),
+    row(null, stepper("walkMin", 10), h("span", { class: "hint inline" }, r.walkMin && String(r.source || "").startsWith("Apple Health") ? "Logged by the watch or the Walking Pad shortcut" : "minutes · logs itself with the Walking Pad shortcut")),
+    h("div", { class: "subhead" }, "Food"),
+    ...meals.map((m) => h("div", { class: "meal" },
+      h("div", null, h("strong", null, `${Math.round(m.kcal)} kcal`), h("span", { class: "muted" }, ` ${m.name || "Meal"} · ${new Date(m.eaten_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}${m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}`)),
+      m.exported_at ? h("span", { class: "hk ok" }, "In Health") : h("button", { class: "x-del", "aria-label": "Remove meal", onclick: async () => { await deleteMeal(s, m.id).catch(() => {}); render(); } }, "×"))),
+    h("div", { class: "foodadd" },
+      h("input", { id: "f-kcal", class: "txt", type: "number", inputmode: "numeric", placeholder: "kcal", min: "0" }),
+      h("input", { id: "f-name", class: "txt", type: "text", placeholder: "What (optional)" }),
+      h("input", { id: "f-prot", class: "txt", type: "number", inputmode: "numeric", placeholder: "Protein g", min: "0" }),
+      h("button", { class: "chip", onclick: addFood }, "Add")),
+    h("p", { class: "hint", id: "foodmsg" }, eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal` + (deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} (target ${S.settings.deficitMin})` : "") : "Meals go to Apple Health with the nightly Shortcut."),
+    row("On my deficit target", ...yesNo("diet", "Yes", "No")),
+    row("Weight (kg)", numIn("weight", "0.1", "e.g. 89.4"), fromHealth(r, "weight"), r.steps ? h("span", { class: "hint inline" }, `${r.steps.toLocaleString("en")} steps`) : null));
+}
+const mealsLoading = new Set();
+
+/* ---------- productivity checklist ---------- */
+function checklistCard(s) {
+  const c = checklistFor(s), r = rec();
+  const toggleCheck = (id) => set("checks", { ...(r.checks || {}), [id]: !(r.checks || {})[id] });
+  const addTask = () => { const el = document.getElementById("t-new"); const text = el.value.trim(); if (!text) return; set("extraTasks", [...(r.extraTasks || []), { id: "x" + Date.now().toString(36), text }]); };
+  return h("section", { class: "card decree", style: { "--mc": "var(--gold)" } },
+    h("div", { class: "decree-h" }, emblemSVG("president"), h("div", { class: "decree-id" }, ar("قائمة الإنجاز"), h("span", null, `Daily checklist · ${c.done} of ${c.total}`)), ring(c.frac || 0, "var(--gold)", 44, "Productivity today")),
+    ...c.items.map((x) => h("div", { class: "check" + (c.checks[x.id] ? " on" : "") },
+      h("button", { class: "tick", role: "checkbox", "aria-checked": c.checks[x.id] ? "true" : "false", "aria-label": x.text, onclick: () => toggleCheck(x.id) }),
+      h("span", { onclick: () => toggleCheck(x.id) }, x.text),
+      (r.extraTasks || []).some((t) => t.id === x.id) ? h("button", { class: "x-del", "aria-label": "Remove task", onclick: () => set("extraTasks", r.extraTasks.filter((t) => t.id !== x.id)) }, "×") : null)),
+    h("div", { class: "foodadd two" }, h("input", { id: "t-new", class: "txt", type: "text", placeholder: "Add a task for today only", onkeydown: (e) => { if (e.key === "Enter") addTask(); } }), h("button", { class: "chip", onclick: addTask }, "Add")),
+    h("p", { class: "hint" }, `Productivity counts up to ${20} XP a day. Edit the standing list in the Diwan.`));
+}
+
+/* ---------- sheets ---------- */
+function openSheet(title, arTitle, nodes) {
+  const bg = h("div", { class: "sheet-bg", onclick: (e) => { if (e.target === bg) close(); } });
+  const close = () => bg.remove();
+  const panel = h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": title }, h("div", { class: "grabber", "aria-hidden": "true" }),
+    h("div", { class: "sheet-h plain" }, h("div", null, h("strong", { class: "sheet-title" }, title), arTitle ? ar(arTitle) : null)),
+    h("button", { class: "x", "aria-label": "Close", onclick: close }, "×"), ...nodes(close));
+  bg.append(panel); document.body.append(bg); swipeToClose(panel, close);
+  return close;
+}
+function openSlotSheet(pre = {}) {
+  const st = { sport: pre.sport || "tennis", label: "", mode: pre.date ? "once" : "weekly", days: [], date: pre.date || today(), start: "19:00", end: "20:30" };
+  const DAYS = [["SAT", "Sat"], ["SUN", "Sun"], ["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"]];
+  let body;
+  const draw = () => {
+    body.replaceChildren(...[
+      h("div", { class: "subhead" }, "Sport"),
+      h("div", { class: "row tight" }, ...Object.entries(SPORTS).map(([k, v]) => chip(v.en, st.sport === k, () => { st.sport = k; draw(); }))),
+      st.sport === "other" ? h("input", { class: "txt", placeholder: "Name, e.g. Padel", value: st.label, oninput: (e) => (st.label = e.target.value) }) : null,
+      h("div", { class: "subhead" }, "Repeats"),
+      h("div", { class: "seg" }, chip("Every week", st.mode === "weekly", () => { st.mode = "weekly"; draw(); }), chip("One date", st.mode === "once", () => { st.mode = "once"; draw(); })),
+      st.mode === "weekly" ? h("div", { class: "row tight" }, ...DAYS.map(([k, l]) => chip(l, st.days.includes(k), () => { st.days = st.days.includes(k) ? st.days.filter((x) => x !== k) : [...st.days, k]; draw(); })))
+        : h("div", { class: "field" }, h("label", null, "Date"), h("input", { type: "date", value: st.date, onchange: (e) => (st.date = e.target.value) })),
+      h("div", { class: "field" }, h("label", null, "Starts"), h("input", { type: "time", value: st.start, onchange: (e) => (st.start = e.target.value) })),
+      h("div", { class: "field" }, h("label", null, "Ends"), h("input", { type: "time", value: st.end, onchange: (e) => (st.end = e.target.value) })),
+      h("p", { class: "hint", id: "slotmsg" }),
+      h("button", { class: "btn", onclick: () => save() }, "Add to schedule")].filter(Boolean));
+  };
+  let closeFn;
+  const save = () => {
+    const msg = document.getElementById("slotmsg");
+    if (st.mode === "weekly" && !st.days.length) { msg.textContent = "Pick at least one day."; return; }
+    if (hmMin(st.start) == null || hmMin(st.end) == null || hmMin(st.end) === hmMin(st.start)) { msg.textContent = "Set a start and end time."; return; }
+    const slot = { id: st.sport + "-" + Date.now().toString(36), sport: st.sport, start: st.start, end: st.end, ...(st.sport === "other" && st.label.trim() ? { label: st.label.trim() } : {}) };
+    if (st.mode === "weekly") S.settings.training = [...(S.settings.training || []), { ...slot, days: DAYS.map((d) => d[0]).filter((d) => st.days.includes(d)) }];
+    else S.settings.trainingOnce = [...(S.settings.trainingOnce || []), { ...slot, date: st.date }];
+    saveSettings(); closeFn(); render();
+  };
+  closeFn = openSheet("Add a training slot", "موعد تدريب", () => { body = h("div"); draw(); return [body]; });
 }
 
 /* ---------- records (statistics) ---------- */
@@ -322,7 +438,7 @@ function renderRecords() {
 
   const yearFrom = addDays(to, -Math.min(days, 365) + 1);
   kids.push(h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Days in office"), ar("سجل الأيام")),
-    heatmap({ days: S.days, from: yearFrom, to, label: "Daily share of the agenda kept", valueOf: (k) => (manual(S.days[k]) ? dayXP(k) / 125 : null) })));
+    heatmap({ days: S.days, from: yearFrom, to, label: "Daily share of the agenda kept", valueOf: (k) => (manual(S.days[k]) ? dayXP(k) / MAX_DAY_XP : null) })));
 
   const H = S.health?.byMetric || {};
   const series = (k, fromTracker) => {
@@ -331,10 +447,14 @@ function renderRecords() {
     return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
   };
   const prayersSeries = win.filter((k) => manual(S.days[k])).map((k) => [k, day(k).faith * 5]);
+  const prodSeries = win.filter((k) => manual(S.days[k]) && checklistFor(k).total).map((k) => [k, Math.round((checklistFor(k).frac || 0) * 100)]);
+  const trainSeries = win.map((k) => [k, matchDay(k).reduce((a, m) => a + (m.status === "skipped" ? 0 : m.done), 0)]).filter(([k, v]) => v > 0 || slotsOn(k).length);
   const charts = [
     ["Weight", "kg", 1, series("weight", "weight"), "var(--m-body)", null],
     ["Hours asleep", "h", 1, series("sleepH", "sleepH"), "var(--m-habits)", S.settings.sleepTarget],
     ["Prayers kept", "of 5", 1, prayersSeries, "var(--m-faith)", 5],
+    ["Productivity", "%", 0, prodSeries, "var(--gold)", 80],
+    ["Training minutes (watch)", "min", 0, trainSeries, "var(--m-body)", null],
     ["Steps", "", 0, series("steps", "steps"), "var(--m-knowledge)", null],
     ["Active energy", "kcal", 0, series("activeKcal", "activeKcal"), "var(--m-body)", null],
     ["Resting heart rate", "bpm", 0, series("restingHR"), "var(--m-purity)", null],
@@ -394,6 +514,8 @@ function renderDiwan() {
       h("div", { class: "field" }, h("label", null, "Bedtime, set by the window"), h("strong", null, S.settings.bedtime)),
       f("Impeachment line (%)", "threshold", "number", { min: "0", max: "100" }),
       f("Current book", "book", "text", { placeholder: "Book title" })),
+    trainingCard(),
+    checklistEditCard(),
     scheduleCard(f),
     notifyCard(),
     calendarCard(),
@@ -404,15 +526,39 @@ function renderDiwan() {
   ];
 }
 
+function trainingCard() {
+  const DOWN = { SAT: "Sat", SUN: "Sun", MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri" };
+  const weekly = S.settings.training || [], once = (S.settings.trainingOnce || []).filter((x) => x.date >= addDays(today(), -1)).sort((a, b) => (a.date + a.start < b.date + b.start ? -1 : 1));
+  const remove = (key, id) => { S.settings[key] = (S.settings[key] || []).filter((x) => x.id !== id); saveSettings(); render(); };
+  const bySport = {};
+  for (const x of weekly) (bySport[x.sport] ||= []).push(x);
+  const perWeek = weekly.reduce((a, x) => a + x.days.length, 0), minWeek = weekly.reduce((a, x) => a + x.days.length * ((hmMin(x.end) - hmMin(x.start) + 1440) % 1440), 0);
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Training schedule"), ar("جدول التدريب")),
+    h("p", { class: "hint" }, perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. The watch checks each one, Apple Calendar shows them, and you get a reminder 30 minutes before.` : "Add your weekly slots. The watch checks each one, and they show up in Apple Calendar."),
+    ...Object.entries(bySport).map(([sport, list]) => h("div", { class: "sportgrp" }, h("div", { class: "subhead" }, sportEn(sport), ar((SPORTS[sport] || SPORTS.other).ar, "sm")),
+      ...list.map((x) => h("div", { class: "slotrow" }, h("div", null, h("strong", null, `${x.start}–${x.end}`), h("span", { class: "muted" }, ` ${x.days.map((d) => DOWN[d]).join(", ")}${x.label ? " · " + x.label : ""}`)),
+        h("button", { class: "x-del", "aria-label": "Remove slot", onclick: () => remove("training", x.id) }, "×"))))),
+    once.length ? h("div", { class: "sportgrp" }, h("div", { class: "subhead" }, "One-off sessions"), ...once.map((x) => h("div", { class: "slotrow" },
+      h("div", null, h("strong", null, `${slotName(x)} · ${x.start}–${x.end}`), h("span", { class: "muted" }, " " + fmt(x.date, { weekday: "short", day: "numeric", month: "short" }))),
+      h("button", { class: "x-del", "aria-label": "Remove session", onclick: () => remove("trainingOnce", x.id) }, "×")))) : null,
+    h("button", { class: "btn", onclick: () => openSlotSheet() }, "Add training slot"));
+}
+function checklistEditCard() {
+  const list = S.settings.checklist || [];
+  const save = (next) => { S.settings.checklist = next; saveSettings(); render(); };
+  const move = (i, d) => { const n = [...list]; const [x] = n.splice(i, 1); n.splice(i + d, 0, x); save(n); };
+  const add = () => { const el = document.getElementById("cl-new"); const text = el.value.trim(); if (text) save([...list, { id: "c" + Date.now().toString(36), text }]); };
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Daily checklist"), ar("قائمة الإنجاز")),
+    h("p", { class: "hint" }, "What a productive day means for you. Each day’s score is the share you tick."),
+    ...list.map((x, i) => h("div", { class: "slotrow" }, h("span", null, x.text), h("div", { class: "row tight", style: { margin: 0 } },
+      i > 0 ? h("button", { class: "x-del", "aria-label": "Move up", onclick: () => move(i, -1) }, "↑") : null,
+      h("button", { class: "x-del", "aria-label": "Remove", onclick: () => save(list.filter((y) => y.id !== x.id)) }, "×")))),
+    h("div", { class: "foodadd two" }, h("input", { id: "cl-new", class: "txt", placeholder: "Add a standing item", onkeydown: (e) => { if (e.key === "Enter") add(); } }), h("button", { class: "chip", onclick: add }, "Add")));
+}
+
 function scheduleCard(f) {
-  const DAYS = [["SAT", "Sat"], ["SUN", "Sun"], ["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"]];
-  const sel = String(S.settings.trainingDays || "").split(",").filter(Boolean);
-  const togDay = (k) => { const s = new Set(sel); s.has(k) ? s.delete(k) : s.add(k); S.settings.trainingDays = DAYS.map((d) => d[0]).filter((x) => s.has(x)).join(","); saveSettings(); render(); };
   return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "The daily schedule"), ar("جدول اليوم")),
     h("p", { class: "hint" }, "Drives your reminders and the Apple Calendar blocks."),
-    h("div", { class: "field col" }, h("label", null, "Training days"), h("div", { class: "row tight" }, ...DAYS.map(([k, l]) => chip(l, sel.includes(k), () => togDay(k))))),
-    f("Training starts", "trainingTime", "time"),
-    f("Training length (minutes)", "trainingMin", "number", { min: "15", step: "15" }),
     f("Reading block starts", "readingTime", "time"),
     f("Reading length (minutes)", "readingMin", "number", { min: "10", step: "5" }),
     f("Wind-down before bed (minutes)", "windDownMin", "number", { min: "0", step: "15" }),
@@ -492,7 +638,7 @@ function healthCard() {
     ["basalKcal", "Number · Sum of Resting Energy"], ["dietaryKcal", "Number · Sum of Dietary Energy (if you log food)"], ["exerciseMin", "Number · Sum of Exercise Minutes"],
     ["standHours", "Number · Sum of Stand Hours"], ["restingHR", "Number · Average of Resting Heart Rate"], ["hrv", "Number · Average of Heart Rate Variability"],
     ["weight", "Number · latest Weight (kg)"], ["sleepSeconds", "Number · Sum of sleep Durations"], ["sleepStart", "Text · first sleep sample’s Start Date (ISO 8601)"],
-    ["sleepEnd", "Text · last sleep sample’s End Date (ISO 8601)"], ["workouts", "Text · today’s workout names, comma-separated (optional)"], ["walkMin", "Number · walking-pad minutes (optional)"]];
+    ["sleepEnd", "Text · last sleep sample’s End Date (ISO 8601)"], ["exerciseByHour", "Text · hour=minutes pairs, e.g. 19=34,20=41 (step 4b)"], ["activeByHour", "Text · hour=kcal pairs, built the same way"]];
   return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Apple Health"), ar("الصحة")),
     h("p", { class: "hint" }, "Your watch fills in sleep, bedtime, waking for Fajr, steps, calories, the deficit, workouts, weight and whether the watch was worn. You keep logging prayers, reading and purity yourself."),
     h("p", { class: "hint" }, ls ? `Last sync ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${ls.samples.toLocaleString("en")} samples, ${ls.workouts} workouts.` : "No sync received yet."),
@@ -508,6 +654,9 @@ function healthCard() {
         li(h("b", null, "Today’s date. "), "Add ", h("b", null, "Current Date"), ", then ", h("b", null, "Format Date"), " → Custom → ", code("yyyy-MM-dd"), "."),
         li(h("b", null, "Each total. "), "Add ", h("b", null, "Find Health Samples"), ": Type ", code("Step Count"), ", Start Date ", code("is today"), ", Group By ", code("Day"), ". Then ", h("b", null, "Calculate Statistics"), " → ", code("Sum"),
           ". Repeat for Active Energy, Resting Energy, Exercise Minutes, Stand Hours and (if you log food) Dietary Energy. For Resting Heart Rate and Heart Rate Variability use ", code("Average"), ". For Weight, sort Latest First, limit 1."),
+        li(h("b", null, "When you trained (4b). "), "This is how the app checks each training slot. ", h("b", null, "Find Health Samples"), ": Type ", code("Exercise Minutes"), ", Start Date ", code("is today"), ", Group By ", code("Hour"),
+          ". Add ", h("b", null, "Repeat with Each"), "; inside it add ", h("b", null, "Text"), ": ", code("[Repeat Item’s Start Date, formatted HH]=[Repeat Item’s Value]"), ". After the repeat, ", h("b", null, "Combine Text"), " with ", code(","),
+          ". That’s ", code("exerciseByHour"), ". Do the same with Active Energy for ", code("activeByHour"), " (it replaces the activeKcal total)."),
         li(h("b", null, "Sleep. "), h("b", null, "Find Health Samples"), ": Type ", code("Sleep Analysis"), ", Start Date ", code("is in the last 16 hours"), ", Value ", code("is not In Bed"), " and ", code("is not Awake"), ", sorted Oldest First. Then ",
           h("b", null, "Get Details"), " → Duration → ", h("b", null, "Calculate Statistics"), " → Sum. Take the samples’ first item’s Start Date and last item’s End Date, each through Format Date → ", code("ISO 8601"), "."),
         li(h("b", null, "Send it. "), "Add ", h("b", null, "Get Contents of URL"), " with the address above. Method ", code("POST"), ". Header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), ". Request Body ", code("JSON"), ", with these fields, each set to the matching result:",
@@ -516,8 +665,23 @@ function healthCard() {
         li(h("b", null, "Every night. "), "Shortcuts → Automation → + → ", h("b", null, "Time of Day"), " ", code("23:59"), " Daily → ", h("b", null, "Run Immediately"), " → Mustanir Sync. Optional: a second one at ", code("05:30"), " so last night’s sleep shows in the morning.")),
       h("p", { class: "hint" }, "The last two years: duplicate the shortcut as Mustanir Backfill, wrap everything in ", h("b", null, "Repeat"), " 730 times, use ", h("b", null, "Adjust Date"), " (subtract Repeat Index days) for the day, and swap “is today” for “is between the start and end of that day”. Run it once with the phone charging. History is stored but never scored.")),
 
+    h("details", { class: "more" }, h("summary", null, "Write your meals to Apple Health"),
+      h("p", { class: "hint" }, "Food you log in the app goes into Apple Health as Dietary Energy and Protein. Put these steps at the start of Mustanir Sync, so the totals it reads afterwards already include them."),
+      h("ol", { class: "steps" },
+        li(h("b", null, "Get Contents of URL"), ": ", code(PALACE_URL + "/export"), ", Method ", code("GET"), ", header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), "."),
+        li(h("b", null, "Get Dictionary Value"), " ", code("meals"), " → ", h("b", null, "Repeat with Each"), ". Inside: ", h("b", null, "Get Dictionary Value"), " ", code("kcal"), " and ", code("at"), ", then ", h("b", null, "Log Health Sample"), ": Type ", code("Dietary Energy"), ", Value = kcal, Date = at. Optional: the same for ", code("protein"), " with Type ", code("Protein"), "."),
+        li("After the repeat: ", h("b", null, "Get Contents of URL"), " ", code(PALACE_URL + "/export/ack"), ", Method ", code("POST"), ", same header, JSON body ", code("batch"), " = the first response’s ", code("batch"), ". That marks the meals as written so they’re never logged twice.")),
+      h("p", { class: "hint" }, "Logging food somewhere else too, like a nutrition app that writes to Apple Health? That’s fine: the app counts Apple Health’s total plus anything not yet written.")),
+
+    h("details", { class: "more" }, h("summary", null, "Walking Pad shortcut (one tap)"),
+      h("p", { class: "hint" }, "Tap when you step on, tap when you step off. The minutes land in today’s Body decree. Put it on your Apple Watch, the Action button or ask Siri “Walking pad”."),
+      h("ol", { class: "steps" },
+        li("New shortcut ", code("Walking Pad"), ". Add ", h("b", null, "Get Contents of URL"), ": ", code(PALACE_URL + "/walkpad"), ", Method ", code("POST"), ", header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), "."),
+        li("Add ", h("b", null, "Get Dictionary Value"), " ", code("message"), " → ", h("b", null, "Show Notification"), ". You’ll see “started” or “32 min logged”."),
+        li("Shortcut details: turn on ", h("b", null, "Show on Apple Watch"), ". Optional: assign it to the Action button in Settings."))),
+
     h("details", { class: "more" }, h("summary", null, "Option 2 · Health Auto Export (no building)"),
-      h("p", { class: "hint" }, "A third-party iPhone app that sends Health data on a schedule, including your two-year history in one go. Its scheduled sending needs the paid upgrade."),
+      h("p", { class: "hint" }, "A third-party iPhone app that sends Health data on a schedule, including your two-year history in one go. It also sends each workout with its sport and exact times, which makes training matching exact. Its scheduled sending needs the paid upgrade."),
       h("ol", { class: "steps" },
         li("Install ", h("b", null, "Health Auto Export – JSON+CSV"), " and allow Health access."),
         li("Automations → New → ", h("b", null, "REST API"), ". URL: the address above. Header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), ". Format ", code("JSON"), "."),

@@ -6,7 +6,8 @@
 //   Workout = { activity, start, end, duration?, energy?, distance?, avgHR?, maxHR?, source? }
 // Also accepted:
 //   Flat daily totals (easiest from a Shortcut): { date, steps, activeKcal, basalKcal, dietaryKcal, exerciseMin, standHours,
-//     restingHR, hrv, weight, sleepMinutes, sleepStart, sleepEnd, workouts: "Tennis, Strength Training", walkMin, … }
+//     restingHR, hrv, weight, sleepMinutes, sleepStart, sleepEnd, workouts: "Tennis, Strength Training", walkMin,
+//     exerciseByHour: "19=34,20=41", activeByHour: "19=310,20=280", … }   (hour=value pairs, Cairo hours)
 //   Health Auto Export's REST format: { data: { metrics: [{ name, units, data: [...] }], workouts: [...] } }
 // Everything is upserted on natural keys, so resending an overlapping window is safe.
 // After saving, daily totals are recomputed and the tracker's measured fields are refreshed.
@@ -108,6 +109,7 @@ function scores(d: any, s: any) {
   const habits = (+!!d.bed + 2 * +!!d.wake + 2 * slept + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 11;
   return { faith, knowledge, habits };
 }
+const pad2 = (n: number) => String(n).padStart(2, "0");
 const hm = (s: string) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
 
 // Turn the flat and Health Auto Export formats into the batch format.
@@ -149,7 +151,20 @@ function normalize(b: any): { samples: any[]; workouts: any[] } {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) ? String(b.date) : null;
   if (date) {
     const dayStart = `${date} 00:00`, dayEnd = `${date} 23:59`;
-    const skip = new Set(["date", "kind", "samples", "workouts", "data", "sleepMinutes", "sleepSeconds", "sleepH", "sleepStart", "sleepEnd", "walkMin", "key"]);
+    const skip = new Set(["date", "kind", "samples", "workouts", "data", "sleepMinutes", "sleepSeconds", "sleepH", "sleepStart", "sleepEnd", "walkMin", "key", "exerciseByHour", "activeByHour"]);
+    // Hour-by-hour exercise and energy: lets the app see *when* you trained and match it to your slots.
+    const hourly = (v: unknown) => {
+      const out: [number, number][] = [];
+      if (v && typeof v === "object") for (const [k, x] of Object.entries(v as object)) { const h = parseInt(k, 10), n = num(x); if (h >= 0 && h < 24 && n != null) out.push([h, n]); }
+      else for (const part of String(v || "").split(/[,;\n]+/)) { const m = part.trim().match(/^(\d{1,2})\s*[=:]\s*([\d.,]+)/); if (m && +m[1] < 24) out.push([+m[1], num(m[2])!]); }
+      return out;
+    };
+    for (const [field, type] of [["exerciseByHour", "exerciseMin"], ["activeByHour", "activeKcal"]] as const) {
+      const hrs = hourly(b[field]);
+      if (!hrs.length) continue;
+      skip.add(type); // the hourly values replace the day total
+      for (const [h, v] of hrs) samples.push({ type, start: `${date} ${pad2(h)}:00`, end: `${date} ${pad2(h)}:59`, value: v, source: "hourly" });
+    }
     for (const [k, v] of Object.entries(b)) {
       if (skip.has(k) || v === "" || v == null || typeof v === "object") continue;
       if (num(v) === null) continue;
@@ -268,11 +283,24 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
   const [{ data: st }, { data: daily }, { data: wks }, { data: rows }, { data: sleepRows }] = await Promise.all([
     admin.from("settings").select("data").eq("user_id", uid).maybeSingle(),
     admin.from("health_daily").select("day,metric,value").eq("user_id", uid).gte("day", from).lte("day", to),
-    admin.from("health_workouts").select("day,activity,duration_min").eq("user_id", uid).gte("day", from).lte("day", to),
+    admin.from("health_workouts").select("day,activity,duration_min,start_at,end_at,energy_kcal").eq("user_id", uid).gte("day", from).lte("day", to).order("start_at"),
     admin.from("days").select("date,data").eq("user_id", uid).gte("date", from).lte("date", to),
     admin.from("health_samples").select("day,start_at,end_at").eq("user_id", uid).in("metric", ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "sleepInBed"]).gte("day", from).lte("day", to),
   ]);
   const s = { bedtime: "21:00", wake: "05:00", sleepTarget: 7, deficitMin: 500, pagesPerDay: 20, ...(st?.data || {}) };
+  // When during the day you were active, hour by hour (Cairo time).
+  const { data: hourRows } = await admin.from("health_samples").select("day,metric,start_at,value").eq("user_id", uid).in("metric", ["exerciseMin", "activeKcal"]).neq("source", "daily total").gte("day", from).lte("day", to);
+  const hourMap = new Map<string, { ex: Record<string, number>; kc: Record<string, number> }>();
+  for (const r of hourRows || []) {
+    const e = hourMap.get(r.day) || { ex: {}, kc: {} }, h = String(parseInt(cairoTime(new Date(r.start_at)), 10));
+    const tgt = r.metric === "exerciseMin" ? e.ex : e.kc; tgt[h] = Math.round((tgt[h] || 0) + Number(r.value)); hourMap.set(r.day, e);
+  }
+  const detail = new Map<string, { a: string; s: string; e: string; min: number; kcal: number | null }[]>();
+  for (const w of wks || []) {
+    const list = detail.get(w.day) || [];
+    list.push({ a: w.activity, s: cairoTime(new Date(w.start_at)), e: cairoTime(new Date(w.end_at)), min: Math.round(w.duration_min || 0), kcal: w.energy_kcal == null ? null : Math.round(w.energy_kcal) });
+    detail.set(w.day, list);
+  }
   const byDay = new Map<string, Record<string, number>>();
   for (const r of daily || []) { if (!byDay.has(r.day)) byDay.set(r.day, {}); byDay.get(r.day)![r.metric] = r.value; }
   const wByDay = new Map<string, { names: string[]; walk: number }>();
@@ -290,7 +318,7 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
   }
   const existing = new Map<string, Record<string, unknown>>((rows || []).map((r) => [r.date, r.data || {}]));
   const out = [];
-  const allDays = new Set([...byDay.keys(), ...wByDay.keys()]);
+  const allDays = new Set([...byDay.keys(), ...wByDay.keys(), ...hourMap.keys()]);
   for (const day of allDays) {
     const m = byDay.get(day) || {};
     // deno-lint-ignore no-explicit-any
@@ -302,6 +330,9 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
     if (m.dietaryKcal > 0 && (m.activeKcal > 0 || m.basalKcal > 0)) d.deficit = Math.round((m.activeKcal || 0) + (m.basalKcal || 0) - m.dietaryKcal);
     const w = wByDay.get(day);
     if (w) { d.workouts = w.names.join(", "); if (w.walk > 0) d.walkMin = Math.round(w.walk); }
+    if (detail.has(day)) d.workoutsDetail = detail.get(day);
+    const hrs = hourMap.get(day);
+    if (hrs) { if (Object.keys(hrs.ex).length) d.exByHour = hrs.ex; if (Object.keys(hrs.kc).length) d.kcalByHour = hrs.kc; }
     const span = sleepSpan.get(day);
     if (span) { d.sleepStart = span.start; d.sleepEnd = span.end; }
     if (kind === "daily") {

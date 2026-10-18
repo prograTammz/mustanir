@@ -5,6 +5,20 @@ export const DEFAULTS = {
   windowHours: 8, sleepTarget: 7, deficitMin: 500, threshold: 70, book: "", revNotes: {},
   trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
+  // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
+  training: [
+    { id: "tennis-mw", sport: "tennis", days: ["MON", "WED"], start: "19:00", end: "21:00" },
+    { id: "tennis-th", sport: "tennis", days: ["THU"], start: "09:30", end: "11:00" },
+  ],
+  trainingOnce: [],
+  // The productivity checklist: standing items for every day.
+  checklist: [
+    { id: "plan", text: "Plan the day before 9:00" },
+    { id: "deep", text: "Two hours of deep work" },
+    { id: "ship", text: "Ship one meaningful thing" },
+    { id: "inbox", text: "Inbox and messages cleared" },
+    { id: "tomorrow", text: "Tomorrow’s top three written" },
+  ],
   notify: { morning: true, reading: true, training: true, evening: true, windDown: true, advisor: true },
 };
 
@@ -62,6 +76,61 @@ export const termDay = (s) => diff(S.settings.termStart, s) + 1;
 export const periods = () => [0, 1, 2].map((i) => ({ i, start: addMonths(S.settings.termStart, i), end: addMonths(S.settings.termStart, i + 1), label: "Month " + (i + 1) }));
 export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.settings.termStart, s)) / 7) + 1; return w <= 3 ? 3 : w <= 6 ? 7 : w <= 9 ? 14 : 30; }
 
+/* ---------- training slots and the watch ---------- */
+export const SPORTS = {
+  tennis: { en: "Tennis", ar: "التنس" }, gym: { en: "Gym", ar: "الحديد" }, walk: { en: "Walking pad", ar: "المشي" },
+  run: { en: "Running", ar: "الجري" }, swim: { en: "Swimming", ar: "السباحة" }, other: { en: "Training", ar: "التدريب" },
+};
+export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+export const hmMin = (t) => { const m = String(t || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+export const minHM = (m) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return pad(Math.floor(x / 60)) + ":" + pad(x % 60); };
+export const slotName = (x) => x.label || (SPORTS[x.sport] || SPORTS.other).en;
+export const hasSchedule = () => (S.settings.training || []).length + (S.settings.trainingOnce || []).length > 0;
+export function slotsOn(date) {
+  const dow = DOW[parse(date).getDay()];
+  return [
+    ...(S.settings.training || []).filter((x) => (x.days || []).includes(dow)),
+    ...(S.settings.trainingOnce || []).filter((x) => x.date === date),
+  ].filter((x) => hmMin(x.start) != null && hmMin(x.end) != null).sort((a, b) => hmMin(a.start) - hmMin(b.start));
+}
+const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+// How much of a slot the watch saw. Workouts (exact times) win; otherwise hourly exercise minutes are
+// spread across the hour and counted where they overlap the slot. 30 minutes of slack either side
+// covers starting late or staying on court.
+export function matchSlot(date, slot, nowMin = null) {
+  const d = S.days[date] || {}, a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440;
+  const planned = b - a, A = a - 30, B = b + 30;
+  let done = 0, kcal = 0, source = null;
+  const wks = (d.workoutsDetail || []).filter((w) => slot.sport === "walk" ? /walk/i.test(w.a) : !/walking pad/i.test(w.a));
+  for (const w of wks) {
+    const s0 = hmMin(w.s), e0 = hmMin(w.e); if (s0 == null || e0 == null) continue;
+    const e1 = e0 >= s0 ? e0 : e0 + 1440, ov = overlap(s0, e1, A, B);
+    if (ov > 0) { done += ov; if (w.kcal) kcal += w.kcal * (ov / Math.max(1, e1 - s0)); source = "workout"; }
+  }
+  if (!source && d.exByHour) {
+    for (const [h, v] of Object.entries(d.exByHour)) {
+      const h0 = +h * 60, ov = overlap(h0, h0 + 60, A, B);
+      if (ov > 0 && v > 0) { done += v * (ov / 60); const kc = (d.kcalByHour || {})[h]; if (kc) kcal += kc * (ov / 60); source = "hourly"; }
+    }
+  }
+  done = Math.round(Math.min(done, planned + 60)); kcal = Math.round(kcal);
+  const manual = (d.slotMarks || {})[slot.id];
+  const t = today(), past = date < t || (date === t && (nowMin ?? new Date().getHours() * 60 + new Date().getMinutes()) > b);
+  let status = manual === "done" ? "done" : manual === "skipped" ? "skipped" : done >= planned * 0.5 ? "done" : done > 0 ? (past ? "partial" : "live") : past ? "missed" : "upcoming";
+  const frac = manual === "done" ? 1 : manual === "skipped" ? 0 : Math.min(1, done / planned);
+  return { slot, planned, done, kcal, source, status, frac };
+}
+export const matchDay = (date) => slotsOn(date).map((x) => matchSlot(date, x));
+
+/* ---------- productivity checklist ---------- */
+export function checklistFor(date) {
+  const d = S.days[date] || {};
+  const items = [...(S.settings.checklist || []), ...(d.extraTasks || [])];
+  const checks = d.checks || {};
+  const done = items.filter((x) => checks[x.id]).length;
+  return { items, checks, done, total: items.length, frac: items.length ? done / items.length : null };
+}
+
 /* ---------- scoring ---------- */
 export const TRAINED = ["gym", "tennis", "walk"];
 
@@ -71,6 +140,7 @@ export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.watch || d.good || d.fix || d.margin > 0 ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || (d.slotMarks && Object.keys(d.slotMarks).length) ||
     (d.train && !String(d.source || "").startsWith("Apple Health")) || d.diet != null && d.deficit == null);
 }
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
@@ -95,8 +165,10 @@ export function day(s) {
 export function dayMinisters(s) {
   const x = day(s);
   if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: 0 };
+  const ms = matchDay(s);
+  const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() ? 1 : (x.trained || x.rest)); // no slot today = rest day
   return {
-    body: 0.6 * x.diet + 0.4 * (x.trained || x.rest),
+    body: 0.6 * x.diet + 0.4 * training,
     knowledge: x.knowledge >= 1 ? 1 : x.knowledge,
     faith: x.faith,
     habits: x.habits,
@@ -108,13 +180,21 @@ export function dayMinisters(s) {
 export function score(dates) {
   const n = dates.length; if (!n) return null;
   const ds = dates.map(day); const sum = (f) => ds.reduce((a, x) => a + x[f], 0);
-  const sessions = sum("trained"), planned = S.settings.sessionsPerWeek * n / 7;
+  let sessions = sum("trained"), planned = S.settings.sessionsPerWeek * n / 7, trainMin = 0, plannedMin = 0;
+  if (hasSchedule()) {
+    sessions = 0; planned = 0;
+    for (const k of dates) for (const m of matchDay(k)) {
+      if (m.status === "upcoming" || m.status === "live") continue; // not judged yet
+      planned++; plannedMin += m.planned; trainMin += m.status === "skipped" ? 0 : Math.min(m.done, m.planned) + (m.status === "done" && !m.done ? m.planned : 0);
+      if (m.status === "done") sessions++;
+    }
+  }
   const training = Math.min(1, planned ? sessions / planned : 1), diet = sum("diet") / n;
   const porn = sum("porn") / n, plan = ds.reduce((a, x) => a + (x.logged ? x.plan : 0), 0) / n;
   const defs = dates.map((k) => (S.days[k] || {}).deficit).filter((v) => v > 0);
   const walk = dates.reduce((a, k) => a + ((S.days[k] || {}).walkMin || 0), 0);
   const r = {
-    n, sessions, planned, training, diet, porn, plan, walk,
+    n, sessions, planned, training, diet, porn, plan, walk, trainMin, plannedMin,
     avgDeficit: defs.length ? Math.round(defs.reduce((a, b) => a + b, 0) / defs.length) : null,
     logged: ds.filter((x) => x.logged).length,
     body: (training + diet) / 2, faith: sum("faith") / n, knowledge: ds.reduce((a, x) => a + (x.knowledge >= 1 ? 1 : 0), 0) / n,
@@ -143,12 +223,13 @@ export function currentApproval(s = today()) {
 }
 
 /* ---------- XP, levels, ranks ---------- */
-export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25;
+export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, MAX_DAY_XP = 5 * 20 + 25 + 20;
 export function dayXP(s) {
   const m = dayMinisters(s);
   const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
   const perfect = Object.values(m).every((v) => v >= 0.9);
-  return Math.round(base + (perfect ? PERFECT_BONUS : 0));
+  const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP);
 }
 export const levelStart = (L) => 50 * L * (L - 1); // XP needed to reach level L
 export function levelFor(xp) {
@@ -183,6 +264,7 @@ export function bestStreak(test) {
   return best;
 }
 export const T = {
+  productive: (d, s) => (checklistFor(s).frac || 0) >= 0.8,
   office: (d) => manual(d),
   prayers: (d, s) => day(s).faith === 1,
   pure: (d) => d.pornFree === true,
@@ -205,6 +287,7 @@ export const MEDALS = [
   { id: "perfect7", ar: "أسبوع ذهبي", en: "Golden week", how: "7 perfect days", test: (t) => t.perfect >= 7 },
   { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", test: () => Object.values(S.days).filter((d) => TRAINED.includes(d.train)).length >= 30 },
   { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", test: () => Object.values(S.days).filter((d) => d.diet === true).length >= 30 },
+  { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", test: () => bestStreak(T.productive) >= 7 },
   { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", test: () => bestStreak(T.office) >= 30 },
   { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
 ];

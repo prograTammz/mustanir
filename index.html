@@ -292,7 +292,7 @@ textarea.tall{min-height:130px}
 
 /* sheets: grabber, swipe down to close */
 .sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.32);display:flex;align-items:flex-end;justify-content:center;animation:fade .25s ease-out}
-.sheet{position:relative;width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:34px 34px 0 0;background:var(--glass-2);
+.sheet{position:relative;width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:34px 34px 0 0;background:color-mix(in srgb,var(--bg1) 72%,transparent);-webkit-backdrop-filter:saturate(180%) blur(40px);backdrop-filter:saturate(180%) blur(40px);
   padding:10px 20px calc(24px + env(safe-area-inset-bottom,0px));animation:up .45s var(--spring);touch-action:pan-y;overscroll-behavior:contain}
 .grabber{width:38px;height:5px;border-radius:3px;background:var(--faint);margin:0 auto 14px}
 .sheet-h{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-right:40px}
@@ -317,6 +317,42 @@ textarea.tall{min-height:130px}
   clip-path:polygon(50% 0,61% 26%,85% 15%,74% 39%,100% 50%,74% 61%,85% 85%,61% 74%,50% 100%,39% 74%,15% 85%,26% 61%,0 50%,26% 39%,15% 15%,39% 26%);animation:spin 24s linear infinite}
 .basmala{display:block;font-family:var(--naskh);font-size:23px;color:var(--gold)}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* body decree: sessions, food; checklist; slot editor */
+.subhead{font-size:13px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:.01em;margin:16px 0 6px;display:flex;justify-content:space-between;align-items:baseline}
+.slot{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:18px;background:var(--glass);box-shadow:inset 0 1px 0 var(--hl);margin:6px 0}
+.slot-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.slot-main strong{font-size:16px}
+.slot-main .muted{font-size:13px}
+.slot-status{display:flex;align-items:center;gap:6px;font-size:14px;margin-top:3px;flex-wrap:wrap}
+.slot .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.slot.st-done .dot{background:var(--ok)} .slot.st-partial .dot,.slot.st-live .dot{background:var(--warn)} .slot.st-missed .dot{background:var(--bad)} .slot.st-skipped .dot{background:var(--muted)}
+.slot.st-done{box-shadow:inset 0 1px 0 var(--hl),inset 3px 0 0 -1px var(--ok)}
+.slot.st-missed{box-shadow:inset 0 1px 0 var(--hl),inset 3px 0 0 -1px var(--bad)}
+.slot-act{display:flex;gap:6px}
+.slot-act .chip.sm{margin:0}
+.meal{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:.5px solid var(--sep)}
+.meal strong{font:600 16px var(--rounded)}
+.meal .muted{font-size:14px}
+.hk.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.foodadd{display:grid;grid-template-columns:90px 1fr 96px auto;gap:6px;margin-top:8px;align-items:center}
+.foodadd.two{grid-template-columns:1fr auto}
+.foodadd .txt{min-height:42px;padding:8px 10px;font-size:16px}
+@media (max-width:420px){.foodadd{grid-template-columns:1fr 1fr}.foodadd .chip{grid-column:span 2}}
+.x-del{width:30px;height:30px;border-radius:50%;background:var(--field);color:var(--muted);font-size:17px;line-height:1;flex:none}
+.check{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:.5px solid var(--sep)}
+.check:first-of-type{border-top:0}
+.check>span{flex:1;font-size:16px;cursor:pointer}
+.check.on>span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--faint)}
+.tick{width:26px;height:26px;border-radius:50%;flex:none;border:1.5px solid var(--faint);position:relative;transition:transform .35s var(--spring),background .2s,border-color .2s}
+.check.on .tick{background:var(--gold);border-color:var(--gold)}
+.check.on .tick::after{content:"";position:absolute;left:8px;top:4px;width:6px;height:11px;border:solid var(--gold-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.slotrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:.5px solid var(--sep)}
+.slotrow .muted{font-size:14px}
+.sportgrp .subhead{margin-top:12px}
+.sheet-h.plain{padding-right:40px}
+.sheet-title{font:700 22px var(--display);display:block}
+.sheet .seg{margin:4px 0 8px}
 
 /* setup guide */
 .steps{counter-reset:s;list-style:none;margin:8px 0 0;padding:0}

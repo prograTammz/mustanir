@@ -11,7 +11,11 @@ Ahmed 2.0's daily record: a PWA hosted on GitHub Pages at https://mustanir.ahmed
   - `ingest_tokens`: SHA-256 hashes of Apple Shortcuts keys.
   - Row-level security on every table: you only ever see your own rows.
 - **Apple Health** (`supabase/functions/health`): an Edge Function your Shortcut posts batches to with `Authorization: Bearer <key>`. Raw samples go to `health_samples`, workouts to `health_workouts`, per-day totals to `health_daily` (recomputed after each sync), and a log line to `health_syncs`. Resending overlapping data is safe. Measured values flow into the day's record; judgements are only filled on daily syncs and never overwrite what you logged by hand.
-- **Game** (`js/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25. Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
+- **Training** (`settings.training`, `settings.trainingOnce`): weekly and one-off slots per sport, edited in the Diwan. Each slot is matched against the watch: exact workouts (Health Auto Export) or hour-by-hour Exercise Minutes (the Shortcut), with 30 minutes of slack each side. Half the planned time or more counts as done; you can mark a slot done or skipped by hand. The slots drive the calendar feed and the 30-minute reminders.
+- **Food** (`meals` table): logged in the app, written to Apple Health as Dietary Energy by the nightly Shortcut (`GET /palace/export`, then `POST /palace/export/ack`). Intake = Apple Health's total + meals not yet written.
+- **Walking pad**: `POST /palace/walkpad` with the Shortcut key toggles a timer; stopping it logs the minutes.
+- **Daily checklist** (`settings.checklist`, per-day `checks` and `extraTasks`): productivity = share ticked, worth up to 20 XP a day.
+- **Game** (`js/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25, the checklist up to 20 (145 max). Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
 
 The publishable key in `index.html` is meant to be public; the data is protected by sign-in and row-level security.
 
