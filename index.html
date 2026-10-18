@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Al-Mustanir</title>
-<meta name="theme-color" content="#0F4A3C">
+<meta name="description" content="Ahmed 2.0 · the president's daily record">
+<meta name="theme-color" content="#0B1620">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,512 +15,308 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Instrument+Sans:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" } }</script>
 <style>
 :root{
-  --bg:#F2F4F1; --surface:#FFFFFF; --ink:#14231F; --muted:#5D6B66; --line:#D9DFDB;
-  --hdr:#0F4A3C; --hdr-ink:#F1EBDC; --brass:#A8812F; --brass-soft:#E9DFC6;
-  --chip:#E7ECE8; --chip-on:#0F4A3C; --chip-on-ink:#FFFFFF;
-  --ok:#2E7D4F; --warn:#A86A12; --bad:#B4412F;
-  --serif:"Amiri", "Iowan Old Style", Georgia, serif;
-  --sans:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  color-scheme:light;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#0B1620; --surface:#101C26; --card:#13232F; --card2:#182B39; --line:#24394A; --ink:#ECE5D3; --muted:#9AAEBB;
+  --gold:#D8B25A; --gold-2:#F1D894; --gold-ink:#1A1206;
+  --ok:#5BB27F; --warn:#D9A447; --bad:#E07A66;
+  --m-body:#D9604A; --m-knowledge:#4C8FD6; --m-faith:#2E9E6B; --m-habits:#BC8120; --m-purity:#A57AD4;
+  --h0:#1B2C38; --h1:#4A4226; --h2:#7A6430; --h3:#B48E3E; --h4:#E7C36A;
+  --pattern-o:.06;
+  --kufi:"Reem Kufi","Amiri",serif; --naskh:"Amiri","Reem Kufi",serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0D1513; --surface:#14201C; --ink:#E8EEEA; --muted:#93A39D; --line:#26352F;
-    --hdr:#0F2E27; --hdr-ink:#EADFC4; --brass:#D4AF5F; --brass-soft:#3A3322;
-    --chip:#1C2B26; --chip-on:#D4AF5F; --chip-on-ink:#14201C;
-    --ok:#5BB27F; --warn:#D9A447; --bad:#E07A66; color-scheme:dark;
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#EFE8D8; --surface:#F6F1E6; --card:#FBF8F1; --card2:#F3EDE0; --line:#DDD3BF; --ink:#1C2A33; --muted:#5E6B72;
+    --gold:#9C7524; --gold-2:#C69A3E; --gold-ink:#FFFDF6;
+    --ok:#2E7D4F; --warn:#9A6410; --bad:#B4412F;
+    --m-body:#B9442F; --m-knowledge:#2D6FB8; --m-faith:#1E8A57; --m-habits:#B57A12; --m-purity:#8A62C2;
+    --h0:#E6DECB; --h1:#E9D7A6; --h2:#D6B464; --h3:#B48A33; --h4:#7E5C17;
+    --pattern-o:.07; color-scheme:light;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#0D1513; --surface:#14201C; --ink:#E8EEEA; --muted:#93A39D; --line:#26352F;
-  --hdr:#0F2E27; --hdr-ink:#EADFC4; --brass:#D4AF5F; --brass-soft:#3A3322;
-  --chip:#1C2B26; --chip-on:#D4AF5F; --chip-on-ink:#14201C;
-  --ok:#5BB27F; --warn:#D9A447; --bad:#E07A66; color-scheme:dark;
+:root[data-theme="light"]{
+  --bg:#EFE8D8; --surface:#F6F1E6; --card:#FBF8F1; --card2:#F3EDE0; --line:#DDD3BF; --ink:#1C2A33; --muted:#5E6B72;
+  --gold:#9C7524; --gold-2:#C69A3E; --gold-ink:#FFFDF6; --ok:#2E7D4F; --warn:#9A6410; --bad:#B4412F;
+  --m-body:#B9442F; --m-knowledge:#2D6FB8; --m-faith:#1E8A57; --m-habits:#B57A12; --m-purity:#8A62C2;
+  --h0:#E6DECB; --h1:#E9D7A6; --h2:#D6B464; --h3:#B48A33; --h4:#7E5C17; --pattern-o:.07; color-scheme:light;
 }
-*,*::before,*::after{box-sizing:inherit}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--hdr)}
-button,input{font:inherit;color:inherit}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+/* eight-pointed star tessellation, the palace floor */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:var(--pattern-o);color:var(--gold);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23D8B25A' stroke-width='1'%3E%3Cpath d='M32 10l6.4 15.6L54 32l-15.6 6.4L32 54l-6.4-15.6L10 32l15.6-6.4z'/%3E%3Cpath d='M16.4 16.4h31.2v31.2H16.4z'/%3E%3Cpath d='M0 0l10 10M64 0L54 10M0 64l10-10M64 64L54 54'/%3E%3C/g%3E%3C/svg%3E");background-size:64px 64px}
+button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
-:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
-
-.hdr{background:var(--hdr);color:var(--hdr-ink);padding:20px 20px 0}
-.hdr-inner{max-width:640px;margin:0 auto}
-.seal{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
-.seal-ar{font-family:var(--serif);font-size:clamp(44px,13vw,64px);line-height:1;color:var(--brass);font-weight:700;direction:rtl}
-.seal-en{font-family:var(--serif);font-size:18px;line-height:1.2}
-.seal-en small{display:block;font-family:var(--sans);font-size:13px;opacity:.75;margin-top:2px}
-.term{margin-top:16px;height:3px;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden}
-.term > span{display:block;height:100%;background:var(--brass);width:0}
-.tabs{display:flex;gap:4px;margin-top:14px}
-.tab{flex:1;background:none;border:0;color:var(--hdr-ink);opacity:.7;padding:10px 4px 12px;border-bottom:2px solid transparent;font-weight:500}
-.tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--brass)}
-
-main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
-.banner{font-size:14px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
-.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 14px}
-.datebar button{background:var(--surface);border:1px solid var(--line);border-radius:10px;width:44px;height:44px;font-size:20px}
-.datebar .d{text-align:center}
-.datebar .d strong{display:block;font-family:var(--serif);font-size:22px;line-height:1.1}
-.datebar .d span{font-size:13px;color:var(--muted)}
-.status{font-size:13px;color:var(--muted);text-align:center;min-height:18px;margin-bottom:6px}
-
-.min{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
-.min-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
-.min-h h2{font-family:var(--serif);font-weight:700;font-size:22px;margin:0;line-height:1.1}
-.min-h .sc{font-size:14px;color:var(--muted);text-align:right}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
-.row > .lbl{flex:1 1 100%;font-size:14px;color:var(--muted)}
-.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:9px 14px;min-height:40px;font-size:15px}
-.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink)}
-.chip.half[aria-pressed="true"]{background:var(--brass-soft);color:var(--ink);border-color:var(--brass)}
-.chip.no[aria-pressed="true"]{background:var(--bad);color:#fff}
-.stepper{display:flex;align-items:center;gap:6px}
-.stepper button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--chip);font-size:18px}
-.stepper input{width:72px;height:40px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.txt{width:100%;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:8px 10px}
-textarea.txt{min-height:76px;resize:vertical;line-height:1.4;font:inherit}
-.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
-.allow{font-size:14px;padding:8px 10px;border-radius:8px;background:var(--chip);margin-top:6px}
-
-.period-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
-.pres{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:12px}
-.pres .big{font-family:var(--serif);font-size:56px;line-height:1;font-weight:700}
-.pres p{margin:6px 0 0;color:var(--muted);font-size:14px}
-.mrow{padding:14px 0;border-top:1px solid var(--line)}
-.mrow:first-of-type{border-top:0}
-.mrow-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.mrow-h h3{font-family:var(--serif);font-size:20px;margin:0}
-.mrow-h .pct{font-family:var(--serif);font-size:26px;font-weight:700}
-.bar{position:relative;height:6px;background:var(--chip);border-radius:3px;margin:8px 0 6px;overflow:visible}
-.bar > span{display:block;height:100%;border-radius:3px}
-.bar > i{position:absolute;top:-3px;width:2px;height:12px;background:var(--ink);opacity:.5}
-.verdict{font-size:13px;font-weight:600}
-.detail{font-size:13px;color:var(--muted)}
-.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
-.kv:first-child{border-top:0}
-.kv span:last-child{font-weight:600;text-align:right}
-.btn{background:var(--chip-on);color:var(--chip-on-ink);border:0;border-radius:10px;padding:12px 16px;font-weight:600;width:100%}
-.field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
-.field:first-child{border-top:0}
-.field label{font-size:15px}
-.field input{width:140px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 10px}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ar{font-family:var(--kufi);font-weight:500}
+.ar.big{font-size:22px;line-height:1.2}
+.ar.sm{font-size:13px;color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
 [hidden]{display:none!important}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* header */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;border-bottom:1px solid var(--line)}
+.top-in{max-width:680px;margin:0 auto}
+.dates{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.dates #hijri{font-family:var(--kufi);color:var(--gold);font-size:15px}
+.dates #greg{font-size:13px;color:var(--muted)}
+.termrow{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 10px;font-size:12px;color:var(--muted)}
+.termtrack{flex:1;height:3px;border-radius:2px;background:var(--line);overflow:hidden;max-width:220px}
+.termtrack span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));width:0}
+
+main{max-width:680px;margin:0 auto;padding:14px 16px 24px}
+
+/* bottom navigation */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;background:color-mix(in srgb,var(--surface) 94%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.nav-in{display:flex;width:100%;max-width:560px}
+.nav button{flex:1;background:none;border:0;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--muted);min-height:52px;border-radius:12px}
+.nav button svg{width:22px;height:22px}
+.nav button .ar{font-size:12px;line-height:1.2}
+.nav button small{font-size:10px;letter-spacing:.02em}
+.nav button[aria-current="page"]{color:var(--gold)}
+.nav button[aria-current="page"] svg{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--gold) 60%,transparent))}
+body.signed-out .nav{display:none}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;position:relative}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px}
+.card-h h2{font-family:var(--naskh);font-weight:700;font-size:21px;margin:0;line-height:1.15}
+.card-h .ar{color:var(--gold);font-size:15px}
+.banner{font-size:14px;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.btn{display:block;width:100%;margin-top:12px;border:0;border-radius:12px;padding:13px 16px;font-weight:600;color:var(--gold-ink);
+  background:linear-gradient(180deg,var(--gold-2),var(--gold));box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 18px -8px color-mix(in srgb,var(--gold) 70%,transparent)}
+.btn:active{transform:translateY(1px)}
+.chip{background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:9px 14px;min-height:40px;font-size:15px}
+.chip[aria-pressed="true"]{background:color-mix(in srgb,var(--mc,var(--gold)) 22%,var(--card2));border-color:var(--mc,var(--gold));color:var(--ink);font-weight:600}
+.chip.no[aria-pressed="true"]{background:color-mix(in srgb,var(--bad) 22%,var(--card2));border-color:var(--bad)}
+.chip.sm{min-height:30px;padding:4px 12px;font-size:13px;margin-left:6px}
+.chip.wide{display:block;width:100%;border-radius:12px;margin-top:8px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.row>.lbl{flex:1 1 100%;font-size:14px;color:var(--muted)}
+.txt{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:8px 10px}
+.txt.num{max-width:140px}
+.txt.mono{font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:56px;margin-top:8px}
+textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
+textarea.tall{min-height:120px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-size:18px}
+.stepper input{width:74px;height:42px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+.hint.inline{margin:0}
+.hint.center{text-align:center}
+.hk{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;color:var(--m-body);border:1px solid currentColor}
+.allow{font-size:14px;padding:9px 11px;border-radius:10px;background:var(--card2);margin-top:6px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.field:first-of-type{border-top:0}
+.field input{width:150px;height:42px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 10px}
+.field .txt{width:60%}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.st{font-size:13px;font-weight:600}
+.st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.bad{color:var(--bad)}
+.emb{display:inline-flex;width:36px;height:36px;flex:none;align-items:center;justify-content:center;border-radius:10px;background:color-mix(in srgb,currentColor 14%,transparent)}
+.emb svg{width:22px;height:22px}
+
+/* palace stage: a mihrab-shaped window onto the 3D scene */
+.stage{position:relative;height:clamp(280px,62vw,380px);margin:0 -4px 14px;border-radius:50% 50% 18px 18px / 26% 26% 18px 18px;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 30%,#1E4258 0%,#0E2230 55%,#08131B 100%);border:1px solid color-mix(in srgb,var(--gold) 45%,transparent);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 10%,transparent),0 20px 50px -30px #000}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;animation:rise 1.2s ease-out both}
+.stage-fallback{position:absolute;inset:auto 0 18% 0;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:0 12px}
+.stage.live .stage-fallback{display:none}
+.stage .fb{background:none;border:0;padding:0}
+.stage .fb .emb{width:48px;height:48px}
+@keyframes rise{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+
+/* president card */
+.president{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 10%,var(--card)),var(--card))}
+.pres-top{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;text-align:left;width:100%}
+.seal-sm{position:relative;width:54px;height:54px;flex:none}
+.seal-sm .emb{width:54px;height:54px;border-radius:50%;background:color-mix(in srgb,var(--gold) 16%,transparent)}
+.seal-sm .emb svg{width:44px;height:44px;fill:color-mix(in srgb,var(--gold) 30%,transparent)}
+.seal-sm b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--naskh);font-size:20px;color:var(--gold)}
+.pres-id{display:flex;flex-direction:column}
+.pres-id .big{font-size:26px;color:var(--gold)}
+.pres-id>span:last-child{font-size:14px;color:var(--muted)}
+.xpbar{height:8px;border-radius:4px;background:var(--line);margin:14px 0 6px;overflow:hidden}
+.xpbar span{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),var(--gold-2));transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.xpline{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stats3>div{background:var(--card2);border-radius:12px;padding:10px;text-align:center}
+.stats3 strong{display:block;font-family:var(--naskh);font-size:26px;line-height:1.1}
+.stats3 span{font-size:11px;color:var(--muted)}
+
+/* cabinet */
+.minrow{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:11px 0;text-align:left}
+.minrow:first-of-type{border-top:0}
+.minrow-id{flex:1;display:flex;flex-direction:column}
+.minrow-id .ar{font-size:17px;white-space:nowrap}
+.minrow-id .ar,.decree-id .ar,.pres-id .ar,.sheet-h .ar,.mbar-l .ar,.medal .ar{align-self:flex-start;unicode-bidi:isolate}
+.medal .ar{align-self:center}
+.minrow-id span:last-child{font-size:12px;color:var(--muted)}
+.minrow-s{text-align:right;display:flex;flex-direction:column}
+.minrow-s strong{font-family:var(--naskh);font-size:22px;line-height:1}
+
+/* medals */
+.medals{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:10px}
+.medal{text-align:center;padding:10px 6px;border-radius:12px;background:var(--card2);opacity:.55;display:flex;flex-direction:column;align-items:center;gap:3px}
+.medal.won{opacity:1;background:color-mix(in srgb,var(--gold) 12%,var(--card2))}
+.medal-i{width:34px;height:34px;clip-path:polygon(50% 0,61% 26%,85% 15%,74% 39%,100% 50%,74% 61%,85% 85%,61% 74%,50% 100%,39% 74%,15% 85%,26% 61%,0 50%,26% 39%,15% 15%,39% 26%);background:var(--line)}
+.medal.won .medal-i{background:linear-gradient(135deg,var(--gold-2),var(--gold))}
+.medal .ar{font-size:14px}
+.medal span:last-child{font-size:10.5px;color:var(--muted);line-height:1.25}
+
+.ayah{margin:18px 4px 6px;text-align:center}
+.ayah blockquote{margin:0;font-family:var(--naskh);font-size:22px;line-height:1.9;color:var(--gold)}
+.ayah figcaption{font-size:13px;color:var(--muted);margin-top:4px}
+.ayah cite{font-style:normal}
+
+/* decrees */
+.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 8px}
+.datebar>button{background:var(--card);border:1px solid var(--line);border-radius:12px;width:46px;height:46px;font-size:22px}
+.datebar>button:disabled{opacity:.35}
+.datebar .d{text-align:center;display:flex;flex-direction:column}
+.datebar .d strong{font-family:var(--naskh);font-size:21px;line-height:1.15}
+.datebar .d>span:last-child{font-size:12px;color:var(--muted)}
+.dayxp{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+.dayxp strong{color:var(--gold);font-family:var(--naskh);font-size:20px}
+.dayxp>span{font-size:12px;color:var(--muted)}
+.dayxp .status{width:100%;text-align:center;min-height:16px}
+.decree{border-top:3px solid var(--mc)}
+.decree-h{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.decree-id{flex:1;display:flex;flex-direction:column}
+.decree-id .ar{font-size:19px}
+.decree-id span:last-child{font-size:13px;color:var(--muted)}
+.ring{position:relative;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:4}
+.ring .ring-bg{stroke:var(--line)}
+.ring .ring-fg{stroke-linecap:round;transition:stroke-dashoffset .5s cubic-bezier(.2,.8,.2,1)}
+.ring>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.prayers{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.prayer{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:64px}
+.prayer .ar{font-size:16px}
+.prayer span:last-child{font-size:11px;color:var(--muted)}
+.prayer[aria-pressed="true"]{background:color-mix(in srgb,var(--m-faith) 26%,var(--card2));border-color:var(--m-faith)}
+.prayer[aria-pressed="true"] span:last-child{color:var(--ink)}
+.prayer.late{background:color-mix(in srgb,var(--m-faith) 10%,var(--card2));border-style:dashed}
+
+/* records */
+.seg{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+@media (min-width:560px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.tile strong{display:block;font-family:var(--naskh);font-size:30px;line-height:1.05}
+.tile span{font-size:12px;color:var(--muted)}
+.chart{position:relative}
+.chart svg{display:block;overflow:visible}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{fill:var(--muted);font-size:10px;font-family:var(--sans)}
+.chart .goal{stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1}
+.chart .line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.chart .raw{fill:none;stroke-width:3;stroke-linecap:round;opacity:.35;vector-effect:non-scaling-stroke}
+.chart .area{opacity:.10}
+.chart .cross{stroke:var(--muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.chart .hoverdot{stroke:var(--card);stroke-width:2}
+.chart .empty{color:var(--muted);font-size:14px;margin:8px 0;text-align:center}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;white-space:nowrap;box-shadow:0 6px 18px -8px #000;z-index:2;display:flex;flex-direction:column}
+.tip span{color:var(--muted)}
+.heat .cell{fill:var(--h0)}
+.heat .cell[data-l="0"]{fill:var(--h0)} .heat .cell[data-l="1"]{fill:var(--h1)} .heat .cell[data-l="2"]{fill:var(--h2)} .heat .cell[data-l="3"]{fill:var(--h3)} .heat .cell[data-l="4"]{fill:var(--h4)}
+.heat .cell.none{fill:var(--card2)}
+.heatlegend{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:11px;color:var(--muted);margin-top:6px}
+.heatlegend i{display:inline-block;width:11px;height:11px;border-radius:3px;background:var(--h0)}
+.heatlegend i[data-l="1"]{background:var(--h1)} .heatlegend i[data-l="2"]{background:var(--h2)} .heatlegend i[data-l="3"]{background:var(--h3)} .heatlegend i[data-l="4"]{background:var(--h4)}
+.mbars{display:flex;flex-direction:column;gap:10px}
+.mbar{display:grid;grid-template-columns:118px 1fr 44px;align-items:center;gap:10px}
+.mbar-l{display:flex;flex-direction:column;line-height:1.15}
+.mbar-l .ar{font-size:14px}
+.mbar-l .en{font-size:11px;color:var(--muted)}
+.mbar-t{position:relative;height:10px;background:var(--card2);border-radius:5px}
+.mbar-t .fill{display:block;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.mbar-t .line{position:absolute;top:-4px;width:2px;height:18px;background:var(--ink);opacity:.5;border-radius:1px}
+.mbar strong{text-align:right;font-variant-numeric:tabular-nums}
+
+/* council */
+.council-h{text-align:center}
+.council-h .ar{color:var(--gold);font-size:26px}
+.council-h p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.hero strong{display:block;font-family:var(--naskh);font-size:56px;line-height:1}
+.hero span{font-size:13px;color:var(--muted)}
+.hero{margin-bottom:14px}
+.verdict{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);margin-top:4px}
+.verdict .emb{width:28px;height:28px}.verdict .emb svg{width:18px;height:18px}
+.verdict>span:not(.emb){flex:1;font-size:14px}
+
+/* minister file */
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(3,8,12,.55);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s ease-out}
+.sheet{position:relative;width:100%;max-width:560px;max-height:86vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:22px 22px 0 0;
+  padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px));animation:up .28s cubic-bezier(.2,.8,.2,1)}
+.sheet-h{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-right:36px}
+.sheet-h .emb{width:48px;height:48px}.sheet-h .emb svg{width:30px;height:30px}
+.sheet-h>div{display:flex;flex-direction:column}
+.sheet-h>div span:last-child{font-size:13px;color:var(--muted)}
+.sheet .x{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card2);font-size:20px;line-height:1}
+.sheet-score{display:flex;align-items:center;gap:14px}
+.sheet-score p{margin:2px 0 0}
+.ranks{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.rk{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:var(--card2);opacity:.6}
+.rk.got{opacity:1;border:1px solid color-mix(in srgb,var(--gold) 50%,transparent)}
+.rk span{font-size:12px;color:var(--muted)}
+@keyframes fade{from{opacity:0}}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+
+/* oath (sign in) */
+.oath{text-align:center;margin-top:24px;padding:28px 18px}
+.oath h2{font-family:var(--naskh);font-size:26px;margin:8px 0 2px}
+.oath .row{text-align:left}
+.oath-star{width:64px;height:64px;margin:0 auto 8px;background:linear-gradient(135deg,var(--gold-2),var(--gold));
+  clip-path:polygon(50% 0,61% 26%,85% 15%,74% 39%,100% 50%,74% 61%,85% 85%,61% 74%,50% 100%,39% 74%,15% 85%,26% 61%,0 50%,26% 39%,15% 15%,39% 26%);animation:spin 24s linear infinite}
+.basmala{display:block;font-family:var(--naskh);font-size:22px;color:var(--gold)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* reward effects */
+.fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+.xpfloat{position:fixed;z-index:31;transform:translate(-50%,-50%);pointer-events:none;font-family:var(--naskh);font-weight:700;font-size:22px;color:var(--gold-2);
+  text-shadow:0 2px 10px rgba(0,0,0,.45);animation:float 1.3s cubic-bezier(.2,.8,.2,1) forwards}
+.xpfloat.neg{color:var(--muted)}
+@keyframes float{0%{opacity:0;transform:translate(-50%,-30%) scale(.8)}15%{opacity:1;transform:translate(-50%,-60%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-260%) scale(1)}}
+.levelup{position:fixed;inset:0;z-index:40;background:rgba(3,8,12,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:24px;animation:fade .25s ease-out}
+.levelup .seal{position:relative;width:150px;height:150px;animation:stamp .55s cubic-bezier(.3,1.6,.5,1) .1s both}
+.levelup .seal svg{width:100%;height:100%;fill:var(--gold);filter:drop-shadow(0 0 24px color-mix(in srgb,var(--gold) 70%,transparent))}
+.levelup .lv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--naskh);font-weight:700;font-size:52px;color:var(--gold-ink)}
+.levelup .ar{font-family:var(--kufi);font-size:34px;color:var(--gold-2);margin:14px 0 0}
+.levelup .en{color:#e8e1cf;margin:0}
+.levelup .btn{max-width:260px}
+@keyframes stamp{0%{transform:scale(2.4) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header class="hdr">
-  <div class="hdr-inner">
-    <div class="seal">
-      <div class="seal-en">Al-Mustanir<small id="termline">Ahmed 2.0, Term I</small></div>
-      <div class="seal-ar" aria-hidden="true">المُستنير</div>
-    </div>
-    <div class="term" aria-hidden="true"><span id="termbar"></span></div>
-    <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-tab="today" aria-selected="true">Today</button>
-      <button class="tab" role="tab" data-tab="revision" aria-selected="false">Revision</button>
-      <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings</button>
-    </nav>
+<header class="top">
+  <div class="top-in">
+    <div class="dates"><span id="hijri" lang="ar" dir="rtl"></span><span id="greg"></span></div>
+    <div class="termrow"><span id="termline"></span><div class="termtrack" aria-hidden="true"><span id="termbar"></span></div></div>
   </div>
 </header>
 <main id="main"></main>
-
-<script>
-(function(){
-"use strict";
-const DEFAULTS={termStart:"2026-11-01",sessionsPerWeek:4,pagesPerDay:20,bedtime:"21:00",wake:"05:00",windowHours:8,sleepTarget:7,deficitMin:500,threshold:70,book:"",revNotes:{},readingTime:"05:30",trainingTime:"18:00",trainingDays:"SAT,MON,WED,THU",checkinTime:"20:30",nudge:false};
-const PRAYERS=[["fajr","Fajr"],["dhuhr","Dhuhr"],["asr","Asr"],["maghrib","Maghrib"],["isha","Isha"]];
-const MIN=[
- {key:"body",name:"Ministry of Body",agenda:"Training and diet"},
- {key:"faith",name:"Ministry of Faith",agenda:"The five prayers",immune:true},
- {key:"knowledge",name:"Ministry of Knowledge",agenda:"Daily reading"},
- {key:"purity",name:"Ministry of Purity",agenda:"No porn, keep the schedule"},
- {key:"habits",name:"Ministry of Habits",agenda:"Sleep and routines"}
-];
-const S={settings:{...DEFAULTS},days:{},tab:"today",selected:null,period:null,db:null,base:null,mode:"local",dirty:new Set(),timers:{}};
-const main=document.getElementById("main");
-
-/* ---------- dates ---------- */
-const pad=n=>String(n).padStart(2,"0");
-const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
-const parse=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c)};
-const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
-const addMonths=(s,n)=>{const d=parse(s);d.setMonth(d.getMonth()+n);return ymd(d)};
-const diff=(a,b)=>Math.round((parse(b)-parse(a))/86400000);
-const today=()=>ymd(new Date());
-const fmt=(s,o)=>parse(s).toLocaleDateString("en-GB",o||{weekday:"long",day:"numeric",month:"long"});
-S.selected=today();
-
-function syncBed(){const m=String(S.settings.wake||"05:00").match(/^(\d{1,2}):(\d{2})$/);if(!m)return;let t=(Number(m[1])*60+Number(m[2])-Math.round(Number(S.settings.windowHours||8)*60))%1440;if(t<0)t+=1440;S.settings.bedtime=pad(Math.floor(t/60))+":"+pad(t%60)}
-function termEnd(){return addMonths(S.settings.termStart,3)} // exclusive
-function termDay(s){return diff(S.settings.termStart,s)+1}
-function periods(){const st=S.settings.termStart;return [0,1,2].map(i=>({i,start:addMonths(st,i),end:addMonths(st,i+1),label:"Month "+(i+1)}))}
-function intervalFor(s){const w=Math.floor(Math.max(0,diff(S.settings.termStart,s))/7)+1;return w<=3?3:w<=6?7:w<=9?14:30}
-
-/* ---------- storage: Supabase (REST, no SDK so the app works offline) ---------- */
-const SB_URL="https://qanzhisoxueaizscdial.supabase.co";
-const SB_KEY="sb_publishable_L6srdujqlW0FgMinucAqaw_qMOEMhqJ"; // publishable: safe in the page, row-level security protects the data
-const HEALTH_URL=SB_URL+"/functions/v1/health";
-const LS={get(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
-let SESSION=LS.get("a2-session",null);
-const OUTBOX=LS.get("a2-outbox",{});
-const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"");
-function setStatus(t){const el=document.getElementById("status");if(el)el.textContent=t}
-
-async function authCall(path,body){
-  const res=await fetch(SB_URL+"/auth/v1/"+path,{method:"POST",headers:{apikey:SB_KEY,"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const out=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(out.msg||out.error_description||out.message||"Sign-in failed");
-  return out;
-}
-function keepSession(out){
-  SESSION={access_token:out.access_token,refresh_token:out.refresh_token,expires_at:Date.now()+(out.expires_in||3600)*1000,email:out.user&&out.user.email};
-  LS.set("a2-session",SESSION);
-}
-async function token(){
-  if(!SESSION)throw new Error("Signed out");
-  if(Date.now()>SESSION.expires_at-60000){
-    try{keepSession(await authCall("token?grant_type=refresh_token",{refresh_token:SESSION.refresh_token}))}
-    catch(e){if(navigator.onLine!==false){SESSION=null;LS.del("a2-session");S.mode="signin";render()}throw e}
-  }
-  return SESSION.access_token;
-}
-async function rest(path,opts={}){
-  const res=await fetch(SB_URL+"/rest/v1/"+path,{...opts,headers:{apikey:SB_KEY,Authorization:"Bearer "+await token(),"Content-Type":"application/json",...(opts.headers||{})}});
-  if(!res.ok){const t=await res.text();throw new Error(t||("HTTP "+res.status))}
-  return res.status===204?null:res.json().catch(()=>null);
-}
-const upsert=(table,conflict,row)=>rest(table+"?on_conflict="+conflict,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(row)});
-
-function scoresFor(date){const d=S.days[date]||{},ds=day(date);return {faith:ds.faith,knowledge:ds.knowledge,habits:ds.habits,withinSchedule:d.mast?!violation(date):null}}
-async function pushDay(date,entry){await upsert("days","user_id,date",{date,data:entry.d,scores:entry.scores})}
-async function flushOutbox(){
-  const dates=Object.keys(OUTBOX);if(!dates.length||!SESSION)return;
-  for(const date of dates){
-    try{await pushDay(date,OUTBOX[date]);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX)}
-    catch(e){setStatus("Saved on this phone, will sync when you’re back online");return}
-  }
-  setStatus("Synced");
-}
-function saveDay(date){
-  S.dirty.add(date);setStatus("Saving…");
-  LS.set("a2-cache",{settings:S.settings,days:S.days});
-  clearTimeout(S.timers[date]);
-  S.timers[date]=setTimeout(async()=>{
-    const entry={d:S.days[date]||{},scores:scoresFor(date)};
-    OUTBOX[date]=entry;LS.set("a2-outbox",OUTBOX);
-    try{await pushDay(date,entry);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX);setStatus("Saved")}
-    catch(e){setStatus(navigator.onLine===false?"Saved on this phone, will sync when you’re back online":"Saved on this phone, will retry")}
-    finally{S.dirty.delete(date)}
-  },700);
-}
-let settingsTimer;
-function saveSettings(){LS.set("a2-cache",{settings:S.settings,days:S.days});clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{upsert("settings","user_id",{data:{...S.settings,appUrl:APP_URL}}).catch(()=>setStatus("Settings saved on this phone, will retry"))},400)}
-function applyData(settings,days){
-  S.settings={...DEFAULTS,...(settings||{})};syncBed();
-  const next={...(days||{})};
-  Object.keys(OUTBOX).forEach(k=>{next[k]=OUTBOX[k].d});
-  S.dirty.forEach(k=>{if(S.days[k])next[k]=S.days[k]});
-  S.days=next;
-}
-async function load(){
-  if(!SESSION){S.mode="signin";render();return}
-  try{
-    await flushOutbox();
-    const [st,rows]=await Promise.all([rest("settings?select=data"),rest("days?select=date,data&order=date")]);
-    const days={};(rows||[]).forEach(r=>{days[r.date]=r.data||{}});
-    applyData(st&&st[0]?st[0].data:{},days);S.mode="cloud";S.loaded=true;
-    LS.set("a2-cache",{settings:S.settings,days:S.days});render();
-  }catch(e){if(S.mode!=="signin"){S.mode="error";S.err=e.message;render()}}
-}
-async function newShortcutKey(){
-  const raw=crypto.getRandomValues(new Uint8Array(24));
-  const key="mk_"+[...raw].map(b=>b.toString(16).padStart(2,"0")).join("");
-  const hash=[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(key)))].map(b=>b.toString(16).padStart(2,"0")).join("");
-  await rest("ingest_tokens",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({token_hash:hash})});
-  return key;
-}
-const cached=LS.get("a2-cache",null);
-if(cached){applyData(cached.settings,cached.days);S.loaded=true}
-
-function renderSignIn(){
-  const msg=t=>{const el=document.getElementById("authmsg");if(el)el.textContent=t};
-  const val=id=>document.getElementById(id).value.trim();
-  const go=async create=>{
-    const email=val("a-email"),password=document.getElementById("a-pass").value;
-    if(!email||password.length<8){msg("Enter your email and a password of at least 8 characters.");return}
-    msg(create?"Creating your account…":"Signing in…");
-    try{
-      if(create){
-        const out=await authCall("signup",{email,password,options:{emailRedirectTo:APP_URL}});
-        if(!out.access_token){msg("Check your email and tap the confirmation link, then come back here and sign in.");return}
-        keepSession(out);
-      }else keepSession(await authCall("token?grant_type=password",{email,password}));
-      S.loaded=false;msg("");await load();saveSettings();
-    }catch(e){msg(e.message)}
-  };
-  return [h("div",{class:"pres"},
-    h("h3",{style:"font-family:var(--serif);font-size:24px;margin:0 0 4px"},"Sign in to Al-Mustanir"),
-    h("p",{class:"hint",style:"margin:0 0 12px"},"One account keeps your record synced between your phone, laptop and Apple Health."),
-    h("div",{class:"row"},h("div",{class:"lbl"},"Email"),h("input",{id:"a-email",class:"txt",type:"email",autocomplete:"username",inputmode:"email",value:LS.get("a2-email","")})),
-    h("div",{class:"row"},h("div",{class:"lbl"},"Password"),h("input",{id:"a-pass",class:"txt",type:"password",autocomplete:"current-password"})),
-    h("button",{class:"btn",style:"margin-top:8px",onclick:()=>{LS.set("a2-email",val("a-email"));go(false)}},"Sign in"),
-    h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>{LS.set("a2-email",val("a-email"));go(true)}},"First time? Create account"),
-    h("p",{class:"hint",id:"authmsg"}))];
-}
-
-/* ---------- scoring ---------- */
-const TRAINED=["gym","tennis","walk"];
-function lastMastBefore(s){let best=null;for(const k in S.days){if(k<s&&S.days[k].mast&&(!best||k>best))best=k}return best}
-function violation(s){const d=S.days[s];if(!d||!d.mast)return false;const last=lastMastBefore(s);return !!last&&diff(last,s)<intervalFor(s)}
-function day(s){
-  const d=S.days[s];
-  if(!d)return {logged:false,faith:0,knowledge:0,diet:0,trained:0,porn:0,plan:0,habits:0};
-  const pr=d.prayers||{};
-  const faith=PRAYERS.reduce((a,[k])=>a+(pr[k]==="on"?1:pr[k]==="late"?.5:0),0)/5;
-  const slept=(d.sleepH||0)>=S.settings.sleepTarget;
-  const habits=(!!d.bed+2*!!d.wake+2*slept+!!d.hair+!!d.skinAm+!!d.skinPm+!!d.teethAm+!!d.teethPm+!!d.watch)/11;
-  return {logged:true,faith,knowledge:(d.pages||0)>=S.settings.pagesPerDay?1:0,diet:d.diet===true?1:0,trained:TRAINED.includes(d.train)?1:0,porn:d.pornFree===true?1:0,plan:violation(s)?0:1,habits};
-}
-function range(a,b){const out=[];for(let s=a;s<b;s=addDays(s,1))out.push(s);return out}
-function score(dates){
-  const n=dates.length;if(!n)return null;
-  const ds=dates.map(day);const sum=f=>ds.reduce((a,x)=>a+x[f],0);
-  const sessions=sum("trained"),planned=S.settings.sessionsPerWeek*n/7;
-  const training=Math.min(1,planned?sessions/planned:1),diet=sum("diet")/n;
-  const porn=sum("porn")/n,plan=ds.reduce((a,x)=>a+(x.logged?x.plan:0),0)/n;
-  const defs=dates.map(k=>(S.days[k]||{}).deficit).filter(v=>v>0);
-  const walk=dates.reduce((a,k)=>a+((S.days[k]||{}).walkMin||0),0);
-  const r={n,sessions,planned,training,diet,porn,plan,walk,avgDeficit:defs.length?Math.round(defs.reduce((a,b)=>a+b,0)/defs.length):null,logged:ds.filter(x=>x.logged).length,
-    body:(training+diet)/2,faith:sum("faith")/n,knowledge:sum("knowledge")/n,purity:(porn+plan)/2,habits:sum("habits")/n};
-  r.overall=(r.body+r.faith+r.knowledge+r.purity+r.habits)/5;return r;
-}
-const pct=x=>x==null?"—":Math.round(x*100)+"%";
-
-/* ---------- ui helpers ---------- */
-function h(tag,attrs,...kids){const el=document.createElement(tag);if(attrs)for(const k in attrs){const v=attrs[k];if(k==="class")el.className=v;else if(k.startsWith("on"))el.addEventListener(k.slice(2),v);else if(v===true)el.setAttribute(k,"");else if(v!==false&&v!=null)el.setAttribute(k,v)}kids.flat().forEach(c=>{if(c==null||c===false)return;el.append(c.nodeType?c:document.createTextNode(String(c)))});return el}
-function rec(){return S.days[S.selected]||(S.days[S.selected]={})}
-function set(k,v){rec()[k]=v;saveDay(S.selected);render()}
-function chip(label,on,fn,cls){return h("button",{class:"chip"+(cls?" "+cls:""),"aria-pressed":on?"true":"false",onclick:fn},label)}
-function yesNo(k,yes,no){const v=rec()[k];return [chip(yes,v===true,()=>set(k,v===true?null:true)),chip(no,v===false,()=>set(k,v===false?null:false),"no")]}
-function toggle(k,label){const v=!!rec()[k];return chip(label,v,()=>set(k,!v))}
-function stepper(k,step){
-  const v=rec()[k]||0;
-  const inp=h("input",{type:"number",inputmode:"numeric",min:"0",value:String(v),"aria-label":k,onchange:e=>{set(k,Math.max(0,parseInt(e.target.value,10)||0))}});
-  return h("div",{class:"stepper"},h("button",{"aria-label":"Less",onclick:()=>set(k,Math.max(0,v-step))},"−"),inp,h("button",{"aria-label":"More",onclick:()=>set(k,v+step)},"+"));
-}
-function numIn(k,step,ph,after){
-  const v=rec()[k];
-  return h("input",{class:"txt",type:"number",inputmode:"decimal",step,min:"0",value:v!=null?String(v):"",placeholder:ph,style:"max-width:140px","aria-label":k,onchange:e=>{const n=parseFloat(e.target.value);const val=isNaN(n)?null:n;rec()[k]=val;if(after)after(val);saveDay(S.selected);render()}});
-}
-function ministry(title,score,...rows){return h("section",{class:"min"},h("div",{class:"min-h"},h("h2",null,title),h("div",{class:"sc"},score)),...rows)}
-function row(label,...kids){return h("div",{class:"row"},label?h("div",{class:"lbl"},label):null,...kids)}
-
-/* ---------- header ---------- */
-function header(){
-  const st=S.settings.termStart,t=today(),total=diff(st,termEnd());
-  const dn=termDay(t);
-  let line;
-  if(dn<1)line="Ahmed 2.0, term I begins "+fmt(st,{day:"numeric",month:"long"});
-  else if(dn>total)line="Ahmed 2.0, term I complete";
-  else line="Ahmed 2.0, term I, day "+dn+" of "+total;
-  document.getElementById("termline").textContent=line;
-  document.getElementById("termbar").style.width=Math.max(0,Math.min(100,(dn-1)/total*100))+"%";
-  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===S.tab?"true":"false"));
-}
-
-/* ---------- today ---------- */
-function renderToday(){
-  const s=S.selected,r=rec(),dn=termDay(s),ds=day(s);
-  const kids=[];
-  const standalone=window.navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
-  if(!standalone&&!LS.get("a2-hide-install",false))kids.push(h("div",{class:"banner"},
-    "Install Al-Mustanir: tap the Share button in Safari, then Add to Home Screen. ",
-    h("button",{class:"chip",style:"min-height:32px;padding:4px 12px;margin-top:6px",onclick:()=>{LS.set("a2-hide-install",true);render()}},"Hide")));
-  if(S.mode==="error")kids.push(h("div",{class:"banner"},"Offline right now. Keep logging; it syncs when you’re back."));
-  else if(!S.loaded)kids.push(h("div",{class:"banner"},"Loading from your sheet…"));
-  kids.push(h("div",{class:"datebar"},
-    h("button",{"aria-label":"Previous day",onclick:()=>{S.selected=addDays(s,-1);render()}},"‹"),
-    h("div",{class:"d"},h("strong",null,fmt(s)),h("span",null,dn<1?"Rehearsal day, before the term":dn>diff(S.settings.termStart,termEnd())?"After term I":"Term day "+dn+", week "+(Math.floor((dn-1)/7)+1))),
-    h("button",{"aria-label":"Next day",disabled:s>=today(),onclick:()=>{if(s<today()){S.selected=addDays(s,1);render()}}},"›")));
-  kids.push(h("div",{class:"status",id:"status"}));
-
-  // body
-  const wkStart=dn>=1?addDays(S.settings.termStart,Math.floor((dn-1)/7)*7):addDays(s,-6);
-  const wkSessions=range(wkStart,addDays(s,1)).filter(k=>TRAINED.includes((S.days[k]||{}).train)).length;
-  kids.push(ministry("Ministry of Body",wkSessions+" of "+S.settings.sessionsPerWeek+" sessions this week",
-    row("Training today",...[["gym","Gym"],["tennis","Tennis"],["walk","Walking pad"],["rest","Rest"]].map(([k,l])=>chip(l,r.train===k,()=>set("train",r.train===k?null:k)))),
-    row("Walking pad (minutes)",stepper("walkMin",10)),
-    row("Calorie deficit today (kcal)",numIn("deficit","50","e.g. 600",v=>{if(v!=null)rec().diet=v>=S.settings.deficitMin})),
-    row("Stayed in my calorie deficit",...yesNo("diet","Yes","No")),
-    h("p",{class:"hint"},"Target "+S.settings.deficitMin+" kcal or more. Apple Health fills this in the next morning if your food is logged; you can also enter it yourself."+(r.dietaryKcal?" Burned "+((r.activeKcal||0)+(r.basalKcal||0))+", ate "+r.dietaryKcal+" kcal.":"")),
-    row("Weight (kg), optional, weekly is enough",h("input",{class:"txt",type:"number",inputmode:"decimal",step:"0.1",value:r.weight!=null?String(r.weight):"",placeholder:"e.g. 89.4",style:"max-width:140px",onchange:e=>{const v=parseFloat(e.target.value);set("weight",isNaN(v)?null:v)}}))));
-
-  // faith
-  const pr=r.prayers||{};
-  const cyc=k=>{const cur=pr[k];const nx=cur==null?"on":cur==="on"?"late":null;const p={...pr};if(nx)p[k]=nx;else delete p[k];set("prayers",p)};
-  kids.push(ministry("Ministry of Faith",Math.round(ds.faith*5*10)/10+" of 5",
-    row(null,...PRAYERS.map(([k,l])=>chip(pr[k]==="late"?l+" (qada)":l,!!pr[k],()=>cyc(k),pr[k]==="late"?"half":""))),
-    h("p",{class:"hint"},"Tap once for on time, twice for made up, a third time to clear. Combined prayers while travelling count as on time.")));
-
-  // knowledge
-  kids.push(ministry("Ministry of Knowledge",(r.pages||0)+" of "+S.settings.pagesPerDay+" pages",
-    row("Pages read"+(S.settings.book?" in "+S.settings.book:""),stepper("pages",5)),
-    row("Margin learning (minutes, not scored)",stepper("margin",15))));
-
-  // purity
-  const last=lastMastBefore(s),iv=intervalFor(s);
-  let allow;
-  if(!last)allow="Allowed today. Current spacing: every "+iv+" days.";
-  else{const next=addDays(last,iv);allow=next<=s?"Allowed today. Current spacing: every "+iv+" days.":"Next allowed "+fmt(next,{weekday:"short",day:"numeric",month:"short"})+". Current spacing: every "+iv+" days."}
-  const viol=violation(s);
-  kids.push(ministry("Ministry of Purity",r.pornFree===true?(viol?"Outside schedule":"Clean"):r.pornFree===false?"Slip logged":"Not confirmed",
-    row("No porn today",...yesNo("pornFree","Confirmed","Slipped")),
-    row("Masturbation today",chip("No",r.mast===false,()=>set("mast",r.mast===false?null:false)),chip("Yes",r.mast===true,()=>set("mast",r.mast===true?null:true),viol?"no":"")),
-    h("div",{class:"allow"},viol?"This was inside the spacing window. Log the trigger below and carry on.":allow),
-    (r.pornFree===false||viol)?row("What triggered it? Time, mood, place",h("input",{class:"txt",type:"text",value:r.note||"",placeholder:"e.g. 1am, bored, phone in bed",onchange:e=>set("note",e.target.value.trim())})):null));
-
-  // habits
-  kids.push(ministry("Ministry of Habits",pct(ds.habits),
-    row("Sleep window "+S.settings.bedtime+" to "+S.settings.wake+" ("+S.settings.windowHours+" hours), aim for "+S.settings.sleepTarget+" hours asleep",toggle("bed","In bed by "+S.settings.bedtime),toggle("wake","Up for Fajr by "+S.settings.wake)),
-    row("Hours slept"+(r.sleepStart?", from Apple Health":", filled by Apple Health each morning"),numIn("sleepH","0.25","e.g. 7.2"),h("span",{class:"hint",style:"margin:0"},(r.sleepH||0)>=S.settings.sleepTarget?"Target met":"Target "+S.settings.sleepTarget+" hours")),
-    row("Morning",toggle("hair","Hair"),toggle("skinAm","Skin"),toggle("teethAm","Teeth")),
-    row("Night",toggle("skinPm","Skin"),toggle("teethPm","Teeth")),
-    row("Tracking",toggle("watch","Watch worn and charged"))));
-
-  // feedback
-  const note=(k,label,ph)=>row(label,h("textarea",{class:"txt",placeholder:ph,oninput:e=>{rec()[k]=e.target.value;saveDay(S.selected)}},r[k]||""));
-  kids.push(h("section",{class:"min"},h("div",{class:"min-h"},h("h2",null,"Feedback"),h("div",{class:"sc"},"Not scored")),
-    note("good","What went well today?","e.g. Prayed Fajr on time, hit 30 pages"),
-    note("fix","What got in the way, and what changes tomorrow?","e.g. Slept late after a call, phone stays outside the bedroom")));
-  return kids;
-}
-
-/* ---------- revision ---------- */
-function verdict(x,immune){
-  const t=S.settings.threshold/100;
-  if(x==null)return ["",""];
-  if(immune)return [x>=t?"ok":"warn",x>=t?"Strong. Not impeachable":"Below the line. Not impeachable, but needs attention"];
-  if(x>=t+.15)return ["ok","On track"];
-  if(x>=t)return ["warn","Holding, close to the line"];
-  return ["bad","Impeachment risk"];
-}
-function renderRevision(){
-  const t=today(),ps=periods();
-  if(S.period==null){const cur=ps.find(p=>t>=p.start&&t<p.end);S.period=cur?cur.i:(t<ps[0].start?0:2)}
-  const p=ps[S.period];
-  const endCount=t<p.end?addDays(t,1):p.end;
-  const dates=p.start<endCount?range(p.start,endCount):[];
-  const r=score(dates);
-  const kids=[h("div",{class:"period-chips"},...ps.map(x=>chip(x.label+", "+fmt(x.start,{month:"short"}),x.i===S.period,()=>{S.period=x.i;render()})))];
-  const revDate=fmt(p.end,{day:"numeric",month:"long"});
-  if(!r){
-    kids.push(h("div",{class:"pres"},h("div",{class:"big"},"—"),h("p",null,t<p.start?"This month starts "+fmt(p.start,{day:"numeric",month:"long"})+". Its revision is on "+revDate+".":"No days counted yet.")));
-  }else{
-    const left=diff(t,p.end);
-    kids.push(h("div",{class:"pres"},
-      h("div",{class:"big"},pct(r.overall)),
-      h("p",null,"Overall adherence over "+r.n+" day"+(r.n>1?"s":"")+", "+r.logged+" logged. "+(left>0?"Revision on "+revDate+", in "+left+" day"+(left>1?"s":"")+".":"Revision was due "+revDate+"."))));
-    const det={
-      body:"Training "+pct(r.training)+" ("+r.sessions+" of "+Math.round(r.planned*10)/10+" planned sessions). Diet "+pct(r.diet)+" of days."+(r.avgDeficit?" Average deficit "+r.avgDeficit+" kcal on logged days.":"")+(r.walk?" Walking pad "+r.walk+" minutes.":""),
-      faith:"Average share of the five prayers kept, qada counted as half.",
-      knowledge:"Days at "+S.settings.pagesPerDay+" pages or more.",
-      purity:"Porn-free "+pct(r.porn)+". Within schedule "+pct(r.plan)+".",
-      habits:"Sleep counts most: "+S.settings.sleepTarget+" hours, in bed on time, up for Fajr. Routines and watch once each."
-    };
-    const box=h("div",{class:"pres"});
-    MIN.forEach(m=>{
-      const x=r[m.key],[cls,txt]=verdict(x,m.immune);
-      const col=cls==="ok"?"var(--ok)":cls==="warn"?"var(--warn)":"var(--bad)";
-      box.append(h("div",{class:"mrow"},
-        h("div",{class:"mrow-h"},h("h3",null,m.name),h("div",{class:"pct "+cls},pct(x))),
-        h("div",{class:"bar"},h("span",{style:"width:"+Math.round(x*100)+"%;background:"+col}),h("i",{style:"left:"+S.settings.threshold+"%"})),
-        h("div",{class:"verdict "+cls},txt),
-        h("div",{class:"detail"},det[m.key])));
-    });
-    kids.push(box);
-  }
-  // lagging indicator and streaks
-  const ws=Object.keys(S.days).filter(k=>k>=S.settings.termStart&&S.days[k].weight!=null).sort();
-  const lag=h("div",{class:"pres"});
-  if(ws.length){
-    const a=S.days[ws[0]].weight,b=S.days[ws[ws.length-1]].weight,dlt=Math.round((b-a)*10)/10;
-    lag.append(h("div",{class:"kv"},h("span",null,"Starting weight"),h("span",null,a+" kg")),h("div",{class:"kv"},h("span",null,"Latest weight"),h("span",null,b+" kg")),h("div",{class:"kv"},h("span",null,"Change, the result not the metric"),h("span",null,(dlt>0?"+":"")+dlt+" kg")));
-  }else lag.append(h("div",{class:"kv"},h("span",null,"Weight"),h("span",null,"Log a weight in Today")));
-  const streak=f=>{let n=0;let s=t;if(!S.days[s])s=addDays(s,-1);while(S.days[s]&&f(S.days[s],s)){n++;s=addDays(s,-1)}return n};
-  lag.append(h("div",{class:"kv"},h("span",null,"Porn-free streak"),h("span",null,streak(d=>d.pornFree===true)+" days")),
-    h("div",{class:"kv"},h("span",null,"All five prayers streak"),h("span",null,streak((d,s)=>day(s).faith===1)+" days")),
-    h("div",{class:"kv"},h("span",null,"Reading streak"),h("span",null,streak(d=>(d.pages||0)>=S.settings.pagesPerDay)+" days")));
-  kids.push(lag);
-  const notes=S.settings.revNotes||{};
-  kids.push(h("div",{class:"pres"},
-    h("h3",{style:"font-family:var(--serif);font-size:20px;margin:0 0 4px"},"Al-Mustanir’s notes, "+p.label.toLowerCase()),
-    h("p",{class:"hint",style:"margin:0 0 8px"},"Your verdict at the revision: who keeps their seat, who is replaced, and the new strategy."),
-    h("textarea",{class:"txt",style:"min-height:120px",placeholder:"e.g. Body holds. Knowledge impeached: reading moves to right after Fajr.",oninput:e=>{S.settings.revNotes={...(S.settings.revNotes||{}),[p.i]:e.target.value};clearTimeout(S.timers.rev);S.timers.rev=setTimeout(saveSettings,600)}},notes[p.i]||"")));
-  if(S.sheetUrl)kids.push(h("a",{class:"btn",href:S.sheetUrl,target:"_blank",rel:"noopener",style:"display:block;text-align:center;text-decoration:none"},"Open the Google Sheet"));
-  return kids;
-}
-/* ---------- settings ---------- */
-function renderSettings(){
-  const f=(label,k,type,attrs)=>h("div",{class:"field"},h("label",{for:"f-"+k},label),h("input",Object.assign({id:"f-"+k,type,value:String(S.settings[k]??""),onchange:e=>{let v=e.target.value;if(type==="number")v=Math.max(0,parseFloat(v)||0);S.settings[k]=v;if(k==="wake"||k==="windowHours")syncBed();S.period=null;saveSettings();render()}},attrs||{})));
-  const h3=t=>h("h3",{style:"font-family:var(--serif);font-size:20px;margin:0 0 4px"},t);
-  const keyMsg=t=>{const el=document.getElementById("keymsg");if(el)el.textContent=t};
-  const makeKey=async()=>{
-    keyMsg("Creating…");
-    try{
-      const key=await newShortcutKey();
-      const box=document.getElementById("keybox");box.hidden=false;box.value=key;box.select();
-      keyMsg("Copy this key into your Shortcut now. It’s shown only once.");
-    }catch(e){keyMsg("Couldn’t create a key: "+e.message)}
-  };
-  return [
-    h("div",{class:"pres"},
-      h3("Account"),
-      h("div",{class:"field"},h("label",null,"Signed in as"),h("strong",null,(SESSION&&SESSION.email)||"")),
-      h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>{SESSION=null;LS.del("a2-session");LS.del("a2-cache");S.days={};S.mode="signin";S.tab="today";render()}},"Sign out")),
-    h("div",{class:"pres"},
-      h3("Apple Health"),
-      h("p",{class:"hint",style:"margin:0 0 8px"},"Your Shortcut sends Health data here with a key. Create one, then paste it into the Shortcut."),
-      h("div",{class:"field"},h("label",null,"Address"),h("input",{class:"txt",readonly:true,value:HEALTH_URL,style:"max-width:60%",onclick:e=>e.target.select()})),
-      h("textarea",{id:"keybox",class:"txt",readonly:true,hidden:true,style:"min-height:56px;font-family:ui-monospace,monospace;font-size:13px"}),
-      h("button",{class:"btn",style:"margin-top:8px",onclick:makeKey},"Create Shortcut key"),
-      h("p",{class:"hint",id:"keymsg"})),
-    h("div",{class:"pres"},
-      h3("Targets"),
-      f("Term start","termStart","date"),
-      f("Training sessions per week","sessionsPerWeek","number",{min:"1",max:"14"}),
-      f("Minimum calorie deficit (kcal)","deficitMin","number",{min:"0",step:"50"}),
-      f("Daily reading minimum (pages)","pagesPerDay","number",{min:"1"}),
-      f("Sleep target (hours)","sleepTarget","number",{min:"1",max:"12",step:"0.5"}),
-      f("Wake for Fajr","wake","time"),
-      f("Sleep window (hours)","windowHours","number",{min:"6",max:"10",step:"0.5"}),
-      h("div",{class:"field"},h("label",null,"Bedtime, set by the window"),h("strong",null,S.settings.bedtime)),
-      f("Impeachment line (%)","threshold","number",{min:"0",max:"100"}),
-      f("Current book","book","text",{placeholder:"Book title"})),
-    h("p",{class:"hint"},"Your record is stored in your private Supabase database and synced across your devices.")];
-}
-
-/* ---------- render ---------- */
-function render(){
-  header();
-  const kids=S.mode==="signin"&&!SESSION?renderSignIn():S.tab==="today"?renderToday():S.tab==="revision"?renderRevision():renderSettings();
-  main.replaceChildren(...kids);
-}
-document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{S.tab=b.dataset.tab;render();window.scrollTo(0,0)}));
-syncBed();render();load();
-window.addEventListener("online",()=>{flushOutbox().then(load)});
-if("serviceWorker" in navigator)window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!S.dirty.size)load()});
-})();
-</script>
+<nav class="nav" aria-label="Palace rooms">
+  <div class="nav-in">
+    <button data-tab="palace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V11c0-3 3.5-6 8-8 4.5 2 8 5 8 8v10zM9 21v-5a3 3 0 0 1 6 0v5"/></svg><span class="ar" lang="ar">القصر</span><small>Palace</small></button>
+    <button data-tab="decrees"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h3"/></svg><span class="ar" lang="ar">المراسيم</span><small>Decrees</small></button>
+    <button data-tab="records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg><span class="ar" lang="ar">السجلات</span><small>Records</small></button>
+    <button data-tab="council"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 3.8 4.3-.9-.9 4.3L21 12l-3.4 1.8.9 4.3-4.3-.9L12 21l-2.2-3.8-4.3.9.9-4.3L3 12l3.4-1.8-.9-4.3 4.3.9z"/></svg><span class="ar" lang="ar">المجلس</span><small>Council</small></button>
+    <button data-tab="diwan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6"/></svg><span class="ar" lang="ar">الديوان</span><small>Diwan</small></button>
+  </div>
+</nav>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
