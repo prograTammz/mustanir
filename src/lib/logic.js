@@ -74,10 +74,21 @@ export function syncBed() {
   if (t < 0) t += 1440;
   S.settings.bedtime = pad(Math.floor(t / 60)) + ":" + pad(t % 60);
 }
-export const termEnd = () => addMonths(S.settings.termStart, 3); // exclusive
-export const termLength = () => diff(S.settings.termStart, termEnd());
-export const termDay = (s) => diff(S.settings.termStart, s) + 1;
-export const periods = () => [0, 1, 2].map((i) => ({ i, start: addMonths(S.settings.termStart, i), end: addMonths(S.settings.termStart, i + 1), label: "Month " + (i + 1) }));
+// Terms run back to back, three months each, from the first term's start (settings.termStart).
+export const TERMS = [
+  { n: "I", name: "The cut", ar: "الحسم", focus: "Lose fat fast while keeping muscle: the strong plan." },
+  { n: "II", name: "The second cut", ar: "الاستمرار", focus: "Keep cutting at a slightly smaller deficit. Ramadan falls here: protect protein and sleep." },
+  { n: "III", name: "Summer · hold the line", ar: "الثبات", focus: "Maintenance with slow progress. Heat, travel and interruptions: keep the floor, never miss twice." },
+  { n: "IV", name: "Summer’s end · slow progress", ar: "التقدم الهادئ", focus: "August holds, September and October push again gently. Build the habit that outlasts the plan." },
+];
+export const termIndex = (s = today()) => Math.max(0, Math.floor(monthsBetween(S.settings.termStart, s) / 3));
+function monthsBetween(a, b) { const A = parse(a), B = parse(b); let m = (B.getFullYear() - A.getFullYear()) * 12 + B.getMonth() - A.getMonth(); if (B.getDate() < A.getDate()) m--; return m; }
+export const termStartFor = (s = today()) => addMonths(S.settings.termStart, termIndex(s) * 3);
+export const termInfo = (s = today()) => ({ i: termIndex(s), ...(TERMS[termIndex(s)] || { n: String(termIndex(s) + 1), name: "Term", ar: "", focus: "" }), start: termStartFor(s), end: addMonths(termStartFor(s), 3) });
+export const termEnd = (s = today()) => addMonths(termStartFor(s), 3); // exclusive
+export const termLength = (s = today()) => diff(termStartFor(s), termEnd(s));
+export const termDay = (s) => diff(termStartFor(s), s) + 1;
+export const periods = (s = today()) => { const st = termStartFor(s); return [0, 1, 2].map((i) => ({ i, start: addMonths(st, i), end: addMonths(st, i + 1), label: "Month " + (i + 1) })); };
 export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.settings.termStart, s)) / 7) + 1; return w <= 3 ? 3 : w <= 6 ? 7 : w <= 9 ? 14 : 30; }
 
 /* ---------- training slots and the watch ---------- */
@@ -124,7 +135,9 @@ export function matchSlot(date, slot, nowMin = null) {
   const frac = manual === "done" ? 1 : manual === "skipped" ? 0 : Math.min(1, done / planned);
   return { slot, planned, done, kcal, source, status, frac };
 }
-export const matchDay = (date) => slotsOn(date).map((x) => matchSlot(date, x));
+// An away day (travel, illness, a family day) pauses the schedule: slots aren't judged, the floor goals apply.
+export const matchDay = (date) => ((S.days[date] || {}).away ? [] : slotsOn(date).map((x) => matchSlot(date, x)));
+export function awayRun(s) { let n = 0; for (let k = s; (S.days[k] || {}).away; k = addDays(k, -1)) n++; return n; }
 
 /* ---------- productivity checklist ---------- */
 export function checklistFor(date) {
@@ -144,7 +157,7 @@ export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.watch || d.good || d.fix || d.margin > 0 ||
-    (d.checks && Object.values(d.checks).some(Boolean)) || (d.slotMarks && Object.keys(d.slotMarks).length) ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || d.away || (d.slotMarks && Object.keys(d.slotMarks).length) ||
     (d.train && !String(d.source || "").startsWith("Apple Health")) || d.diet != null && d.deficit == null);
 }
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
@@ -245,8 +258,9 @@ export const VITALS = [
   { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
   { k: "daylightMin", en: "Daylight", ar: "شمس", unit: "min", fmt: (v) => Math.round(v) },
 ];
+export const FLOOR = { steps: 6000, exerciseMin: 20, standHours: 8, sleepH: 6.5, daylightMin: 10 }; // the away-day minimum
 export function vitalityFor(s) {
-  const d = S.days[s] || {}, goals = { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
+  const d = S.days[s] || {}, goals = d.away ? FLOOR : { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
   const items = VITALS.map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
   const seen = items.some((i) => i.val != null);
   const hits = items.filter((i) => i.hit).length;
@@ -392,15 +406,27 @@ export const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
 export const AYAH = { ar: "إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا۟ مَا بِأَنفُسِهِمْ", en: "Allah does not change the condition of a people until they change what is within themselves.", ref: "Ar-Ra'd 13:11" };
 
 /* ---------- the body plan: aim for strong, accept likely ----------
-   [3 months, 6 months] checkpoints set on 18 Oct 2026 from the data at the time. */
+   Checkpoints at the end of each term, set on 18 Oct 2026 from the data at the time.
+   Terms III and IV fall in summer: maintenance with slow progress, built to survive heat, travel and interruptions. */
 export const BODY_PLAN = {
-  start: "2026-11-01", mid: "2027-02-01", end: "2027-05-01",
+  checkpoints: ["2027-02-01", "2027-05-01", "2027-08-01", "2027-11-01"],
   rows: [
-    { k: "weight", en: "Weight", unit: "kg", now: 92.2, likely: [84.5, 79], strong: [82, 76.5], down: true },
-    { k: "bodyFat", en: "Body fat", unit: "%", now: 27, likely: [21.5, 17.5], strong: [19, 15], down: true },
-    { k: "vo2max", en: "VO₂ max", unit: "", now: 42, likely: [46.5, 50.5], strong: [49, 53], down: false },
-    { k: "restingHR", en: "Resting heart rate", unit: "bpm", now: 61, likely: [57, 56], strong: [56, 53], down: true },
-    { k: "bioAge", en: "Biological age", unit: "y", now: 31.2, likely: [27.2, 25.9], strong: [25.1, 23.9], down: true },
+    { k: "weight", en: "Weight", unit: "kg", now: 92.2, likely: [84.5, 79, 78.5, 76], strong: [82, 76.5, 75.5, 73], down: true },
+    { k: "bodyFat", en: "Body fat", unit: "%", now: 27, likely: [21.5, 17.5, 17, 16], strong: [19, 15, 14.5, 13], down: true },
+    { k: "vo2max", en: "VO₂ max", unit: "", now: 42, likely: [46.5, 50.5, 51, 52], strong: [49, 53, 54, 55], down: false },
+    { k: "restingHR", en: "Resting heart rate", unit: "bpm", now: 61, likely: [57, 56, 56, 55], strong: [56, 53, 53, 52], down: true },
+    { k: "bioAge", en: "Biological age", unit: "y", now: 31.2, likely: [27.2, 25.9, 25.6, 25], strong: [25.1, 23.9, 23.6, 23.3], down: true },
   ],
-  settings: { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, standHours: 10, sleepH: 7, daylightMin: 20 } },
+  // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
+  terms: [
+    { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, standHours: 10, sleepH: 7, daylightMin: 20 },
+      rules: ["750 kcal deficit, 160 g protein", "4 strength sessions a week on top of tennis", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
+    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, standHours: 10, sleepH: 7, daylightMin: 20 },
+      rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
+    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, standHours: 9, sleepH: 7, daylightMin: 10 },
+      rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 strength sessions minimum, indoors with AC", "Tennis early morning, walking pad at home in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
+    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, standHours: 10, sleepH: 7, daylightMin: 20 },
+      rules: ["August: maintenance and routine rebuild after summer", "September–October: 400 kcal deficit, 4 sessions", "1–2 interval sessions a week to push VO₂ max past 52", "Plan the next year at the November council"] },
+  ],
 };
+export function planTargets(i = termIndex()) { return BODY_PLAN.terms[Math.min(i, BODY_PLAN.terms.length - 1)]; }
