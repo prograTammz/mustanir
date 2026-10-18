@@ -116,11 +116,17 @@ export function createGate(container, { dark = true, lines } = {}) {
   for (let i = 0; i < 9; i++) { const m = add(new THREE.Mesh(merlonGeo, stoneMat)); m.position.set(-FW / 2 + 0.29 + i * ((FW - 0.58) / 8), FH + 0.14, FD / 2 - 0.15); gate.add(m); }
 
   // Warm light inside, seen through the doors as they open.
-  const glowTex = (() => { const c = document.createElement("canvas"); c.width = 64; c.height = 256; const g = c.getContext("2d"); const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, "#fff3d0"); gr.addColorStop(0.6, "#f2c46d"); gr.addColorStop(1, "#b9822f"); g.fillStyle = gr; g.fillRect(0, 0, 64, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const glowTex = (() => {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 512; const g = c.getContext("2d");
+    g.fillStyle = "#6b4216"; g.fillRect(0, 0, 256, 512);
+    const gr = g.createRadialGradient(128, 470, 10, 128, 380, 420); gr.addColorStop(0, "#fff6dc"); gr.addColorStop(0.25, "#f6d48a"); gr.addColorStop(0.6, "#c98a35"); gr.addColorStop(1, "rgba(107,66,22,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 512);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
   const inner = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(archPoints(W, Hs, R))), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0 }));
   inner.geometry.computeBoundingBox(); { const uv = inner.geometry.attributes.uv, p = inner.geometry.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + W / 2) / W, p.getY(i) / apex); }
   inner.scale.set(1.5, 1.3, 1); inner.position.set(0, -0.1, -1.6); gate.add(inner);
-  const spill = new THREE.PointLight(0xffc874, 0, 9, 1.6); spill.position.set(0, 1.4, -0.6); gate.add(spill);
+  const spill = new THREE.PointLight(0xffc874, 0, 6, 2); spill.position.set(0, 1.1, -1.1); gate.add(spill);
 
   // The two door leaves, hinged at the jambs, studded and starred.
   const half = archPoints(W, Hs, R).filter((p) => p.x <= 0.0001);
@@ -178,7 +184,7 @@ export function createGate(container, { dark = true, lines } = {}) {
 
   const setDoors = (v) => {
     for (const h of leaves) h.rotation.y = h.userData.side < 0 ? v * OPEN : -v * OPEN;
-    inner.material.opacity = Math.min(1, v * 1.6); spill.intensity = v * 18;
+    inner.material.opacity = Math.min(1, v * 1.6); spill.intensity = v * 7;
   };
   setDoors(reduced ? 1 : 0);
 
