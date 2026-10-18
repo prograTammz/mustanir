@@ -20,7 +20,7 @@ export function standing() {
 }
 
 // The gate: the verse inscribed over the palace entrance, its doors opening as you arrive.
-const AYAH_LINES = ["إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ", "حَتَّىٰ يُغَيِّرُوا۟ مَا بِأَنفُسِهِمْ"];
+const AYAH_LINES = ["إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ", "حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ"];
 let gate3d = null, gateHost = null, gateTried = false;
 function Gate() {
   const ref = useRef(null), dark = isDark();

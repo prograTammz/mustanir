@@ -66,7 +66,7 @@ export function createGate(container, { dark = true, lines } = {}) {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
 
-  const key = new THREE.DirectionalLight(0xfff0d8, 2.2); key.position.set(4, 7, 8); key.castShadow = true;
+  const key = new THREE.DirectionalLight(0xfff0d8, 2.2); key.position.set(1.5, 9, 10); key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 5; key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   Object.assign(key.shadow.camera, { left: -5, right: 5, top: 8, bottom: -2, near: 1, far: 30 }); scene.add(key);
   const fill = new THREE.DirectionalLight(0x9ec3ff, 0.5); fill.position.set(-6, 3, 4); scene.add(fill);
@@ -168,12 +168,13 @@ export function createGate(container, { dark = true, lines } = {}) {
     camera.fov = THREE.MathUtils.radToDeg(Math.max(fovH, fovW)); camera.updateProjectionMatrix();
   };
 
-  let open = 0, target = reduced ? 1 : 0, opening = !reduced;
+  let open = reduced ? 1 : 0, target = open, anim = null;
+  const go = (to, delay = 0) => { anim = { from: open, to, t0: performance.now() + delay, dur: 2400 * Math.max(0.35, Math.abs(to - open)) }; target = to; };
   const OPEN = 1.05; // radians at full open
   const el = renderer.domElement;
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; moved = 0; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.5, Math.min(0.5, targetAz - dx * 0.004)); wake(); });
-  el.addEventListener("pointerup", () => { dragging = false; if (moved < 6) { target = target > 0.5 ? 0 : 1; wake(); } });
+  el.addEventListener("pointerup", () => { dragging = false; if (moved < 6) { go(target > 0.5 ? 0 : 1); wake(); } });
 
   const setDoors = (v) => {
     for (const h of leaves) h.rotation.y = h.userData.side < 0 ? v * OPEN : -v * OPEN;
@@ -181,16 +182,19 @@ export function createGate(container, { dark = true, lines } = {}) {
   };
   setDoors(reduced ? 1 : 0);
 
-  let running = false, raf = 0, visible = true, idleSince = 0;
+  let running = false, raf = 0, visible = true;
   const clock = new THREE.Clock();
-  const t0 = performance.now();
+  if (!reduced) go(1, 700);
   function frame() {
-    const time = clock.getElapsedTime();
-    if (opening && performance.now() - t0 > 700) { target = 1; opening = false; }
-    if (Math.abs(target - open) > 0.001) { open += (target - open) * 0.035; setDoors(open); idleSince = time; }
-    if (!reduced && !dragging) targetAz += (Math.sin(time * 0.15) * 0.12 - targetAz) * 0.004;
+        if (anim) {
+      const k = Math.min(1, Math.max(0, (performance.now() - anim.t0) / anim.dur)), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      open = anim.from + (anim.to - anim.from) * e; setDoors(open); if (k >= 1) anim = null;
+    }
+    if (!dragging) targetAz *= 0.97; // drift back to face the gate
     az += (targetAz - az) * 0.08; placeCamera();
     renderer.render(scene, camera);
+    const idle = !anim && !dragging && Math.abs(az) < 0.0005 && Math.abs(targetAz) < 0.0005;
+    if (idle) running = false; // a still gate costs nothing
     if (running) raf = requestAnimationFrame(frame);
   }
   function wake() { if (!running) start(); }
