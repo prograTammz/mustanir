@@ -107,7 +107,7 @@ export function createPalace(container, { onPick, dark = true } = {}) {
   const picks = [];
 
   // The president: the star hovering over a low gold seat at the centre of the floor.
-  const pres = new THREE.Group(); pres.position.set(0, 0.28, 0.55); pres.userData = { key: "president" };
+  const pres = new THREE.Group(); pres.position.set(0, 0.28, 0.95); pres.userData = { key: "president" };
   const seatP = [[0, 0], [0.5, 0], [0.53, 0.04], [0.52, 0.09], [0.46, 0.12], [0, 0.12]].map(([x, y]) => new THREE.Vector2(x, y));
   const seat = new THREE.Mesh(new THREE.LatheGeometry(seatP, 96), goldMat); seat.castShadow = true; seat.receiveShadow = true; pres.add(seat);
   const star = new THREE.Mesh(rubElHizb(0.4), goldMat); star.castShadow = true; star.position.y = 0.78; pres.add(star);
@@ -153,7 +153,7 @@ export function createPalace(container, { onPick, dark = true } = {}) {
 
   // Camera: a slow drift; drag to look around.
   let az = 0, targetAz = 0, dragging = false, lastX = 0, moved = 0;
-  const placeCamera = () => { const r = 9.4; camera.position.set(Math.sin(az) * r, 3.4, Math.cos(az) * r); camera.lookAt(0, 1.05, -0.4); };
+  const placeCamera = () => { const r = 8.7; camera.position.set(Math.sin(az) * r, 3.3, Math.cos(az) * r); camera.lookAt(0, 0.8, -0.5); };
   const el = renderer.domElement;
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; moved = 0; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.8, Math.min(0.8, targetAz - dx * 0.006)); if (!running) frame(); });
