@@ -19,6 +19,35 @@ export function standing() {
   return { out, r, period };
 }
 
+// The gate: the verse inscribed over the palace entrance, its doors opening as you arrive.
+const AYAH_LINES = ["إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ", "حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ"];
+let gate3d = null, gateHost = null, gateTried = false;
+function Gate() {
+  const ref = useRef(null), dark = isDark();
+  useEffect(() => {
+    if (!gateHost) { gateHost = document.createElement("div"); gateHost.className = "absolute inset-0"; }
+    ref.current.append(gateHost);
+    if (!gateTried) {
+      gateTried = true;
+      import("@/lib/gate3d.js").then(({ createGate }) => { gate3d = createGate(gateHost, { dark: isDark(), lines: AYAH_LINES }); bump(); }).catch(() => {});
+    }
+    return () => { gateHost.remove(); };
+  }, []);
+  useEffect(() => { gate3d?.setTheme(dark); }, [dark]);
+  return (
+    <figure className="-mx-1 overflow-hidden rounded-[32px] border border-border/60"
+      style={{ background: dark
+        ? "radial-gradient(110% 80% at 50% 30%, #1f3546 0%, #0f1c26 55%, #09121a 100%)"
+        : "radial-gradient(110% 80% at 50% 30%, #ffffff 0%, #f6efe3 55%, #eadfcc 100%)" }}>
+      <div ref={ref} role="img" aria-label={`The palace gate, inscribed: ${AYAH.ar}. Tap to open or close the doors.`}
+        className="relative h-[clamp(340px,96vw,470px)] [&_canvas]:absolute [&_canvas]:inset-0 [&_canvas]:size-full [&_canvas]:touch-pan-y">
+        {!gate3d && <div lang="ar" dir="rtl" className="absolute inset-0 grid place-items-center px-6 text-center font-[family-name:var(--font-quran)] text-[24px] leading-loose text-gold">{AYAH.ar}</div>}
+      </div>
+      <figcaption className="px-6 pb-5 text-center text-[14px] leading-relaxed text-muted-foreground">{AYAH.en} <cite className="not-italic text-gold">· {AYAH.ref}</cite></figcaption>
+    </figure>
+  );
+}
+
 let palace3d = null, host = null, tried = false;
 function Stage({ out }) {
   const ref = useRef(null);
@@ -59,6 +88,7 @@ export default function Palace() {
   const ms = medals(), won = ms.filter((m) => m.won).length;
   return (
     <>
+      <Gate />
       <Stage out={out} />
 
       <Card className="overflow-hidden pt-0">
@@ -124,10 +154,6 @@ export default function Palace() {
         </div>
       </Section>
 
-      <figure className="px-4 py-6 text-center">
-        <blockquote lang="ar" dir="rtl" className="font-[family-name:var(--font-quran)] text-[22px] leading-loose text-gold">{AYAH.ar}</blockquote>
-        <figcaption className="mt-2 text-sm text-muted-foreground">{AYAH.en} <cite className="not-italic">· {AYAH.ref}</cite></figcaption>
-      </figure>
       <Hint className="text-center">Tap the president or any minister to open their file.</Hint>
     </>
   );
