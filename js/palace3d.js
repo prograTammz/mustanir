@@ -76,7 +76,7 @@ export function createPalace(container, { onPick } = {}) {
   scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x1a120a, 0.9));
   const key = new THREE.DirectionalLight(0xffe2b0, 1.6); key.position.set(3, 6, 5); scene.add(key);
   const rim = new THREE.DirectionalLight(0x6fa8ff, 0.8); rim.position.set(-4, 3, -4); scene.add(rim);
-  const glow = new THREE.PointLight(GOLD, 6, 6, 1.6); glow.position.set(0, 2.8, -0.9); scene.add(glow);
+  const glow = new THREE.PointLight(GOLD, 6, 6, 1.6); glow.position.set(0, 3.2, -1.0); scene.add(glow);
 
   // floor: dark disc, gold rings
   const floor = new THREE.Mesh(new THREE.CircleGeometry(5, 48), std(0x0c1b25, { roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
@@ -88,9 +88,9 @@ export function createPalace(container, { onPick } = {}) {
 
   // the star
   const star = new THREE.Mesh(rubElHizb(0.62), std(GOLD, { metalness: 0.85, roughness: 0.25, emissive: 0x6a4a10, emissiveIntensity: 0.4 }));
-  star.position.set(0, 2.95, -1.25); scene.add(star);
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.5, 8), std(0x173a4d)); ped.position.set(0, 0.25, -1.25); scene.add(ped);
-  const pedRim = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.025, 6, 32), std(GOLD, { metalness: 0.8, roughness: 0.3 })); pedRim.position.set(0, 0.5, -1.25); pedRim.rotation.x = Math.PI / 2; scene.add(pedRim);
+  star.position.set(0, 3.45, -1.45); scene.add(star);
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.72, 0.95, 8), std(0x173a4d)); ped.position.set(0, 0.475, -1.25); scene.add(ped);
+  const pedRim = new THREE.Mesh(new THREE.TorusGeometry(0.51, 0.025, 6, 32), std(GOLD, { metalness: 0.8, roughness: 0.3 })); pedRim.position.set(0, 0.95, -1.25); pedRim.rotation.x = Math.PI / 2; scene.add(pedRim);
 
   // sky dust
   const n = 400, pos = new Float32Array(n * 3);
@@ -108,7 +108,7 @@ export function createPalace(container, { onPick } = {}) {
     const a = (-0.62 + (i / (order.length - 1)) * 1.24) * Math.PI * 0.62; // arc behind the president
     const c = COLORS[k];
     const f = figure({ robe: c, trim: GOLD, turban: k === "purity" ? 0xf2eef9 : new THREE.Color(c).multiplyScalar(0.6).getHex() });
-    const raised = k === "faith" ? 0.5 : 0;
+    const raised = k === "faith" ? 0.95 : 0;
     f.position.set(Math.sin(a) * 2.3, raised, k === "faith" ? -1.25 : -Math.cos(a) * 1.3 + 0.2); f.lookAt(0, raised, 3.5);
     const em = emblem(k, c); em.position.y = 1.95; f.add(em);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 32), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
@@ -119,7 +119,7 @@ export function createPalace(container, { onPick } = {}) {
 
   // camera: slow sway, drag to look around
   let az = 0, targetAz = 0, dragging = false, lastX = 0, moved = 0;
-  const placeCamera = () => { const r = 7.2; camera.position.set(Math.sin(az) * r, 2.6, Math.cos(az) * r); camera.lookAt(0, 1.15, 0); };
+  const placeCamera = () => { const r = 7.6; camera.position.set(Math.sin(az) * r, 2.9, Math.cos(az) * r); camera.lookAt(0, 1.55, 0); };
   const el = renderer.domElement;
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; moved = 0; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.9, Math.min(0.9, targetAz - dx * 0.006)); });
@@ -141,7 +141,7 @@ export function createPalace(container, { onPick } = {}) {
     const time = clock.getElapsedTime();
     if (!reduced) {
       if (!dragging) targetAz += (Math.sin(time * 0.12) * 0.25 - targetAz) * 0.002;
-      star.rotation.y = time * 0.5; star.position.y = 2.95 + Math.sin(time * 1.1) * 0.06;
+      star.rotation.y = time * 0.5; star.position.y = 3.45 + Math.sin(time * 1.1) * 0.06;
       dust.rotation.y = time * 0.01;
       for (const f of picks) {
         const u = f.userData, bob = Math.sin(time * 1.6 + u.phase) * 0.02;
