@@ -87,7 +87,7 @@ export function createPalace(container, { onPick, dark = true } = {}) {
   shadowCatcher.rotation.x = -Math.PI / 2; shadowCatcher.position.y = -0.001; shadowCatcher.receiveShadow = true; scene.add(shadowCatcher);
 
   // A slender arch drawn as a single gold line behind the council.
-  const archCurve = new THREE.CurvePath(), w = 2.6, h = 3.3;
+  const archCurve = new THREE.CurvePath(), w = 2.7, h = 2.7;
   archCurve.add(new THREE.LineCurve3(new THREE.Vector3(-w, 0, 0), new THREE.Vector3(-w, h, 0)));
   archCurve.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-w, h, 0), new THREE.Vector3(-w, h + 1.6, 0), new THREE.Vector3(0, h + 2.3, 0)));
   archCurve.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, h + 2.3, 0), new THREE.Vector3(w, h + 1.6, 0), new THREE.Vector3(w, h, 0)));
@@ -106,19 +106,22 @@ export function createPalace(container, { onPick, dark = true } = {}) {
 
   const picks = [];
 
-  // The president: a turned gold column, the star turning above it.
-  const pres = new THREE.Group(); pres.position.set(0, 0.28, 0.75); pres.userData = { key: "president" };
-  const colP = [[0, 0], [0.42, 0], [0.44, 0.05], [0.42, 0.1], [0.3, 0.16], [0.24, 0.5], [0.21, 1.25], [0.27, 1.32], [0.29, 1.38], [0.25, 1.42], [0, 1.42]].map(([x, y]) => new THREE.Vector2(x, y));
-  const column = new THREE.Mesh(new THREE.LatheGeometry(colP, 96), goldMat); column.castShadow = true; pres.add(column);
-  const star = new THREE.Mesh(rubElHizb(0.42), goldMat); star.castShadow = true; star.position.y = 2.0; pres.add(star);
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.008, 8, 128), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.5 })); halo.position.y = 2.0; pres.add(halo);
+  // The president: the star hovering over a low gold seat at the centre of the floor.
+  const pres = new THREE.Group(); pres.position.set(0, 0.28, 0.55); pres.userData = { key: "president" };
+  const seatP = [[0, 0], [0.5, 0], [0.53, 0.04], [0.52, 0.09], [0.46, 0.12], [0, 0.12]].map(([x, y]) => new THREE.Vector2(x, y));
+  const seat = new THREE.Mesh(new THREE.LatheGeometry(seatP, 96), goldMat); seat.castShadow = true; seat.receiveShadow = true; pres.add(seat);
+  const star = new THREE.Mesh(rubElHizb(0.4), goldMat); star.castShadow = true; star.position.y = 0.78; pres.add(star);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.008, 8, 128), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.55 })); halo.position.y = 0.78; pres.add(halo);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.7, 64, 1, true), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false }));
+  beam.position.y = 0.47; pres.add(beam);
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.3, 12), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.65; pres.add(hit);
   scene.add(pres); picks.push(pres);
 
   // The cabinet: ceramic pillars in an arc behind the president.
   const ministers = {};
   ORDER.forEach((k, i) => {
-    const a = (-1 + (i / (ORDER.length - 1)) * 2) * 1.05;
-    const g = new THREE.Group(); g.position.set(Math.sin(a) * 1.85, 0.28, -Math.cos(a) * 1.3 + 0.05);
+    const a = (-1 + (i / (ORDER.length - 1)) * 2) * 1.15;
+    const g = new THREE.Group(); g.position.set(Math.sin(a) * 2.0, 0.28, -Math.cos(a) * 1.55 - 0.1);
     const mat = new THREE.MeshPhysicalMaterial({ color: COLORS[k], roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.25, sheen: 0.4, sheenColor: new THREE.Color(0xffffff) });
     const pillar = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1, 12, 48), mat); pillar.castShadow = true; g.add(pillar);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.06, 64), goldMat); base.position.y = 0.03; base.castShadow = true; base.receiveShadow = true; g.add(base);
@@ -126,7 +129,7 @@ export function createPalace(container, { onPick, dark = true } = {}) {
     track.rotation.x = -Math.PI / 2; track.position.y = 0.012; g.add(track);
     const ringMat = new THREE.MeshBasicMaterial({ color: COLORS[k], transparent: true, opacity: 0.95 });
     const ring = new THREE.Mesh(arcGeo(0.5), ringMat); ring.rotation.x = -Math.PI / 2; ring.rotation.z = Math.PI / 2; ring.position.y = 0.014; g.add(ring);
-    const em = emblem(k, goldMat); g.add(em);
+    const em = emblem(k, goldMat); em.scale.setScalar(1.45); g.add(em);
     g.userData = { key: k, pillar, ring, ringMat, mat, em, phase: i * 1.2, h: 1.0, target: 1.0, status: "ok", frac: 0.5 };
     scene.add(g); picks.push(g); ministers[k] = g;
   });
@@ -150,7 +153,7 @@ export function createPalace(container, { onPick, dark = true } = {}) {
 
   // Camera: a slow drift; drag to look around.
   let az = 0, targetAz = 0, dragging = false, lastX = 0, moved = 0;
-  const placeCamera = () => { const r = 10.2; camera.position.set(Math.sin(az) * r, 3.6, Math.cos(az) * r); camera.lookAt(0, 1.45, -0.2); };
+  const placeCamera = () => { const r = 9.4; camera.position.set(Math.sin(az) * r, 3.4, Math.cos(az) * r); camera.lookAt(0, 1.05, -0.4); };
   const el = renderer.domElement;
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; moved = 0; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.8, Math.min(0.8, targetAz - dx * 0.006)); if (!running) frame(); });
@@ -177,13 +180,13 @@ export function createPalace(container, { onPick, dark = true } = {}) {
       const u = ministers[k].userData;
       if (Math.abs(u.target - u.h) > 0.002) setHeight(u, still ? u.target : u.h + (u.target - u.h) * 0.08);
       const top = 0.06 + u.h;
-      u.em.position.y = top + 0.32 + (still ? 0 : Math.sin(time * 1.4 + u.phase) * 0.04);
+      u.em.position.y = top + 0.38 + (still ? 0 : Math.sin(time * 1.4 + u.phase) * 0.04);
       if (!still) u.em.rotation.y = time * 0.8 + u.phase;
       const pulse = u.status === "bad" ? 0.55 + 0.45 * Math.sin(time * 4) : 1;
       u.ringMat.opacity = 0.95 * pulse;
     }
     if (!still) {
-      star.rotation.y = time * 0.45; star.position.y = 2.0 + Math.sin(time * 0.9) * 0.05;
+      star.rotation.y = time * 0.45; star.position.y = 0.78 + Math.sin(time * 0.9) * 0.05; beam.material.opacity = 0.06 + 0.03 * Math.sin(time * 1.3);
       halo.rotation.x = Math.PI / 2 + Math.sin(time * 0.5) * 0.15; halo.rotation.y = time * 0.2;
       dust.rotation.y = time * 0.02; dust.position.y = Math.sin(time * 0.3) * 0.08;
       if (!dragging) targetAz += (Math.sin(time * 0.1) * 0.22 - targetAz) * 0.003;
