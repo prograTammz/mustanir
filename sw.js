@@ -1,6 +1,6 @@
 // Al-Mustanir service worker: keeps the palace available offline.
 // Your data never passes through the cache; Supabase requests always go to the network.
-const CACHE = 'mustanir-v4';
+const CACHE = 'mustanir-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './js/app.js', './js/logic.js', './js/store.js', './js/charts.js', './js/fx.js', './js/palace3d.js',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 // Third-party files the app needs offline: the 3D library and the fonts.
@@ -22,7 +22,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     // newest version when online, cached copy when offline
-    e.respondWith(fetch(req).then(res => {
+    // no-cache: always revalidate with the server, so a new deploy shows up on the next open
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req.mode === 'navigate' ? './index.html' : req, copy)); }
       return res;
     }).catch(() => caches.match(req.mode === 'navigate' ? './index.html' : req)));
