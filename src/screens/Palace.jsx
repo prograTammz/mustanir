@@ -47,7 +47,7 @@ function Stage({ out }) {
           ))}
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] font-medium tracking-wide text-muted-foreground/80">Pillars rise with approval · drag to turn</div>
+      <div className="pointer-events-none absolute inset-x-0 top-3.5 text-center text-[11px] font-medium tracking-wide text-muted-foreground/80">Pillars rise with approval · drag to turn</div>
     </div>
   );
 }
