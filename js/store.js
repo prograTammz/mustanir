@@ -1,5 +1,5 @@
 // Supabase over plain REST (no SDK), with an on-device copy and an outbox so logging works offline.
-import { S, DEFAULTS, syncBed, day, violation } from "./logic.js";
+import { S, DEFAULTS, syncBed, day, violation, BODY_PLAN } from "./logic.js";
 
 export const SB_URL = "https://qanzhisoxueaizscdial.supabase.co";
 const SB_KEY = "sb_publishable_L6srdujqlW0FgMinucAqaw_qMOEMhqJ"; // publishable: safe in the page; row-level security protects the data
@@ -104,6 +104,8 @@ export async function load() {
     const [st, rows] = await Promise.all([rest("settings?select=data"), all("days?select=date,data&order=date")]);
     const days = {}; rows.forEach((r) => { days[r.date] = r.data || {}; });
     applyData(st && st[0] ? st[0].data : {}, days); S.mode = "cloud"; S.loaded = true;
+    // One-time: adopt the strong body plan's targets (aim strong, accept likely).
+    if (!S.settings.bodyPlan) { Object.assign(S.settings, BODY_PLAN.settings, { bodyPlan: "strong-2026-10" }); saveSettings(); }
     LS.set("a2-cache", { settings: S.settings, days: S.days }); onChange();
   } catch (e) { if (S.mode !== "signin") { S.mode = "error"; S.err = e.message; onChange(); } }
 }

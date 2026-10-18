@@ -434,6 +434,12 @@ details.more[open] summary::after{transform:rotate(90deg)}
 .tiles.five .tile span{font-size:11px}
 .tile.ok strong{color:var(--ok)}
 @media (max-width:420px){.tiles.five{grid-template-columns:repeat(3,1fr)}}
+.plan{display:flex;flex-direction:column}
+.plan-r{display:grid;grid-template-columns:1.8fr .8fr .8fr .8fr;gap:8px;align-items:baseline;padding:9px 0;border-top:.5px solid var(--sep);font-size:15px}
+.plan-r.head{border-top:0;font-size:12px;color:var(--muted);padding-bottom:2px}
+.plan-r>span:not(:first-child),.plan-r>strong{text-align:right;font-family:var(--rounded)}
+.plan-r small{display:block;font-size:11px;color:var(--muted)}
+.plan-r.likely strong{color:var(--warn)} .plan-r.strong strong{color:var(--ok)}
 </style>
 </head>
 <body>

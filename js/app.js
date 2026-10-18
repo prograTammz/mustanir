@@ -4,7 +4,7 @@ import {
   periods, intervalFor, TRAINED, manual, lastMastBefore, violation, day, dayMinisters, score, verdict, currentApproval,
   dayXP, totals, rankFor, streak, bestStreak, T, medals, pct,
   SPORTS, DOW, hmMin, minHM, slotName, slotsOn, matchDay, checklistFor, hasSchedule, MAX_DAY_XP,
-  VITALS, vitalityFor, VITALITY_XP, bioAge, ageOn, bioInputs, DEFAULTS,
+  VITALS, vitalityFor, VITALITY_XP, bioAge, ageOn, bioInputs, DEFAULTS, BODY_PLAN, lastWithin, windowAvg,
 } from "./logic.js";
 import { SESSION, LS, HEALTH_URL, setRenderer, setStatus, saveDay, saveSettings, load, flushOutbox, loadHealth, newShortcutKey, signIn, signUp, signOut,
   pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews, loadMeals, addMeal, deleteMeal, PALACE_URL,
@@ -508,12 +508,38 @@ function renderHealth() {
     summaryLoading = true;
     loadHealthSummary().then(() => { summaryLoading = false; if (S.tab === "records") render(); }).catch(() => { summaryLoading = false; summaryFailedAt = Date.now(); if (S.tab === "records") render(); });
   }
+  kids.push(planCard());
   kids.push(bioCard());
   kids.push(vitalityHistoryCard());
   kids.push(explorerCard());
   return kids;
 }
 
+
+function planCard() {
+  const H = S.health?.byMetric || {}, t = today(), P = BODY_PLAN;
+  const age = ageOn(S.settings.birthDate, t);
+  const cur = {
+    weight: lastWithin(H.weight, t, 30), bodyFat: lastWithin(H.bodyFat, t, 120), vo2max: lastWithin(H.vo2max, t, 120),
+    restingHR: windowAvg(H.restingHR, addDays(t, -13), t),
+    bioAge: age != null && S.health ? bioAge(age, bioInputs(H, t), S.settings.sex)?.bio : null,
+  };
+  const phase = t < P.mid ? 0 : 1;
+  const label = phase ? "6 months · 1 May" : "3 months · 1 Feb";
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "The body plan"), ar("خطة الجسد")),
+    h("p", { class: "hint" }, `Aim for strong, accept likely. Checkpoint: ${label}.`),
+    h("div", { class: "plan" },
+      h("div", { class: "plan-r head" }, h("span"), h("span", null, "Now"), h("span", null, "Likely"), h("span", null, "Strong")),
+      ...P.rows.map((r) => {
+        const v = cur[r.k], lk = r.likely[phase], st = r.strong[phase];
+        const hit = v == null ? "" : (r.down ? v <= st : v >= st) ? "strong" : (r.down ? v <= lk : v >= lk) ? "likely" : "";
+        const f = (x) => (x == null ? "—" : (Math.round(x * 10) / 10).toString());
+        return h("div", { class: "plan-r " + hit },
+          h("span", null, r.en, h("small", null, ` from ${f(r.now)}${r.unit ? " " + r.unit : ""}`)),
+          h("strong", null, f(v)), h("span", null, f(lk)), h("span", null, f(st)));
+      })),
+    h("p", { class: "hint" }, `Targets set: ${S.settings.deficitMin} kcal deficit, ${S.settings.proteinTarget || 160} g protein, ${S.settings.sessionsPerWeek} strength sessions a week, ${(S.settings.vitality || {}).steps?.toLocaleString("en")} steps, 7 h sleep.`));
+}
 function bioCard() {
   const H = S.health?.byMetric;
   const card = (...k) => h("section", { class: "card bio" }, h("div", { class: "card-h" }, h("h2", null, "Biological age"), ar("العمر البيولوجي")), ...k);

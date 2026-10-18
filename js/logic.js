@@ -8,6 +8,7 @@ export const DEFAULTS = {
   // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
   birthDate: "", sex: "male",
   vitality: { steps: 8000, exerciseMin: 30, standHours: 10, sleepH: 7, daylightMin: 20 },
+  proteinTarget: 160,
   // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
   training: [
     { id: "tennis-mw", sport: "tennis", days: ["MON", "WED"], start: "19:00", end: "21:00" },
@@ -389,3 +390,17 @@ export const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
 
 // One verse for the palace: the term's whole idea, change begins within.
 export const AYAH = { ar: "إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا۟ مَا بِأَنفُسِهِمْ", en: "Allah does not change the condition of a people until they change what is within themselves.", ref: "Ar-Ra'd 13:11" };
+
+/* ---------- the body plan: aim for strong, accept likely ----------
+   [3 months, 6 months] checkpoints set on 18 Oct 2026 from the data at the time. */
+export const BODY_PLAN = {
+  start: "2026-11-01", mid: "2027-02-01", end: "2027-05-01",
+  rows: [
+    { k: "weight", en: "Weight", unit: "kg", now: 92.2, likely: [84.5, 79], strong: [82, 76.5], down: true },
+    { k: "bodyFat", en: "Body fat", unit: "%", now: 27, likely: [21.5, 17.5], strong: [19, 15], down: true },
+    { k: "vo2max", en: "VO₂ max", unit: "", now: 42, likely: [46.5, 50.5], strong: [49, 53], down: false },
+    { k: "restingHR", en: "Resting heart rate", unit: "bpm", now: 61, likely: [57, 56], strong: [56, 53], down: true },
+    { k: "bioAge", en: "Biological age", unit: "y", now: 31.2, likely: [27.2, 25.9], strong: [25.1, 23.9], down: true },
+  ],
+  settings: { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, standHours: 10, sleepH: 7, daylightMin: 20 } },
+};
