@@ -281,12 +281,21 @@ export function bioAge(age, m, sex = "male") {
     const h = m.sleepH, y = h < 7 ? YRS(1.06) * (7 - h) : h > 9 ? YRS(1.13) * (h - 9) : 0;
     add("sleepH", "Sleep", "النوم", h, clamp(y, 0, 4), `${h.toFixed(1)} h a night · 7–9 h is the lowest-risk band`);
   }
-  if (m.bmi != null) {
+  // Body fat says more than BMI for someone who carries muscle; BMI only when there's no recent body-fat reading.
+  const fatTop = sex === "female" ? 30 : 20;
+  if (m.bodyFat != null) {
+    const bf = m.bodyFat, y = bf > fatTop ? YRS(1.12) * (bf - fatTop) / 5 : 0;
+    add("bodyFat", "Body fat", "الدهون", bf, clamp(y, 0, 6), `${bf.toFixed(0)}% · under ${fatTop}% is the healthy range; each 5 points above ≈ 12% higher risk`);
+  } else if (m.bmi != null) {
     const b = m.bmi, y = b > 25 ? YRS(1.31) * (b - 25) / 5 : b < 18.5 ? YRS(1.5) * (18.5 - b) / 2 : 0;
-    add("bmi", "Body mass index", "كتلة الجسم", b, clamp(y, 0, 10), `BMI ${b.toFixed(1)} · each 5 points above 25 ≈ 31% higher risk`);
+    add("bmi", "Body mass index", "كتلة الجسم", b, clamp(y, 0, 8), `BMI ${b.toFixed(1)} · each 5 points above 25 ≈ 31% higher risk (overstates for muscular builds)`);
   }
   if (m.hrv != null) { const hn = 70 - 0.7 * age; add("hrv", "Heart rate variability", "تقلب النبض", m.hrv, clamp(-0.08 * (m.hrv - hn), -2, 2), `${Math.round(m.hrv)} ms vs ~${Math.round(hn)} typical for your age`); }
-  if (m.walking_speed != null) add("walking_speed", "Walking speed", "سرعة المشي", m.walking_speed, clamp(-1.5 * (m.walking_speed - 4.6), -1.5, 2), `${m.walking_speed.toFixed(1)} km/h · brisk walkers live longer`);
+  if (m.walking_speed != null && age >= 50) add("walking_speed", "Walking speed", "سرعة المشي", m.walking_speed, clamp(-1.5 * (m.walking_speed - 4.6), -1.5, 2), `${m.walking_speed.toFixed(1)} km/h · brisk walkers live longer`);
+  // The measures overlap (fitness, weight and resting pulse travel together), so their single-factor effects
+  // can't simply be added: mutually adjusted studies find roughly 40% smaller effects. Scale the sum to match.
+  const OVERLAP = 0.6;
+  f.forEach((x) => { x.years = Math.round(x.years * OVERLAP * 10) / 10; });
   const delta = f.reduce((a, x) => a + x.years, 0);
   const fitnessAge = m.vo2max != null ? Math.max(18, 25 + (48 - (sex === "female" ? m.vo2max + 6.5 : m.vo2max)) / 0.49) : null;
   return { age, bio: age + delta, delta, factors: f.sort((a, b) => b.years - a.years), fitnessAge };
@@ -305,7 +314,10 @@ export function bioInputs(H, to, days = 60) {
   const from = addDays(to, -days + 1);
   return {
     vo2max: lastWithin(H.vo2max, to, 240), restingHR: windowAvg(H.restingHR, from, to), steps: windowAvg(H.steps, from, to),
-    sleepH: windowAvg(H.sleepH, from, to), bmi: lastWithin(H.bmi, to, 400), hrv: windowAvg(H.hrv, from, to), walking_speed: windowAvg(H.walking_speed, from, to),
+    sleepH: windowAvg(H.sleepH, from, to), hrv: windowAvg(H.hrv, from, to), walking_speed: windowAvg(H.walking_speed, from, to),
+    bodyFat: lastWithin(H.bodyFat, to, 180),
+    // BMI from the latest weight and height when they're fresher than the last BMI reading
+    bmi: (() => { const w = lastWithin(H.weight, to, 120), ht = lastWithin(H.height, to, 1500); return w && ht ? w / (ht * ht) : lastWithin(H.bmi, to, 400); })(),
   };
 }
 export const levelStart = (L) => 50 * L * (L - 1); // XP needed to reach level L

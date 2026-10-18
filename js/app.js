@@ -554,7 +554,7 @@ function bioCard() {
       bar(f.years), h("span", { class: "muted small" }, f.note))),
     h("div", { class: "legend" }, h("span", null, h("i", { class: "sw younger" }), "makes you younger"), h("span", null, h("i", { class: "sw older" }), "makes you older")),
     trend.length > 2 ? [h("div", { class: "subhead" }, "Years older than your age, month by month"), lineChart({ points: trend, unit: "y", digits: 1, color: "var(--m-purity)", goal: 0, smooth: 1 })] : null,
-    h("p", { class: "hint" }, "Estimate from your last 60 days: each measure's link to long-term health in large studies, converted to years. It shows direction, not a diagnosis."));
+    h("p", { class: "hint" }, "Estimate from your last 60 days: each measure's link to long-term health in large studies, converted to years and scaled down because the measures overlap. Apps like StressWatch weigh mainly heart-rate data, so numbers differ; watch the trend, not the digit."));
 }
 
 function vitalityHistoryCard() {
