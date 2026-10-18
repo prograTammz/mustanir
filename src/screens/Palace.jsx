@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { ChevronRight, Crown, Flame, ScrollText, CalendarCheck } from "lucide-react";
 import { S, MINISTERS, AYAH, today, dayMinisters, totals, rankFor, streak, T, medals, currentApproval, verdict } from "@/lib/logic.js";
-import { go, bump } from "@/lib/app-state.js";
+import { go, bump, isDark } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { AdvisorCard } from "@/components/advisor.jsx";
 import { Ar, Emblem, Section, pctTxt, Hint } from "@/components/kit";
@@ -27,15 +27,19 @@ function Stage({ out }) {
     ref.current.append(host);
     if (!tried) {
       tried = true;
-      import("@/lib/palace3d.js").then(({ createPalace }) => { palace3d = createPalace(host, { onPick: (k) => openSheet({ type: "minister", key: k }) }); palace3d?.update(standing().out); bump(); }).catch(() => {});
+      import("@/lib/palace3d.js").then(({ createPalace }) => { palace3d = createPalace(host, { dark: isDark(), onPick: (k) => openSheet({ type: "minister", key: k }) }); palace3d?.update(standing().out); bump(); }).catch(() => {});
     }
     return () => { host.remove(); };
   }, []);
+  const dark = isDark();
   useEffect(() => { palace3d?.update(out); });
+  useEffect(() => { palace3d?.setTheme(dark); }, [dark]);
   return (
-    <div ref={ref} aria-label="The palace: the president and five ministers. Tap one to open their file."
-      className="relative -mx-1 h-[clamp(290px,72vw,400px)] overflow-hidden rounded-t-[50%_26%] rounded-b-[28px] shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_0_0_0.5px_color-mix(in_oklch,var(--gold)_60%,transparent),0_30px_60px_-30px_rgb(0_0_0/0.6)] [&_canvas]:absolute [&_canvas]:inset-0 [&_canvas]:size-full [&_canvas]:touch-pan-y"
-      style={{ background: "radial-gradient(ellipse at 50% 30%, #1E4258 0%, #0E2230 55%, #08131B 100%)" }}>
+    <div ref={ref} aria-label="The council: the president and five ministers. Each pillar rises with its approval. Tap one to open their file."
+      className="relative -mx-1 h-[clamp(300px,82vw,440px)] overflow-hidden rounded-[32px] border border-border/60 [&_canvas]:absolute [&_canvas]:inset-0 [&_canvas]:size-full [&_canvas]:touch-pan-y"
+      style={{ background: dark
+        ? "radial-gradient(120% 90% at 50% 18%, #22384a 0%, #111e28 48%, #0a1219 100%)"
+        : "radial-gradient(120% 90% at 50% 18%, #ffffff 0%, #f6f0e6 50%, #e9dfcf 100%)" }}>
       {!palace3d && (
         <div className="absolute inset-x-0 bottom-[16%] flex flex-wrap justify-center gap-2.5 px-3">
           {["body", "knowledge", "president", "faith", "habits", "purity"].map((k) => (
@@ -43,6 +47,7 @@ function Stage({ out }) {
           ))}
         </div>
       )}
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] font-medium tracking-wide text-muted-foreground/80">Pillars rise with approval · drag to turn</div>
     </div>
   );
 }

@@ -1,128 +1,159 @@
-// The palace scene: the president and five ministers before an arch, around a turning Rub el Hizb.
-// Low-poly characters built from primitives; each minister's floor ring shows their standing.
+// The council chamber: a sculpture, not a game. The president is a gold piece crowned by the
+// Rub el Hizb; the five ministers are ceramic pillars whose height is their approval, each with a
+// gold emblem floating above and a ring at its foot that fills with its standing.
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-const COLORS = { body: 0xd9604a, knowledge: 0x4c8fd6, faith: 0x2e9e6b, habits: 0xbc8120, purity: 0xa57ad4 };
-const GOLD = 0xd8b25a, IVORY = 0xf1eadb, SKIN = 0xc99a73, NIGHT = 0x0e2230;
+const COLORS = { body: 0xd9604a, knowledge: 0x4c8fd6, faith: 0x2e9e6b, habits: 0xc4892a, purity: 0x9c74cf };
+const STATUS = { ok: null, warn: 0xe2a336, bad: 0xe0533d };
+const GOLD = 0xd9b45f;
+const ORDER = ["body", "knowledge", "faith", "habits", "purity"];
+const THEMES = {
+  light: { dais: 0xf4efe6, inlay: 0xe6dccb, line: 0xb8934a, lineOpacity: 0.55, shadow: 0.16, exposure: 1.0, key: 2.4, env: 0.9, dust: 0xb8934a },
+  dark: { dais: 0x1b2a35, inlay: 0x223441, line: GOLD, lineOpacity: 0.5, shadow: 0.45, exposure: 1.05, key: 2.2, env: 0.55, dust: 0xf3dfa8 },
+};
 
-function rubElHizb(r = 1, depth = 0.18) {
+function rubElHizb(r = 1, depth = 0.12) {
   const s = new THREE.Shape();
-  for (let i = 0; i < 16; i++) { const a = (i * Math.PI) / 8, rr = i % 2 ? r * 0.72 : r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); }
+  for (let i = 0; i < 16; i++) { const a = (i * Math.PI) / 8 + Math.PI / 16, rr = i % 2 ? r * 0.74 : r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); }
   s.closePath();
-  const hole = new THREE.Path(); hole.absarc(0, 0, r * 0.32, 0, Math.PI * 2, true); s.holes.push(hole);
-  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 24 });
+  const hole = new THREE.Path(); hole.absarc(0, 0, r * 0.34, 0, Math.PI * 2, true); s.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.035, bevelSegments: 4, curveSegments: 32 });
   g.center(); return g;
 }
-function arch(w = 3.2, h = 4.4, t = 0.35) {
-  const s = new THREE.Shape(), hw = w / 2;
-  s.moveTo(-hw - t, 0); s.lineTo(-hw - t, h * 0.55);
-  s.quadraticCurveTo(-hw - t, h + t * 0.6, 0, h + t * 1.4);
-  s.quadraticCurveTo(hw + t, h + t * 0.6, hw + t, h * 0.55); s.lineTo(hw + t, 0); s.lineTo(hw, 0); s.lineTo(hw, h * 0.55);
-  s.quadraticCurveTo(hw, h, 0, h + t * 0.2); s.quadraticCurveTo(-hw, h, -hw, h * 0.55); s.lineTo(-hw, 0); s.closePath();
-  return new THREE.ExtrudeGeometry(s, { depth: 0.3, bevelEnabled: false, curveSegments: 20 });
-}
-const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05, flatShading: true, ...extra });
 
-function emblem(kind, color) {
-  const g = new THREE.Group(), m = std(GOLD, { metalness: 0.7, roughness: 0.3, emissive: color, emissiveIntensity: 0.25 });
-  if (kind === "body") { // dumbbell
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.42, 8), m); bar.rotation.z = Math.PI / 2; g.add(bar);
-    for (const x of [-0.2, 0.2]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 10), m); w.rotation.z = Math.PI / 2; w.position.x = x; g.add(w); }
-  } else if (kind === "knowledge") { // open book
-    for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.26), m); p.position.x = s * 0.1; p.rotation.z = s * -0.35; g.add(p); }
-  } else if (kind === "faith") { // crescent
-    const c = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 24, Math.PI * 1.35), m); c.rotation.z = Math.PI * 0.32; g.add(c);
-    const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.04), m); st.position.set(0.07, 0.02, 0); g.add(st);
-  } else if (kind === "habits") { // hourglass
-    for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 10), m); c.position.y = s * 0.08; c.rotation.x = s > 0 ? Math.PI : 0; g.add(c); }
-  } else { // purity: water drop
-    const b = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), m); g.add(b);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.16, 12), m); tip.position.y = 0.11; g.add(tip);
+// A smooth gold glyph per ministry.
+function emblem(kind, mat) {
+  const g = new THREE.Group(), add = (geo, f) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; f && f(m); g.add(m); };
+  if (kind === "body") {
+    add(new THREE.CapsuleGeometry(0.025, 0.36, 6, 16), (m) => (m.rotation.z = Math.PI / 2));
+    for (const x of [-0.17, 0.17]) add(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 32), (m) => { m.rotation.z = Math.PI / 2; m.position.x = x; });
+  } else if (kind === "knowledge") {
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.17, 0.018, 0.23), (m) => { m.position.x = s * 0.085; m.rotation.z = s * -0.32; });
+  } else if (kind === "faith") {
+    const sh = new THREE.Shape(); sh.absarc(0, 0, 0.15, 0, Math.PI * 2, false);
+    const cut = new THREE.Path(); cut.absarc(0.06, 0.03, 0.125, 0, Math.PI * 2, true); sh.holes.push(cut);
+    add(new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 48 }), (m) => m.geometry.center());
+  } else if (kind === "habits") {
+    const p = [[0, -0.15], [0.11, -0.15], [0.11, -0.13], [0.02, 0], [0.11, 0.13], [0.11, 0.15], [0, 0.15]].map(([x, y]) => new THREE.Vector2(x, y));
+    add(new THREE.LatheGeometry(p, 40));
+  } else {
+    const p = []; for (let i = 0; i <= 24; i++) { const t = i / 24, a = t * Math.PI; p.push(new THREE.Vector2(Math.sin(a) * 0.09 * Math.pow(Math.sin(a / 2), 0.6) * 1.15, -Math.cos(a) * 0.13 - t * 0.04)); }
+    add(new THREE.LatheGeometry(p.reverse(), 40));
   }
   return g;
 }
 
-function figure({ robe, trim, turban, scale = 1, bisht = false }) {
-  const g = new THREE.Group();
-  const profile = [[0, 0], [0.34, 0], [0.32, 0.25], [0.26, 0.8], [0.22, 1.05], [0.15, 1.18], [0, 1.2]].map(([x, y]) => new THREE.Vector2(x, y));
-  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 10), std(robe)); g.add(body);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.255, 0.27, 0.06, 10), std(trim, { metalness: 0.6, roughness: 0.35 })); band.position.y = 0.72; g.add(band);
-  if (bisht) {
-    const cloak = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.38, 1.1, 12, 1, true, Math.PI * 0.18, Math.PI * 1.64), std(0x2a1d12, { side: THREE.DoubleSide }));
-    cloak.position.y = 0.6; cloak.rotation.y = Math.PI; g.add(cloak);
-    const edge = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.018, 6, 16, Math.PI * 1.64), std(GOLD, { metalness: 0.8, roughness: 0.25 }));
-    edge.position.y = 1.15; edge.rotation.x = Math.PI / 2; edge.rotation.z = Math.PI * 0.68; g.add(edge);
-  }
-  const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.17, 1), std(SKIN)); head.position.y = 1.38; g.add(head);
-  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 8), std(0x2b2018)); beard.position.set(0, 1.25, 0.08); beard.rotation.x = Math.PI; g.add(beard);
-  const tur = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.07, 8, 16), std(turban)); tur.position.y = 1.5; tur.rotation.x = Math.PI / 2; g.add(tur);
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(turban)); cap.position.y = 1.52; g.add(cap);
-  g.scale.setScalar(scale);
-  return g;
-}
+// A ring at the pillar's foot that fills with approval.
+const arcGeo = (frac) => new THREE.TorusGeometry(0.5, 0.022, 12, 96, Math.max(0.001, frac) * Math.PI * 2);
 
-export function createPalace(container, { onPick } = {}) {
+export function createPalace(container, { onPick, dark = true } = {}) {
   let renderer;
-  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" }); }
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" }); }
   catch { return null; }
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.append(renderer.domElement);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(NIGHT, 9, 18);
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 60);
-  scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x1a120a, 0.9));
-  const key = new THREE.DirectionalLight(0xffe2b0, 1.6); key.position.set(3, 6, 5); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x6fa8ff, 0.8); rim.position.set(-4, 3, -4); scene.add(rim);
-  const glow = new THREE.PointLight(GOLD, 6, 6, 1.6); glow.position.set(0, 3.2, -1.0); scene.add(glow);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
 
-  // floor: dark disc, gold rings
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(5, 48), std(0x0c1b25, { roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
-  for (const [r, w] of [[4.6, 0.03], [3.3, 0.02], [1.2, 0.03]]) { const ring = new THREE.Mesh(new THREE.RingGeometry(r - w, r + w, 64), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.35 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.005; scene.add(ring); }
+  const key = new THREE.DirectionalLight(0xfff1dc, 2.4);
+  key.position.set(3.5, 7, 4.5); key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+  Object.assign(key.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 20 });
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x9ec3ff, 0.9); rim.position.set(-5, 3, -4); scene.add(rim);
 
-  // the arch and its gold edge
-  const archG = arch(); const archM = new THREE.Mesh(archG, std(0x123447, { roughness: 0.7 })); archM.position.set(0, 0, -2.6); scene.add(archM);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(archG, 30), new THREE.LineBasicMaterial({ color: GOLD, transparent: true, opacity: 0.7 })); edges.position.copy(archM.position); scene.add(edges);
+  // The dais: one soft-edged disc with a recessed gold inlay.
+  const daisProfile = [[0, 0], [3.0, 0], [3.12, 0.04], [3.18, 0.14], [3.14, 0.24], [3.02, 0.28], [0, 0.28]].map(([x, y]) => new THREE.Vector2(x, y));
+  const daisMat = new THREE.MeshPhysicalMaterial({ roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.4 });
+  const dais = new THREE.Mesh(new THREE.LatheGeometry(daisProfile, 128), daisMat); dais.receiveShadow = true; scene.add(dais);
+  const inlayMat = new THREE.MeshPhysicalMaterial({ roughness: 0.5 });
+  const inlay = new THREE.Mesh(new THREE.CircleGeometry(2.55, 128), inlayMat); inlay.rotation.x = -Math.PI / 2; inlay.position.y = 0.281; inlay.receiveShadow = true; scene.add(inlay);
+  const lineMat = new THREE.MeshBasicMaterial({ transparent: true });
+  for (const r of [2.55, 1.05]) { const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.012, r + 0.012, 160), lineMat); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.283; scene.add(ring); }
+  // An eight-pointed star drawn into the floor.
+  const starLine = new THREE.Shape(); for (let i = 0; i < 16; i++) { const a = (i * Math.PI) / 8, rr = i % 2 ? 0.74 : 0.95; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? starLine.lineTo(x, y) : starLine.moveTo(x, y); }
+  const floorStar = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(starLine.getPoints()), new THREE.LineBasicMaterial({ transparent: true }));
+  floorStar.rotation.x = -Math.PI / 2; floorStar.position.y = 0.284; scene.add(floorStar);
+  const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.3 }));
+  shadowCatcher.rotation.x = -Math.PI / 2; shadowCatcher.position.y = -0.001; shadowCatcher.receiveShadow = true; scene.add(shadowCatcher);
 
-  // the star
-  const star = new THREE.Mesh(rubElHizb(0.62), std(GOLD, { metalness: 0.85, roughness: 0.25, emissive: 0x6a4a10, emissiveIntensity: 0.4 }));
-  star.position.set(0, 3.45, -1.45); scene.add(star);
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.72, 0.95, 8), std(0x173a4d)); ped.position.set(0, 0.475, -1.25); scene.add(ped);
-  const pedRim = new THREE.Mesh(new THREE.TorusGeometry(0.51, 0.025, 6, 32), std(GOLD, { metalness: 0.8, roughness: 0.3 })); pedRim.position.set(0, 0.95, -1.25); pedRim.rotation.x = Math.PI / 2; scene.add(pedRim);
+  // A slender arch drawn as a single gold line behind the council.
+  const archCurve = new THREE.CurvePath(), w = 2.6, h = 3.3;
+  archCurve.add(new THREE.LineCurve3(new THREE.Vector3(-w, 0, 0), new THREE.Vector3(-w, h, 0)));
+  archCurve.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-w, h, 0), new THREE.Vector3(-w, h + 1.6, 0), new THREE.Vector3(0, h + 2.3, 0)));
+  archCurve.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, h + 2.3, 0), new THREE.Vector3(w, h + 1.6, 0), new THREE.Vector3(w, h, 0)));
+  archCurve.add(new THREE.LineCurve3(new THREE.Vector3(w, h, 0), new THREE.Vector3(w, 0, 0)));
+  const goldMat = new THREE.MeshPhysicalMaterial({ color: GOLD, metalness: 1, roughness: 0.24, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+  const arch = new THREE.Mesh(new THREE.TubeGeometry(archCurve, 200, 0.03, 12, false), goldMat); arch.position.set(0, 0.28, -2.35); scene.add(arch);
 
-  // sky dust
-  const n = 400, pos = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 10; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = 1 + Math.random() * 9; pos[i * 3 + 2] = -2.5 - Math.abs(Math.sin(a)) * r; }
+  // Floating motes of light.
+  const n = 90, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 3.2; pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = 0.6 + Math.random() * 4.5; pos[i * 3 + 2] = Math.sin(a) * r - 0.5; }
   const dustG = new THREE.BufferGeometry(); dustG.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  const dust = new THREE.Points(dustG, new THREE.PointsMaterial({ color: 0xf3e2b0, size: 0.05, transparent: true, opacity: 0.8 })); scene.add(dust);
+  const dot = document.createElement("canvas"); dot.width = dot.height = 64; const dc = dot.getContext("2d"), gr = dc.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.35, "rgba(255,255,255,.5)"); gr.addColorStop(1, "rgba(255,255,255,0)"); dc.fillStyle = gr; dc.fillRect(0, 0, 64, 64);
+  const dustMat = new THREE.PointsMaterial({ size: 0.09, map: new THREE.CanvasTexture(dot), transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending });
+  const dust = new THREE.Points(dustG, dustMat); scene.add(dust);
 
-  // cast
   const picks = [];
-  const president = figure({ robe: IVORY, trim: GOLD, turban: 0xf7f3ea, scale: 1.18, bisht: true });
-  president.position.set(0, 0, 1.0); president.userData = { key: "president", baseY: 0, phase: 0 }; scene.add(president); picks.push(president);
-  const ministers = {};
-  const order = ["body", "knowledge", "faith", "habits", "purity"];
-  order.forEach((k, i) => {
-    const a = (-0.62 + (i / (order.length - 1)) * 1.24) * Math.PI * 0.62; // arc behind the president
-    const c = COLORS[k];
-    const f = figure({ robe: c, trim: GOLD, turban: k === "purity" ? 0xf2eef9 : new THREE.Color(c).multiplyScalar(0.6).getHex() });
-    const raised = k === "faith" ? 0.95 : 0;
-    f.position.set(Math.sin(a) * 2.3, raised, k === "faith" ? -1.25 : -Math.cos(a) * 1.3 + 0.2); f.lookAt(0, raised, 3.5);
-    const em = emblem(k, c); em.position.y = 1.95; f.add(em);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 32), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; f.add(ring);
-    f.userData = { key: k, baseY: raised, phase: i * 1.3, emblem: em, ring, status: "ok", strength: 0.7 };
-    scene.add(f); picks.push(f); ministers[k] = f;
-  });
 
-  // camera: slow sway, drag to look around
+  // The president: a turned gold column, the star turning above it.
+  const pres = new THREE.Group(); pres.position.set(0, 0.28, 0.75); pres.userData = { key: "president" };
+  const colP = [[0, 0], [0.42, 0], [0.44, 0.05], [0.42, 0.1], [0.3, 0.16], [0.24, 0.5], [0.21, 1.25], [0.27, 1.32], [0.29, 1.38], [0.25, 1.42], [0, 1.42]].map(([x, y]) => new THREE.Vector2(x, y));
+  const column = new THREE.Mesh(new THREE.LatheGeometry(colP, 96), goldMat); column.castShadow = true; pres.add(column);
+  const star = new THREE.Mesh(rubElHizb(0.42), goldMat); star.castShadow = true; star.position.y = 2.0; pres.add(star);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.008, 8, 128), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.5 })); halo.position.y = 2.0; pres.add(halo);
+  scene.add(pres); picks.push(pres);
+
+  // The cabinet: ceramic pillars in an arc behind the president.
+  const ministers = {};
+  ORDER.forEach((k, i) => {
+    const a = (-1 + (i / (ORDER.length - 1)) * 2) * 1.05;
+    const g = new THREE.Group(); g.position.set(Math.sin(a) * 1.85, 0.28, -Math.cos(a) * 1.3 + 0.05);
+    const mat = new THREE.MeshPhysicalMaterial({ color: COLORS[k], roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.25, sheen: 0.4, sheenColor: new THREE.Color(0xffffff) });
+    const pillar = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1, 12, 48), mat); pillar.castShadow = true; g.add(pillar);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.06, 64), goldMat); base.position.y = 0.03; base.castShadow = true; base.receiveShadow = true; g.add(base);
+    const track = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.01, 8, 96), new THREE.MeshBasicMaterial({ color: COLORS[k], transparent: true, opacity: 0.25 }));
+    track.rotation.x = -Math.PI / 2; track.position.y = 0.012; g.add(track);
+    const ringMat = new THREE.MeshBasicMaterial({ color: COLORS[k], transparent: true, opacity: 0.95 });
+    const ring = new THREE.Mesh(arcGeo(0.5), ringMat); ring.rotation.x = -Math.PI / 2; ring.rotation.z = Math.PI / 2; ring.position.y = 0.014; g.add(ring);
+    const em = emblem(k, goldMat); g.add(em);
+    g.userData = { key: k, pillar, ring, ringMat, mat, em, phase: i * 1.2, h: 1.0, target: 1.0, status: "ok", frac: 0.5 };
+    scene.add(g); picks.push(g); ministers[k] = g;
+  });
+  const setHeight = (u, h) => {
+    u.h = h; const len = Math.max(0.01, h - 0.6);
+    u.pillar.geometry.dispose(); u.pillar.geometry = new THREE.CapsuleGeometry(0.3, len, 12, 48);
+    u.pillar.position.y = 0.06 + 0.3 + len / 2;
+  };
+  for (const k of ORDER) setHeight(ministers[k].userData, 1.0);
+
+  function applyTheme(isDark) {
+    const t = THEMES[isDark ? "dark" : "light"];
+    daisMat.color.setHex(t.dais); inlayMat.color.setHex(t.inlay);
+    lineMat.color.setHex(t.line); lineMat.opacity = t.lineOpacity;
+    floorStar.material.color.setHex(t.line); floorStar.material.opacity = t.lineOpacity * 0.8;
+    shadowCatcher.material.opacity = t.shadow; renderer.toneMappingExposure = t.exposure;
+    key.intensity = t.key; scene.environmentIntensity = t.env; dustMat.color.setHex(t.dust);
+    dustMat.blending = isDark ? THREE.AdditiveBlending : THREE.NormalBlending; dustMat.opacity = isDark ? 0.8 : 0.45; dustMat.needsUpdate = true;
+  }
+  applyTheme(dark);
+
+  // Camera: a slow drift; drag to look around.
   let az = 0, targetAz = 0, dragging = false, lastX = 0, moved = 0;
-  const placeCamera = () => { const r = 7.6; camera.position.set(Math.sin(az) * r, 2.9, Math.cos(az) * r); camera.lookAt(0, 1.55, 0); };
+  const placeCamera = () => { const r = 10.2; camera.position.set(Math.sin(az) * r, 3.6, Math.cos(az) * r); camera.lookAt(0, 1.45, -0.2); };
   const el = renderer.domElement;
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; moved = 0; el.setPointerCapture(e.pointerId); });
-  el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.9, Math.min(0.9, targetAz - dx * 0.006)); });
+  el.addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx); targetAz = Math.max(-0.8, Math.min(0.8, targetAz - dx * 0.006)); if (!running) frame(); });
   el.addEventListener("pointerup", (e) => {
     dragging = false;
     if (moved > 6 || !onPick) return;
@@ -132,28 +163,30 @@ export function createPalace(container, { onPick } = {}) {
     if (hit) { let o = hit.object; while (o && !o.userData.key) o = o.parent; if (o) onPick(o.userData.key); }
   });
 
-  const size = () => { const w = container.clientWidth, h = container.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < 480 ? 44 : 36; camera.updateProjectionMatrix(); };
-  const ro = new ResizeObserver(() => { size(); if (!running) frame(0); }); ro.observe(container);
+  const size = () => {
+    const w = container.clientWidth, h = container.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1.2 ? 34 : 28; camera.updateProjectionMatrix();
+  };
+  const ro = new ResizeObserver(() => { size(); if (!running) frame(); }); ro.observe(container);
 
   let running = false, raf = 0, visible = true;
   const clock = new THREE.Clock();
-  function frame(t) {
-    const time = clock.getElapsedTime();
-    if (!reduced) {
-      if (!dragging) targetAz += (Math.sin(time * 0.12) * 0.25 - targetAz) * 0.002;
-      star.rotation.y = time * 0.5; star.position.y = 3.45 + Math.sin(time * 1.1) * 0.06;
-      dust.rotation.y = time * 0.01;
-      for (const f of picks) {
-        const u = f.userData, bob = Math.sin(time * 1.6 + u.phase) * 0.02;
-        f.position.y = u.baseY + bob;
-        if (u.emblem) { u.emblem.rotation.y = time * 1.2 + u.phase; u.emblem.position.y = 1.95 + Math.sin(time * 2 + u.phase) * 0.04; }
-        if (u.ring) {
-          const pulse = u.status === "bad" ? 0.5 + 0.5 * Math.sin(time * 5) : u.status === "warn" ? 0.75 + 0.2 * Math.sin(time * 2.5) : 1;
-          u.ring.material.opacity = 0.25 + 0.6 * pulse * u.strength;
-          u.ring.scale.setScalar(u.status === "bad" ? 1 + 0.08 * Math.sin(time * 5) : 1);
-        }
-      }
-      glow.intensity = 5 + Math.sin(time * 1.3) * 1;
+  function frame() {
+    const time = clock.getElapsedTime(), still = reduced;
+    for (const k of ORDER) {
+      const u = ministers[k].userData;
+      if (Math.abs(u.target - u.h) > 0.002) setHeight(u, still ? u.target : u.h + (u.target - u.h) * 0.08);
+      const top = 0.06 + u.h;
+      u.em.position.y = top + 0.32 + (still ? 0 : Math.sin(time * 1.4 + u.phase) * 0.04);
+      if (!still) u.em.rotation.y = time * 0.8 + u.phase;
+      const pulse = u.status === "bad" ? 0.55 + 0.45 * Math.sin(time * 4) : 1;
+      u.ringMat.opacity = 0.95 * pulse;
+    }
+    if (!still) {
+      star.rotation.y = time * 0.45; star.position.y = 2.0 + Math.sin(time * 0.9) * 0.05;
+      halo.rotation.x = Math.PI / 2 + Math.sin(time * 0.5) * 0.15; halo.rotation.y = time * 0.2;
+      dust.rotation.y = time * 0.02; dust.position.y = Math.sin(time * 0.3) * 0.08;
+      if (!dragging) targetAz += (Math.sin(time * 0.1) * 0.22 - targetAz) * 0.003;
     }
     az += (targetAz - az) * 0.08; placeCamera();
     renderer.render(scene, camera);
@@ -163,19 +196,21 @@ export function createPalace(container, { onPick } = {}) {
   const stop = () => { running = false; cancelAnimationFrame(raf); };
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; visible ? start() : stop(); }); io.observe(container);
   const vis = () => (document.hidden ? stop() : start()); document.addEventListener("visibilitychange", vis);
-  size(); placeCamera(); frame(0); start();
+  size(); placeCamera(); frame(); start();
 
   return {
     // standing: { key: { approval: 0..1 | null, status: "ok" | "warn" | "bad" | "" } }
     update(standing) {
-      for (const k of order) {
+      for (const k of ORDER) {
         const u = ministers[k].userData, s = standing[k] || {};
-        u.status = s.status || "ok"; u.strength = s.approval == null ? 0.5 : 0.35 + 0.65 * s.approval;
-        u.ring.material.color.setHex(u.status === "bad" ? 0xe0533d : COLORS[k]);
-        u.emblem.children.forEach((m) => { m.material.emissiveIntensity = 0.1 + 0.6 * u.strength; });
+        const a = s.approval == null ? 0.5 : Math.max(0, Math.min(1, s.approval));
+        u.status = s.status || "ok"; u.target = 0.75 + 1.25 * a;
+        if (Math.abs(a - u.frac) > 0.001) { u.frac = a; u.ring.geometry.dispose(); u.ring.geometry = arcGeo(a); }
+        u.ringMat.color.setHex(STATUS[u.status] ?? COLORS[k]);
       }
-      if (!running) frame(0);
+      if (!running) frame();
     },
-    destroy() { stop(); io.disconnect(); ro.disconnect(); document.removeEventListener("visibilitychange", vis); renderer.dispose(); el.remove(); },
+    setTheme(isDark) { applyTheme(isDark); if (!running) frame(); },
+    destroy() { stop(); io.disconnect(); ro.disconnect(); document.removeEventListener("visibilitychange", vis); pmrem.dispose(); renderer.dispose(); el.remove(); },
   };
 }
