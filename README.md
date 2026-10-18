@@ -22,26 +22,34 @@ The publishable key in `index.html` is meant to be public; the data is protected
 3. In Supabase → Authentication → Sign In / Providers, turn off **Allow new users to sign up** so nobody else can register.
 4. Settings → **Create Shortcut key**, copy it into your Shortcut (below).
 
-## Apple Shortcut contract
+## Apple Health
 
-POST `https://qanzhisoxueaizscdial.supabase.co/functions/v1/health`
-Headers: `Authorization: Bearer <your key>`, `Content-Type: application/json`
+Three formats are accepted at `POST https://qanzhisoxueaizscdial.supabase.co/functions/v1/health` with `Authorization: Bearer <key>` (create the key in the app's Diwan). The full step-by-step guide is in the app: Diwan → Apple Health.
+
+**1. Flat daily totals (the free Shortcut).** One number per field, built with Shortcuts' JSON body, no loops:
 
 ```json
-{
-  "kind": "daily",
-  "samples": [
-    { "type": "Step Count", "start": "2026-10-18T09:00:00+03:00", "end": "2026-10-18T09:10:00+03:00", "value": 812, "unit": "count", "source": "Apple Watch" },
-    { "type": "Sleep", "value": "Core", "start": "2026-10-17 23:40", "end": "2026-10-18 01:05" }
-  ],
-  "workouts": [
-    { "activity": "Tennis", "start": "2026-10-18T18:00:00+03:00", "end": "2026-10-18T19:10:00+03:00", "energy": 540, "avgHR": 138 }
-  ]
-}
+{ "date": "2026-11-03", "steps": 9120, "activeKcal": 612, "basalKcal": 1850, "dietaryKcal": 1900,
+  "exerciseMin": 42, "standHours": 11, "restingHR": 58, "hrv": 46, "weight": 89.4,
+  "sleepSeconds": 24720, "sleepStart": "2026-11-02T21:12:00+02:00", "sleepEnd": "2026-11-03T04:58:00+02:00",
+  "workouts": "Tennis, Indoor Walk", "walkMin": 30 }
 ```
 
-- `type` accepts Apple's names ("Step Count", "Heart Rate", "Active Energy", "Resting Heart Rate", "Heart Rate Variability", "Weight", "Dietary Energy", …) or the short keys in `health_metrics`. Unknown types are stored as sent.
-- Sleep samples use `type: "Sleep"` with the stage as `value` (Core, Deep, REM, Awake, In Bed, Asleep); duration comes from start and end, and sleep counts toward the morning you wake.
-- Dates: ISO 8601 with offset, or `yyyy-MM-dd HH:mm` read as Cairo time.
-- Up to 50,000 items per request. For the two-year backfill use `"kind": "backfill"` and send one month per request.
-- Nightly: a personal automation at 23:59 sends the day just ending as `"kind": "daily"`; the 05:30 run is no longer needed.
+Run nightly at 23:59 (Shortcuts → Automation → Time of Day → Run Immediately), optionally again at 05:30. Resending a day overwrites its totals.
+
+**2. Health Auto Export** (third-party app, REST automation): its JSON (`{ "data": { "metrics": [...], "workouts": [...] } }`) is read as-is, including day-aggregated sleep. Best for the two-year history.
+
+**3. Raw batches** for custom tooling:
+
+```json
+{ "kind": "backfill",
+  "samples": [ { "type": "Step Count", "start": "2026-10-18T09:00:00+03:00", "end": "2026-10-18T09:10:00+03:00", "value": 812 },
+               { "type": "Sleep", "value": "Core", "start": "2026-10-17 23:40", "end": "2026-10-18 01:05" } ],
+  "workouts": [ { "activity": "Tennis", "start": "2026-10-18T18:00:00+03:00", "end": "2026-10-18T19:10:00+03:00", "energy": 540 } ] }
+```
+
+Rules for all three:
+- Apple's names ("Step Count", "Resting Heart Rate", "step_count", …) and short keys both work; unknown types are stored as sent.
+- Sleep counts toward the morning you wake. Dates without an offset are read as Cairo time (Egypt's DST is handled).
+- A range longer than three days is treated as history: stored and charted, never scored.
+- Autofill on daily syncs, only into blank fields: in bed on time (30-min grace), up for Fajr (10-min grace), training type from workout names, diet on target from the deficit, watch worn from stand hours or overnight sleep. Measured values (sleep hours, steps, energy, weight, walking minutes, exercise, resting HR) are always refreshed.

@@ -80,10 +80,19 @@ function emblemSVG(key) {
 function header() {
   const st = S.settings.termStart, t = today(), total = termLength(), dn = termDay(t);
   document.getElementById("hijri").textContent = hijri(t);
-  document.getElementById("greg").textContent = fmt(t, { weekday: "long", day: "numeric", month: "long" });
-  document.getElementById("termline").textContent = dn < 1 ? `Term I begins ${fmt(st, { day: "numeric", month: "long" })} · ${-dn + 1} days` : dn > total ? "Term I complete" : `Term I · day ${dn} of ${total}`;
+  document.getElementById("termline").textContent = dn < 1 ? `in ${-dn + 1} d` : dn > total ? "Term done" : `${dn}/${total}`;
+  document.getElementById("ctitle").textContent = (TITLES[S.tab] || TITLES.palace)[0];
   document.getElementById("termbar").style.width = Math.max(0, Math.min(100, ((dn - 1) / total) * 100)) + "%";
   document.querySelectorAll(".nav button").forEach((b) => b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false"));
+}
+
+const TITLES = {
+  palace: ["Palace", "القصر"], decrees: ["Decrees", "المراسيم"], records: ["Records", "السجلات"], council: ["Council", "المجلس"], diwan: ["Diwan", "الديوان"],
+};
+function largeTitle(tab) {
+  const [en, a] = TITLES[tab] || TITLES.palace, t = today(), dn = termDay(t);
+  const sub = tab === "palace" ? fmt(t, { weekday: "long", day: "numeric", month: "long" }) + (dn >= 1 && dn <= termLength() ? ` · Term I, day ${dn}` : dn < 1 ? ` · Term I in ${-dn + 1} days` : "") : null;
+  return h("header", { class: "ltitle" }, h("div", null, h("h1", null, en), sub ? h("p", null, sub) : null), ar(a));
 }
 
 /* ---------- standing ---------- */
@@ -199,8 +208,21 @@ function openMinister(key) {
       m.immune ? h("p", { class: "muted" }, "The prayer is the foundation: this minister can never be impeached.") : h("p", { class: "muted" }, `Below ${S.settings.threshold}% at a council review, the strategy is impeached and replaced. The agenda stays.`),
       h("button", { class: "btn", onclick: () => { sheet.remove(); go("decrees"); setTimeout(() => document.getElementById("dec-" + key)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); } }, "Go to today’s decree")];
   }
-  sheet.append(h("div", { class: "sheet", role: "dialog", "aria-modal": "true" }, ...body));
+  const panel = h("div", { class: "sheet", role: "dialog", "aria-modal": "true" }, h("div", { class: "grabber", "aria-hidden": "true" }), ...body);
+  sheet.append(panel);
   document.body.append(sheet); close.focus();
+  swipeToClose(panel, () => sheet.remove());
+}
+
+// Drag a sheet down from its top to dismiss it, like a native sheet.
+function swipeToClose(panel, done) {
+  let y0 = null, dy = 0;
+  panel.addEventListener("touchstart", (e) => { if (panel.scrollTop <= 0) { y0 = e.touches[0].clientY; dy = 0; panel.style.transition = "none"; } }, { passive: true });
+  panel.addEventListener("touchmove", (e) => { if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0); if (dy > 0) panel.style.transform = `translateY(${dy}px)`; }, { passive: true });
+  panel.addEventListener("touchend", () => {
+    if (y0 == null) return; y0 = null; panel.style.transition = "transform .35s cubic-bezier(.3,1.35,.55,1)";
+    if (dy > 110) { panel.style.transform = "translateY(100%)"; setTimeout(done, 220); } else panel.style.transform = "";
+  });
 }
 
 /* ---------- decrees (daily log) ---------- */
@@ -359,13 +381,6 @@ function renderCouncil() {
 /* ---------- diwan (settings) ---------- */
 function renderDiwan() {
   const f = (label, k, type, attrs) => h("div", { class: "field" }, h("label", { for: "f-" + k }, label), h("input", Object.assign({ id: "f-" + k, type, value: String(S.settings[k] ?? ""), onchange: (e) => { let v = e.target.value; if (type === "number") v = Math.max(0, parseFloat(v) || 0); S.settings[k] = v; if (k === "wake" || k === "windowHours") syncBed(); S.period = null; saveSettings(); render(); } }, attrs || {})));
-  const keyMsg = (t) => { const el = document.getElementById("keymsg"); if (el) el.textContent = t; };
-  const makeKey = async () => {
-    keyMsg("Creating…");
-    try { const key = await newShortcutKey(); const box = document.getElementById("keybox"); box.hidden = false; box.value = key; box.select(); keyMsg("Copy this key into your Shortcut now. It’s shown only once."); }
-    catch (e) { keyMsg("Couldn’t create a key: " + e.message); }
-  };
-  const ls = S.health?.lastSync;
   if (healthDue()) fetchHealth("diwan");
   return [
     h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Targets"), ar("الأهداف")),
@@ -382,13 +397,7 @@ function renderDiwan() {
     scheduleCard(f),
     notifyCard(),
     calendarCard(),
-    h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Apple Health"), ar("الصحة")),
-      h("p", { class: "hint" }, "Your Shortcut sends Health data here every night at 23:59, and once for the last two years. Create a key, then paste it into the Shortcut."),
-      h("div", { class: "field" }, h("label", null, "Address"), h("input", { class: "txt", readonly: true, value: HEALTH_URL, onclick: (e) => e.target.select() })),
-      h("textarea", { id: "keybox", class: "txt mono", readonly: true, hidden: true }),
-      h("button", { class: "btn", onclick: makeKey }, "Create Shortcut key"),
-      h("p", { class: "hint", id: "keymsg" }),
-      h("p", { class: "hint" }, ls ? `Last sync: ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${ls.samples.toLocaleString("en")} samples, ${ls.workouts} workouts (${ls.kind}).` : "No sync received yet.")),
+    healthCard(),
     h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Account"), ar("الحساب")),
       h("div", { class: "field" }, h("label", null, "Signed in as"), h("strong", null, (SESSION && SESSION.email) || "")),
       h("button", { class: "chip wide", onclick: () => { signOut(); S.tab = "palace"; render(); } }, "Sign out")),
@@ -419,8 +428,11 @@ function notifyCard() {
   if (pushStatus === null) { pushStatus = "…"; pushState().then((s) => { pushStatus = s; if (S.tab === "diwan") render(); }); }
   const standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
   const n = S.settings.notify || {};
-  const pref = (k, label, when) => h("div", { class: "field" }, h("label", null, label, h("small", { class: "when" }, when)),
-    chip(n[k] ? "On" : "Off", !!n[k], () => { S.settings.notify = { ...n, [k]: !n[k] }; saveSettings(); render(); }));
+  const pref = (k, label, when) => {
+    const sw = h("input", { type: "checkbox", class: "switch", switch: true, role: "switch", id: "n-" + k, "aria-label": label, onchange: (e) => { S.settings.notify = { ...n, [k]: e.target.checked }; saveSettings(); } });
+    sw.checked = !!n[k];
+    return h("div", { class: "field" }, h("label", { for: "n-" + k }, label, h("small", { class: "when" }, when)), sw);
+  };
   const card = h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Notifications"), ar("التنبيهات")));
   if (!pushSupported() || (!standalone && /iPhone|iPad/.test(navigator.userAgent))) {
     card.append(h("p", { class: "hint" }, "On iPhone, notifications work once Al-Mustanir is on your home screen: Safari → Share → Add to Home Screen, then open it from the icon and come back here."));
@@ -462,6 +474,57 @@ function calendarCard() {
     h("p", { class: "hint", id: "calmsg" }));
 }
 
+function copyBtn(get) {
+  return h("button", { class: "chip", onclick: async (e) => { try { await navigator.clipboard.writeText(get()); e.target.textContent = "Copied"; setTimeout(() => (e.target.textContent = "Copy"), 1500); } catch { /* select instead */ } } }, "Copy");
+}
+let healthKey = "";
+function healthCard() {
+  const ls = S.health?.lastSync;
+  const keyMsg = (t) => { const el = document.getElementById("keymsg"); if (el) el.textContent = t; };
+  const makeKey = async () => {
+    keyMsg("Creating…");
+    try { healthKey = await newShortcutKey(); render(); setTimeout(() => keyMsg("Copy it now: it’s shown only once. Creating another key keeps old ones working."), 0); }
+    catch (e) { keyMsg("Couldn’t create a key: " + e.message); }
+  };
+  const code = (t) => h("code", null, t);
+  const li = (...k) => h("li", null, ...k);
+  const fields = [["date", "Text · the Formatted Date (yyyy-MM-dd)"], ["steps", "Number · Sum of Step Count"], ["activeKcal", "Number · Sum of Active Energy"],
+    ["basalKcal", "Number · Sum of Resting Energy"], ["dietaryKcal", "Number · Sum of Dietary Energy (if you log food)"], ["exerciseMin", "Number · Sum of Exercise Minutes"],
+    ["standHours", "Number · Sum of Stand Hours"], ["restingHR", "Number · Average of Resting Heart Rate"], ["hrv", "Number · Average of Heart Rate Variability"],
+    ["weight", "Number · latest Weight (kg)"], ["sleepSeconds", "Number · Sum of sleep Durations"], ["sleepStart", "Text · first sleep sample’s Start Date (ISO 8601)"],
+    ["sleepEnd", "Text · last sleep sample’s End Date (ISO 8601)"], ["workouts", "Text · today’s workout names, comma-separated (optional)"], ["walkMin", "Number · walking-pad minutes (optional)"]];
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Apple Health"), ar("الصحة")),
+    h("p", { class: "hint" }, "Your watch fills in sleep, bedtime, waking for Fajr, steps, calories, the deficit, workouts, weight and whether the watch was worn. You keep logging prayers, reading and purity yourself."),
+    h("p", { class: "hint" }, ls ? `Last sync ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${ls.samples.toLocaleString("en")} samples, ${ls.workouts} workouts.` : "No sync received yet."),
+    h("div", { class: "row" }, h("div", { class: "lbl" }, "Address"), h("div", { class: "copyrow", style: { width: "100%" } }, h("input", { class: "txt", readonly: true, value: HEALTH_URL }), copyBtn(() => HEALTH_URL))),
+    healthKey ? h("div", { class: "row" }, h("div", { class: "lbl" }, "Your key"), h("div", { class: "copyrow", style: { width: "100%" } }, h("input", { class: "txt", readonly: true, value: healthKey }), copyBtn(() => healthKey)))
+      : h("button", { class: "btn", onclick: makeKey }, "Create a key"),
+    h("p", { class: "hint", id: "keymsg" }),
+
+    h("details", { class: "more" }, h("summary", null, "Option 1 · Apple Shortcuts (free)"),
+      h("p", { class: "hint" }, "One shortcut sends today’s totals; an automation runs it every night at 23:59. Building it takes about 15 minutes."),
+      h("ol", { class: "steps" },
+        li(h("b", null, "Create the shortcut. "), "Shortcuts → + → name it ", code("Mustanir Sync"), "."),
+        li(h("b", null, "Today’s date. "), "Add ", h("b", null, "Current Date"), ", then ", h("b", null, "Format Date"), " → Custom → ", code("yyyy-MM-dd"), "."),
+        li(h("b", null, "Each total. "), "Add ", h("b", null, "Find Health Samples"), ": Type ", code("Step Count"), ", Start Date ", code("is today"), ", Group By ", code("Day"), ". Then ", h("b", null, "Calculate Statistics"), " → ", code("Sum"),
+          ". Repeat for Active Energy, Resting Energy, Exercise Minutes, Stand Hours and (if you log food) Dietary Energy. For Resting Heart Rate and Heart Rate Variability use ", code("Average"), ". For Weight, sort Latest First, limit 1."),
+        li(h("b", null, "Sleep. "), h("b", null, "Find Health Samples"), ": Type ", code("Sleep Analysis"), ", Start Date ", code("is in the last 16 hours"), ", Value ", code("is not In Bed"), " and ", code("is not Awake"), ", sorted Oldest First. Then ",
+          h("b", null, "Get Details"), " → Duration → ", h("b", null, "Calculate Statistics"), " → Sum. Take the samples’ first item’s Start Date and last item’s End Date, each through Format Date → ", code("ISO 8601"), "."),
+        li(h("b", null, "Send it. "), "Add ", h("b", null, "Get Contents of URL"), " with the address above. Method ", code("POST"), ". Header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), ". Request Body ", code("JSON"), ", with these fields, each set to the matching result:",
+          h("div", { class: "fieldmap" }, ...fields.flatMap(([k, d]) => [code(k), h("span", { class: "muted" }, d)]))),
+        li(h("b", null, "Test. "), "Add ", h("b", null, "Show Result"), " and run it. You should see ", code('"ok":true'), " and the fields it filled. If sleep looks 60× too big or small, rename ", code("sleepSeconds"), " to ", code("sleepMinutes"), "."),
+        li(h("b", null, "Every night. "), "Shortcuts → Automation → + → ", h("b", null, "Time of Day"), " ", code("23:59"), " Daily → ", h("b", null, "Run Immediately"), " → Mustanir Sync. Optional: a second one at ", code("05:30"), " so last night’s sleep shows in the morning.")),
+      h("p", { class: "hint" }, "The last two years: duplicate the shortcut as Mustanir Backfill, wrap everything in ", h("b", null, "Repeat"), " 730 times, use ", h("b", null, "Adjust Date"), " (subtract Repeat Index days) for the day, and swap “is today” for “is between the start and end of that day”. Run it once with the phone charging. History is stored but never scored.")),
+
+    h("details", { class: "more" }, h("summary", null, "Option 2 · Health Auto Export (no building)"),
+      h("p", { class: "hint" }, "A third-party iPhone app that sends Health data on a schedule, including your two-year history in one go. Its scheduled sending needs the paid upgrade."),
+      h("ol", { class: "steps" },
+        li("Install ", h("b", null, "Health Auto Export – JSON+CSV"), " and allow Health access."),
+        li("Automations → New → ", h("b", null, "REST API"), ". URL: the address above. Header ", code("Authorization"), " = ", code("Bearer YOUR-KEY"), ". Format ", code("JSON"), "."),
+        li("Data: Health Metrics + Workouts. Aggregation ", code("Day"), ". Pick sleep, steps, energy, heart rate, HRV, weight, exercise and stand."),
+        li("Sync daily (or hourly). For the history, run a manual export of the last 2 years to the same automation."))));
+}
+
 /* ---------- sign in ---------- */
 function renderSignIn() {
   const msg = (t) => { const el = document.getElementById("authmsg"); if (el) el.textContent = t; };
@@ -490,16 +553,25 @@ function renderSignIn() {
 }
 
 /* ---------- render ---------- */
+let lastTab = null;
+const tabChanged = () => { const c = lastTab !== S.tab; lastTab = S.tab; return c; };
 function go(tab) { S.tab = tab; history.replaceState(null, "", "#" + tab); render(); scrollTo(0, 0); }
 function render() {
   header();
   const signin = S.mode === "signin" && !SESSION;
   document.body.classList.toggle("signed-out", signin);
   const views = { palace: renderPalace, decrees: renderDecrees, records: renderRecords, council: renderCouncil, diwan: renderDiwan };
-  main.replaceChildren(...(signin ? renderSignIn() : (views[S.tab] || renderPalace)()));
+  const view = h("div", { class: tabChanged() ? "view" : "" }, ...(signin ? renderSignIn() : [largeTitle(S.tab), ...(views[S.tab] || renderPalace)()]));
+  main.replaceChildren(view);
 }
 setRenderer(render);
 document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.tab)));
+// Native feel: the top bar turns to glass once content passes under it; no pinch or double-tap zoom.
+const topEl = document.getElementById("top");
+addEventListener("scroll", () => topEl.classList.toggle("scrolled", scrollY > 24), { passive: true });
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
 const fromHash = () => { const t = location.hash.slice(1); if (["palace", "decrees", "records", "council", "diwan"].includes(t)) S.tab = t; };
 fromHash(); addEventListener("hashchange", () => { fromHash(); render(); });
 syncBed(); render(); load();

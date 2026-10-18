@@ -4,6 +4,10 @@
 //   Sample  = { type, start, end?, value?, unit?, source? }   type: our key ("steps") or Apple's name ("Step Count")
 //             Sleep: { type: "Sleep", value: "Core" | "Deep" | "REM" | "Awake" | "In Bed" | "Asleep", start, end }
 //   Workout = { activity, start, end, duration?, energy?, distance?, avgHR?, maxHR?, source? }
+// Also accepted:
+//   Flat daily totals (easiest from a Shortcut): { date, steps, activeKcal, basalKcal, dietaryKcal, exerciseMin, standHours,
+//     restingHR, hrv, weight, sleepMinutes, sleepStart, sleepEnd, workouts: "Tennis, Strength Training", walkMin, … }
+//   Health Auto Export's REST format: { data: { metrics: [{ name, units, data: [...] }], workouts: [...] } }
 // Everything is upserted on natural keys, so resending an overlapping window is safe.
 // After saving, daily totals are recomputed and the tracker's measured fields are refreshed.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -42,10 +46,10 @@ const ALIASES: Record<string, string> = {
   walkingheartrateaverage: "walkingHR", walkinghr: "walkingHR",
   heartratevariability: "hrv", heartratevariabilitysdnn: "hrv", hrv: "hrv",
   vo2max: "vo2max", cardiofitness: "vo2max",
-  bloodoxygen: "spo2", oxygensaturation: "spo2", spo2: "spo2",
+  bloodoxygen: "spo2", oxygensaturation: "spo2", bloodoxygensaturation: "spo2", spo2: "spo2",
   respiratoryrate: "respRate", resprate: "respRate",
   wristtemperature: "wristTemp", sleepingwristtemperature: "wristTemp", applesleepingwristtemperature: "wristTemp", wristtemp: "wristTemp",
-  weight: "weight", bodymass: "weight",
+  weight: "weight", bodymass: "weight", weightbodymass: "weight",
   bodyfatpercentage: "bodyFat", bodyfat: "bodyFat",
   leanbodymass: "leanMass", leanmass: "leanMass",
   bodymassindex: "bmi", bmi: "bmi", waistcircumference: "waist", waist: "waist",
@@ -84,7 +88,7 @@ const cairoTime = (d: Date) => timeFmt.format(d);
 function parseDate(v: unknown): Date | null {
   if (v === undefined || v === null || v === "") return null;
   if (typeof v === "number") return new Date(v > 1e12 ? v : v * 1000);
-  const s = String(v).trim();
+  const s = String(v).trim().replace(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2}(?::\d{2})?)\s*([+-]\d{2}):?(\d{2})$/, "$1T$2$3:$4");
   if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) { const d = new Date(s.replace(" ", "T")); return isNaN(+d) ? null : d; }
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (!m) { const d = new Date(s); return isNaN(+d) ? null : d; }
@@ -106,6 +110,76 @@ function scores(d: any, s: any) {
 }
 const hm = (s: string) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
 
+// Turn the flat and Health Auto Export formats into the batch format.
+// deno-lint-ignore no-explicit-any
+function normalize(b: any): { samples: any[]; workouts: any[] } {
+  const samples = Array.isArray(b.samples) ? [...b.samples] : [];
+  const workouts = Array.isArray(b.workouts) ? [...b.workouts] : [];
+  // Health Auto Export
+  if (b.data && (Array.isArray(b.data.metrics) || Array.isArray(b.data.workouts))) {
+    for (const m of b.data.metrics || []) {
+      const name = String(m.name || "");
+      for (const p of m.data || []) {
+        if (/sleep/i.test(name) && !/temperature/i.test(name)) {
+          if (typeof p.value === "string") { samples.push({ type: "Sleep", value: p.value, start: p.startDate ?? p.start ?? p.date, end: p.endDate ?? p.end, source: p.source }); continue; }
+          // aggregated night: stage totals in hours, laid end to end from sleepStart so durations are kept
+          let t = parseDate(p.sleepStart ?? p.inBedStart ?? p.startDate ?? p.date);
+          if (!t) continue;
+          for (const [stage, key] of [["Core", "core"], ["Deep", "deep"], ["REM", "rem"], ["Asleep", "asleep"]] as const) {
+            let h = num(p[key]);
+            if (key === "asleep" && (num(p.core) || num(p.deep) || num(p.rem))) h = null; // asleep is the total when stages exist
+            if (!h || h <= 0) continue;
+            const end = new Date(t.getTime() + h * 3600000);
+            samples.push({ type: "Sleep", value: stage, start: t.toISOString(), end: end.toISOString(), source: p.source || "Health Auto Export" }); t = end;
+          }
+          continue;
+        }
+        const value = p.qty ?? p.Avg ?? p.avg ?? p.value;
+        if (value == null) continue;
+        samples.push({ type: name, start: p.date ?? p.startDate, end: p.endDate ?? p.date, value, unit: m.units, source: p.source || "Health Auto Export" });
+      }
+    }
+    for (const w of b.data.workouts || []) {
+      const q = (x: unknown) => (x && typeof x === "object" ? (x as { qty?: unknown }).qty : x);
+      workouts.push({ activity: w.name, start: w.start, end: w.end, energy: q(w.activeEnergyBurned ?? w.activeEnergy), distance: q(w.distance),
+        avgHR: q(w.avgHeartRate ?? w.heartRate?.avg), maxHR: q(w.maxHeartRate ?? w.heartRate?.max), source: "Health Auto Export" });
+    }
+  }
+  // Flat daily totals: { date, steps: 9000, … }
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) ? String(b.date) : null;
+  if (date) {
+    const dayStart = `${date} 00:00`, dayEnd = `${date} 23:59`;
+    const skip = new Set(["date", "kind", "samples", "workouts", "data", "sleepMinutes", "sleepSeconds", "sleepH", "sleepStart", "sleepEnd", "walkMin", "key"]);
+    for (const [k, v] of Object.entries(b)) {
+      if (skip.has(k) || v === "" || v == null || typeof v === "object") continue;
+      if (num(v) === null) continue;
+      samples.push({ type: k, start: dayStart, end: dayEnd, value: v, source: "daily total" });
+    }
+    let mins = num(b.sleepMinutes);
+    if (mins == null && num(b.sleepSeconds) != null) mins = num(b.sleepSeconds)! / 60;
+    if (mins == null && num(b.sleepH) != null) mins = num(b.sleepH)! * 60;
+    if (mins && mins > 0) {
+      const end = parseDate(b.sleepEnd) || parseDate(`${date} 05:00`)!;
+      const start = parseDate(b.sleepStart);
+      // asleep minutes are what count; place them so they end at wake time (or start at sleepStart)
+      const s0 = start && !b.sleepEnd ? start : new Date(end.getTime() - mins * 60000);
+      samples.push({ type: "Sleep", value: "Asleep", start: s0.toISOString(), end: new Date(s0.getTime() + mins * 60000).toISOString(), source: "daily total" });
+      if (start && b.sleepEnd) samples.push({ type: "Sleep", value: "In Bed", start: start.toISOString(), end: end.toISOString(), source: "daily total" }); // the real bedtime
+    }
+    const names = Array.isArray(b.workouts) ? [] : String(b.workouts || "").split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+    names.forEach((n, i) => {
+      const st = parseDate(`${date} 12:00`)!; st.setMinutes(st.getMinutes() + i);
+      const dur = /walk/i.test(n) && num(b.walkMin) ? num(b.walkMin)! : null;
+      workouts.push({ activity: n, start: st.toISOString(), end: new Date(st.getTime() + (dur || 1) * 60000).toISOString(), duration: dur, source: "daily total" });
+    });
+    if (num(b.walkMin) && !names.some((n) => /walk/i.test(n))) {
+      const st = parseDate(`${date} 12:30`)!;
+      workouts.push({ activity: "Walking", start: st.toISOString(), end: new Date(st.getTime() + num(b.walkMin)! * 60000).toISOString(), duration: num(b.walkMin), source: "daily total" });
+    }
+  }
+  return { samples, workouts };
+}
+
 async function chunked<T>(rows: T[], size: number, fn: (part: T[]) => Promise<void>) {
   for (let i = 0; i < rows.length; i += size) await fn(rows.slice(i, i + size));
 }
@@ -122,9 +196,7 @@ Deno.serve(async (req) => {
   // deno-lint-ignore no-explicit-any
   let b: any;
   try { b = await req.json(); } catch { return json({ ok: false, error: "Body must be JSON." }, 400); }
-  const kind = b.kind === "backfill" ? "backfill" : "daily";
-  const rawSamples = Array.isArray(b.samples) ? b.samples : [];
-  const rawWorkouts = Array.isArray(b.workouts) ? b.workouts : [];
+  const { samples: rawSamples, workouts: rawWorkouts } = normalize(b);
   if (rawSamples.length + rawWorkouts.length > MAX_ITEMS) return json({ ok: false, error: `Send at most ${MAX_ITEMS} items per request; split the range.` }, 413);
 
   const days = new Set<string>();
@@ -175,6 +247,9 @@ Deno.serve(async (req) => {
   }
 
   const sorted = [...days].sort();
+  // A range longer than a few days is history: store it, but don't hand out verdicts for it.
+  const span = sorted.length ? (Date.parse(sorted[sorted.length - 1]) - Date.parse(sorted[0])) / 86400000 : 0;
+  const kind = b.kind === "backfill" || (b.kind !== "daily" && span > 3) ? "backfill" : "daily";
   if (sorted.length) {
     const from = sorted[0], to = sorted[sorted.length - 1];
     const { error } = await admin.rpc("health_rollup", { p_user: uid, p_from: from, p_to: to });
@@ -195,7 +270,7 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
     admin.from("health_daily").select("day,metric,value").eq("user_id", uid).gte("day", from).lte("day", to),
     admin.from("health_workouts").select("day,activity,duration_min").eq("user_id", uid).gte("day", from).lte("day", to),
     admin.from("days").select("date,data").eq("user_id", uid).gte("date", from).lte("date", to),
-    admin.from("health_samples").select("day,start_at,end_at").eq("user_id", uid).in("metric", ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep"]).gte("day", from).lte("day", to),
+    admin.from("health_samples").select("day,start_at,end_at").eq("user_id", uid).in("metric", ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "sleepInBed"]).gte("day", from).lte("day", to),
   ]);
   const s = { bedtime: "21:00", wake: "05:00", sleepTarget: 7, deficitMin: 500, pagesPerDay: 20, ...(st?.data || {}) };
   const byDay = new Map<string, Record<string, number>>();
@@ -222,7 +297,7 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
     const d: any = { prayers: {}, ...(existing.get(day) || {}) };
     const asleep = (m.sleepCore || 0) + (m.sleepDeep || 0) + (m.sleepREM || 0) + (m.sleepAsleep || 0);
     if (asleep > 0) d.sleepH = Math.round((asleep / 60) * 100) / 100;
-    for (const k of ["activeKcal", "basalKcal", "dietaryKcal", "steps"]) if (m[k] != null) d[k] = Math.round(m[k]);
+    for (const k of ["activeKcal", "basalKcal", "dietaryKcal", "steps", "exerciseMin", "standHours", "restingHR"]) if (m[k] != null) d[k] = Math.round(m[k]);
     if (m.weight != null) d.weight = Math.round(m.weight * 10) / 10;
     if (m.dietaryKcal > 0 && (m.activeKcal > 0 || m.basalKcal > 0)) d.deficit = Math.round((m.activeKcal || 0) + (m.basalKcal || 0) - m.dietaryKcal);
     const w = wByDay.get(day);
@@ -244,6 +319,8 @@ async function refreshTracker(uid: string, from: string, to: string, kind: strin
         d.train = /strength|functional|core|cross|hiit|weight/i.test(all) ? "gym" : /tennis/i.test(all) ? "tennis" : /walk/i.test(all) ? "walk" : d.train;
       }
       if (d.deficit != null && d.diet == null) d.diet = d.deficit >= (s.deficitMin || 500);
+      // The watch only records stand hours and overnight sleep when it's worn and charged.
+      if (d.watch == null && ((m.standHours || 0) >= 8 || ((m.standHours || 0) >= 4 && asleep > 0))) d.watch = true;
     }
     d.source = "Apple Health " + new Date().toISOString();
     out.push({ user_id: uid, date: day, data: d, scores: scores(d, s) });
