@@ -1,5 +1,5 @@
 // Supabase over plain REST (no SDK), with an on-device copy and an outbox so logging works offline.
-import { S, DEFAULTS, syncBed, day, violation, BODY_PLAN } from "./logic.js";
+import { S, DEFAULTS, syncBed, day, violation, termIndex, planTargets } from "./logic.js";
 
 export const SB_URL = "https://qanzhisoxueaizscdial.supabase.co";
 const SB_KEY = "sb_publishable_L6srdujqlW0FgMinucAqaw_qMOEMhqJ"; // publishable: safe in the page; row-level security protects the data
@@ -15,7 +15,7 @@ export let SESSION = LS.get("a2-session", null);
 const OUTBOX = LS.get("a2-outbox", {});
 let onChange = () => {};
 export const setRenderer = (fn) => { onChange = fn; };
-export function setStatus(t) { const el = document.getElementById("status"); if (el) el.textContent = t; }
+export function setStatus(t) { S.status = t; onChange(); }
 
 async function authCall(path, body) {
   const res = await fetch(SB_URL + "/auth/v1/" + path, { method: "POST", headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -104,8 +104,9 @@ export async function load() {
     const [st, rows] = await Promise.all([rest("settings?select=data"), all("days?select=date,data&order=date")]);
     const days = {}; rows.forEach((r) => { days[r.date] = r.data || {}; });
     applyData(st && st[0] ? st[0].data : {}, days); S.mode = "cloud"; S.loaded = true;
-    // One-time: adopt the strong body plan's targets (aim strong, accept likely).
-    if (!S.settings.bodyPlan) { Object.assign(S.settings, BODY_PLAN.settings, { bodyPlan: "strong-2026-10" }); saveSettings(); }
+    // When a new term begins, adopt that term's body-plan targets once (aim strong, accept likely).
+    const ti = termIndex();
+    if (S.settings.bodyPlanTerm !== ti) { const { rules, ...t } = planTargets(ti); Object.assign(S.settings, t, { bodyPlanTerm: ti }); saveSettings(); }
     LS.set("a2-cache", { settings: S.settings, days: S.days }); onChange();
   } catch (e) { if (S.mode !== "signin") { S.mode = "error"; S.err = e.message; onChange(); } }
 }

@@ -4,7 +4,8 @@ Ahmed 2.0's daily record: a PWA hosted on GitHub Pages at https://mustanir.ahmed
 
 ## How it fits together
 
-- **App** (`index.html`, `sw.js`, `manifest.webmanifest`, `icons/`): no build step, no dependencies. It talks to Supabase's REST API with `fetch`, keeps a copy on the phone, and queues entries offline until they sync.
+- **App** (`src/`, `public/`): React 18 + Vite, Tailwind CSS v4 and shadcn/ui (Radix primitives, vaul drawers, Recharts, lucide icons), with light, dark and system themes. Screens live in `src/screens/`, shared pieces in `src/components/`, the game and data layer in `src/lib/` (`logic.js`, `store.js`). GitHub Actions builds on every push and deploys `main` to Pages (`public/CNAME` keeps the domain). It talks to Supabase's REST API with `fetch`, keeps a copy on the phone, and queues entries offline until they sync.
+- **Terms**: three months each from `termStart`. I and II are the cut; III (summer) holds the line at maintenance; IV makes slow progress. Each term switches the deficit, protein, sessions and step targets on its own. Away days (travel, illness, summer interruptions) swap in floor goals so a streak survives one off day; two in a row is flagged.
 - **Database** (Supabase project `mustanir`):
   - `days`: one row per user per day; the day's entries are in `data` (jsonb), scores in `scores`.
   - `settings`: one row per user, targets in `data`.
@@ -18,9 +19,9 @@ Ahmed 2.0's daily record: a PWA hosted on GitHub Pages at https://mustanir.ahmed
 - **Vitality** (Decrees and Records → Health): steps, exercise, stand hours, sleep and daylight against goals set in the Diwan; up to 20 XP a day on days you log, and the Vitality medals for 4 of 5 kept 7 or 30 days running.
 - **Biological age** (Records → Health): from the last 60 days of VO₂ max, resting heart rate, steps, sleep, BMI, HRV and walking speed. Each measure's link to all-cause mortality in large studies is converted to years with the Gompertz law (risk doubles about every 8 years). An estimate, not a diagnosis. Needs the birth date in the Diwan.
 - **Daily checklist** (`settings.checklist`, per-day `checks` and `extraTasks`): productivity = share ticked, worth up to 20 XP a day.
-- **Game** (`js/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25, the checklist up to 20, vitality up to 20 (165 max). Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
+- **Game** (`src/lib/logic.js`): each minister earns up to 20 XP a day, a perfect day adds 25, the checklist up to 20, vitality up to 20 (165 max). Levels need 50·L·(L−1) XP; ranks go Candidate → Elected → Statesman → Reformer → Al-Mustanir. Only days with something logged by hand count, so Health history never inflates the score.
 
-The publishable key in `index.html` is meant to be public; the data is protected by sign-in and row-level security.
+The publishable key in `src/lib/store.js` is meant to be public; the data is protected by sign-in and row-level security.
 
 ## First-time setup
 
