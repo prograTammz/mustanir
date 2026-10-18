@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Al-Mustanir</title>
+<meta name="theme-color" content="#0F4A3C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mustanir">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F1; --surface:#FFFFFF; --ink:#14231F; --muted:#5D6B66; --line:#D9DFDB;
+  --hdr:#0F4A3C; --hdr-ink:#F1EBDC; --brass:#A8812F; --brass-soft:#E9DFC6;
+  --chip:#E7ECE8; --chip-on:#0F4A3C; --chip-on-ink:#FFFFFF;
+  --ok:#2E7D4F; --warn:#A86A12; --bad:#B4412F;
+  --serif:"Amiri", "Iowan Old Style", Georgia, serif;
+  --sans:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1513; --surface:#14201C; --ink:#E8EEEA; --muted:#93A39D; --line:#26352F;
+    --hdr:#0F2E27; --hdr-ink:#EADFC4; --brass:#D4AF5F; --brass-soft:#3A3322;
+    --chip:#1C2B26; --chip-on:#D4AF5F; --chip-on-ink:#14201C;
+    --ok:#5BB27F; --warn:#D9A447; --bad:#E07A66; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1513; --surface:#14201C; --ink:#E8EEEA; --muted:#93A39D; --line:#26352F;
+  --hdr:#0F2E27; --hdr-ink:#EADFC4; --brass:#D4AF5F; --brass-soft:#3A3322;
+  --chip:#1C2B26; --chip-on:#D4AF5F; --chip-on-ink:#14201C;
+  --ok:#5BB27F; --warn:#D9A447; --bad:#E07A66; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--hdr)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.hdr{background:var(--hdr);color:var(--hdr-ink);padding:20px 20px 0}
+.hdr-inner{max-width:640px;margin:0 auto}
+.seal{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.seal-ar{font-family:var(--serif);font-size:clamp(44px,13vw,64px);line-height:1;color:var(--brass);font-weight:700;direction:rtl}
+.seal-en{font-family:var(--serif);font-size:18px;line-height:1.2}
+.seal-en small{display:block;font-family:var(--sans);font-size:13px;opacity:.75;margin-top:2px}
+.term{margin-top:16px;height:3px;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden}
+.term > span{display:block;height:100%;background:var(--brass);width:0}
+.tabs{display:flex;gap:4px;margin-top:14px}
+.tab{flex:1;background:none;border:0;color:var(--hdr-ink);opacity:.7;padding:10px 4px 12px;border-bottom:2px solid transparent;font-weight:500}
+.tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--brass)}
+
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
+.banner{font-size:14px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 14px}
+.datebar button{background:var(--surface);border:1px solid var(--line);border-radius:10px;width:44px;height:44px;font-size:20px}
+.datebar .d{text-align:center}
+.datebar .d strong{display:block;font-family:var(--serif);font-size:22px;line-height:1.1}
+.datebar .d span{font-size:13px;color:var(--muted)}
+.status{font-size:13px;color:var(--muted);text-align:center;min-height:18px;margin-bottom:6px}
+
+.min{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.min-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
+.min-h h2{font-family:var(--serif);font-weight:700;font-size:22px;margin:0;line-height:1.1}
+.min-h .sc{font-size:14px;color:var(--muted);text-align:right}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.row > .lbl{flex:1 1 100%;font-size:14px;color:var(--muted)}
+.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:9px 14px;min-height:40px;font-size:15px}
+.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink)}
+.chip.half[aria-pressed="true"]{background:var(--brass-soft);color:var(--ink);border-color:var(--brass)}
+.chip.no[aria-pressed="true"]{background:var(--bad);color:#fff}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--chip);font-size:18px}
+.stepper input{width:72px;height:40px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.txt{width:100%;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:8px 10px}
+textarea.txt{min-height:76px;resize:vertical;line-height:1.4;font:inherit}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+.allow{font-size:14px;padding:8px 10px;border-radius:8px;background:var(--chip);margin-top:6px}
+
+.period-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
+.pres{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:12px}
+.pres .big{font-family:var(--serif);font-size:56px;line-height:1;font-weight:700}
+.pres p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.mrow{padding:14px 0;border-top:1px solid var(--line)}
+.mrow:first-of-type{border-top:0}
+.mrow-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mrow-h h3{font-family:var(--serif);font-size:20px;margin:0}
+.mrow-h .pct{font-family:var(--serif);font-size:26px;font-weight:700}
+.bar{position:relative;height:6px;background:var(--chip);border-radius:3px;margin:8px 0 6px;overflow:visible}
+.bar > span{display:block;height:100%;border-radius:3px}
+.bar > i{position:absolute;top:-3px;width:2px;height:12px;background:var(--ink);opacity:.5}
+.verdict{font-size:13px;font-weight:600}
+.detail{font-size:13px;color:var(--muted)}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.kv:first-child{border-top:0}
+.kv span:last-child{font-weight:600;text-align:right}
+.btn{background:var(--chip-on);color:var(--chip-on-ink);border:0;border-radius:10px;padding:12px 16px;font-weight:600;width:100%}
+.field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.field:first-child{border-top:0}
+.field label{font-size:15px}
+.field input{width:140px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 10px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="seal">
+      <div class="seal-en">Al-Mustanir<small id="termline">Ahmed 2.0, Term I</small></div>
+      <div class="seal-ar" aria-hidden="true">المُستنير</div>
+    </div>
+    <div class="term" aria-hidden="true"><span id="termbar"></span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="today" aria-selected="true">Today</button>
+      <button class="tab" role="tab" data-tab="revision" aria-selected="false">Revision</button>
+      <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+    </nav>
+  </div>
+</header>
+<main id="main"></main>
+
+<script>
+(function(){
+"use strict";
+const DEFAULTS={termStart:"2026-11-01",sessionsPerWeek:4,pagesPerDay:20,bedtime:"21:00",wake:"05:00",windowHours:8,sleepTarget:7,deficitMin:500,threshold:70,book:"",revNotes:{},readingTime:"05:30",trainingTime:"18:00",trainingDays:"SAT,MON,WED,THU",checkinTime:"20:30",nudge:false};
+const PRAYERS=[["fajr","Fajr"],["dhuhr","Dhuhr"],["asr","Asr"],["maghrib","Maghrib"],["isha","Isha"]];
+const MIN=[
+ {key:"body",name:"Ministry of Body",agenda:"Training and diet"},
+ {key:"faith",name:"Ministry of Faith",agenda:"The five prayers",immune:true},
+ {key:"knowledge",name:"Ministry of Knowledge",agenda:"Daily reading"},
+ {key:"purity",name:"Ministry of Purity",agenda:"No porn, keep the schedule"},
+ {key:"habits",name:"Ministry of Habits",agenda:"Sleep and routines"}
+];
+const S={settings:{...DEFAULTS},days:{},tab:"today",selected:null,period:null,db:null,base:null,mode:"local",dirty:new Set(),timers:{}};
+const main=document.getElementById("main");
+
+/* ---------- dates ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+const addMonths=(s,n)=>{const d=parse(s);d.setMonth(d.getMonth()+n);return ymd(d)};
+const diff=(a,b)=>Math.round((parse(b)-parse(a))/86400000);
+const today=()=>ymd(new Date());
+const fmt=(s,o)=>parse(s).toLocaleDateString("en-GB",o||{weekday:"long",day:"numeric",month:"long"});
+S.selected=today();
+
+function syncBed(){const m=String(S.settings.wake||"05:00").match(/^(\d{1,2}):(\d{2})$/);if(!m)return;let t=(Number(m[1])*60+Number(m[2])-Math.round(Number(S.settings.windowHours||8)*60))%1440;if(t<0)t+=1440;S.settings.bedtime=pad(Math.floor(t/60))+":"+pad(t%60)}
+function termEnd(){return addMonths(S.settings.termStart,3)} // exclusive
+function termDay(s){return diff(S.settings.termStart,s)+1}
+function periods(){const st=S.settings.termStart;return [0,1,2].map(i=>({i,start:addMonths(st,i),end:addMonths(st,i+1),label:"Month "+(i+1)}))}
+function intervalFor(s){const w=Math.floor(Math.max(0,diff(S.settings.termStart,s))/7)+1;return w<=3?3:w<=6?7:w<=9?14:30}
+
+/* ---------- storage: Google Sheet through the Al-Mustanir API ---------- */
+const LS={get(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const CONN=LS.get("a2-conn",{url:"",key:""});
+const OUTBOX=LS.get("a2-outbox",{});
+const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"");
+function setStatus(t){const el=document.getElementById("status");if(el)el.textContent=t}
+async function call(action,...args){
+  if(!CONN.url||!CONN.key)throw new Error("Connect the app to your sheet in Settings first.");
+  const res=await fetch(CONN.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({key:CONN.key,action,args}),redirect:"follow"});
+  let out;try{out=await res.json()}catch(e){throw new Error("The API didn’t answer with data. Check the API link.")}
+  if(!out.ok)throw new Error(out.error||"Request failed");
+  return out.data;
+}
+function scoresFor(date){const d=S.days[date]||{},ds=day(date);return {faith:ds.faith,knowledge:ds.knowledge,habits:ds.habits,withinSchedule:d.mast?!violation(date):null}}
+async function flushOutbox(){
+  const dates=Object.keys(OUTBOX);if(!dates.length||!CONN.key)return;
+  for(const date of dates){
+    try{await call("saveDay",date,OUTBOX[date].d,OUTBOX[date].scores);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX)}
+    catch(e){setStatus("Saved on this phone, will sync when you’re back online");return}
+  }
+  setStatus("Synced to sheet");
+}
+function saveDay(date){
+  S.dirty.add(date);setStatus("Saving to sheet…");
+  LS.set("a2-cache",{settings:S.settings,days:S.days});
+  clearTimeout(S.timers[date]);
+  S.timers[date]=setTimeout(async()=>{
+    const d=S.days[date]||{},scores=scoresFor(date);
+    OUTBOX[date]={d,scores};LS.set("a2-outbox",OUTBOX);
+    try{await call("saveDay",date,d,scores);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX);setStatus("Saved to sheet")}
+    catch(e){setStatus(navigator.onLine===false?"Saved on this phone, will sync when you’re back online":"Couldn’t save yet: "+e.message+" Will retry.")}
+    finally{S.dirty.delete(date)}
+  },700);
+}
+let settingsTimer;
+function saveSettings(){LS.set("a2-cache",{settings:S.settings,days:S.days});clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{call("saveSettings",{...S.settings,appUrl:APP_URL}).catch(()=>setStatus("Couldn’t save settings yet"))},400)}
+function applyData(data){
+  S.settings={...DEFAULTS,...(data.settings||{})};syncBed();
+  const next=data.days||{};
+  Object.keys(OUTBOX).forEach(k=>{next[k]=OUTBOX[k].d});
+  S.dirty.forEach(k=>{if(S.days[k])next[k]=S.days[k]});
+  S.days=next;
+}
+async function load(){
+  if(!CONN.url||!CONN.key){S.mode="setup";render();return}
+  try{
+    await flushOutbox();
+    const data=await call("getAll");
+    applyData(data);S.sheetUrl=data.url;S.mode="cloud";S.loaded=true;
+    LS.set("a2-cache",{settings:S.settings,days:S.days});render();
+  }catch(e){S.mode="error";S.err=e.message;render()}
+}
+const cached=LS.get("a2-cache",null);
+if(cached){applyData(cached);S.loaded=true}
+
+/* ---------- scoring ---------- */
+const TRAINED=["gym","tennis","walk"];
+function lastMastBefore(s){let best=null;for(const k in S.days){if(k<s&&S.days[k].mast&&(!best||k>best))best=k}return best}
+function violation(s){const d=S.days[s];if(!d||!d.mast)return false;const last=lastMastBefore(s);return !!last&&diff(last,s)<intervalFor(s)}
+function day(s){
+  const d=S.days[s];
+  if(!d)return {logged:false,faith:0,knowledge:0,diet:0,trained:0,porn:0,plan:0,habits:0};
+  const pr=d.prayers||{};
+  const faith=PRAYERS.reduce((a,[k])=>a+(pr[k]==="on"?1:pr[k]==="late"?.5:0),0)/5;
+  const slept=(d.sleepH||0)>=S.settings.sleepTarget;
+  const habits=(!!d.bed+2*!!d.wake+2*slept+!!d.hair+!!d.skinAm+!!d.skinPm+!!d.teethAm+!!d.teethPm+!!d.watch)/11;
+  return {logged:true,faith,knowledge:(d.pages||0)>=S.settings.pagesPerDay?1:0,diet:d.diet===true?1:0,trained:TRAINED.includes(d.train)?1:0,porn:d.pornFree===true?1:0,plan:violation(s)?0:1,habits};
+}
+function range(a,b){const out=[];for(let s=a;s<b;s=addDays(s,1))out.push(s);return out}
+function score(dates){
+  const n=dates.length;if(!n)return null;
+  const ds=dates.map(day);const sum=f=>ds.reduce((a,x)=>a+x[f],0);
+  const sessions=sum("trained"),planned=S.settings.sessionsPerWeek*n/7;
+  const training=Math.min(1,planned?sessions/planned:1),diet=sum("diet")/n;
+  const porn=sum("porn")/n,plan=ds.reduce((a,x)=>a+(x.logged?x.plan:0),0)/n;
+  const defs=dates.map(k=>(S.days[k]||{}).deficit).filter(v=>v>0);
+  const walk=dates.reduce((a,k)=>a+((S.days[k]||{}).walkMin||0),0);
+  const r={n,sessions,planned,training,diet,porn,plan,walk,avgDeficit:defs.length?Math.round(defs.reduce((a,b)=>a+b,0)/defs.length):null,logged:ds.filter(x=>x.logged).length,
+    body:(training+diet)/2,faith:sum("faith")/n,knowledge:sum("knowledge")/n,purity:(porn+plan)/2,habits:sum("habits")/n};
+  r.overall=(r.body+r.faith+r.knowledge+r.purity+r.habits)/5;return r;
+}
+const pct=x=>x==null?"—":Math.round(x*100)+"%";
+
+/* ---------- ui helpers ---------- */
+function h(tag,attrs,...kids){const el=document.createElement(tag);if(attrs)for(const k in attrs){const v=attrs[k];if(k==="class")el.className=v;else if(k.startsWith("on"))el.addEventListener(k.slice(2),v);else if(v===true)el.setAttribute(k,"");else if(v!==false&&v!=null)el.setAttribute(k,v)}kids.flat().forEach(c=>{if(c==null||c===false)return;el.append(c.nodeType?c:document.createTextNode(String(c)))});return el}
+function rec(){return S.days[S.selected]||(S.days[S.selected]={})}
+function set(k,v){rec()[k]=v;saveDay(S.selected);render()}
+function chip(label,on,fn,cls){return h("button",{class:"chip"+(cls?" "+cls:""),"aria-pressed":on?"true":"false",onclick:fn},label)}
+function yesNo(k,yes,no){const v=rec()[k];return [chip(yes,v===true,()=>set(k,v===true?null:true)),chip(no,v===false,()=>set(k,v===false?null:false),"no")]}
+function toggle(k,label){const v=!!rec()[k];return chip(label,v,()=>set(k,!v))}
+function stepper(k,step){
+  const v=rec()[k]||0;
+  const inp=h("input",{type:"number",inputmode:"numeric",min:"0",value:String(v),"aria-label":k,onchange:e=>{set(k,Math.max(0,parseInt(e.target.value,10)||0))}});
+  return h("div",{class:"stepper"},h("button",{"aria-label":"Less",onclick:()=>set(k,Math.max(0,v-step))},"−"),inp,h("button",{"aria-label":"More",onclick:()=>set(k,v+step)},"+"));
+}
+function numIn(k,step,ph,after){
+  const v=rec()[k];
+  return h("input",{class:"txt",type:"number",inputmode:"decimal",step,min:"0",value:v!=null?String(v):"",placeholder:ph,style:"max-width:140px","aria-label":k,onchange:e=>{const n=parseFloat(e.target.value);const val=isNaN(n)?null:n;rec()[k]=val;if(after)after(val);saveDay(S.selected);render()}});
+}
+function ministry(title,score,...rows){return h("section",{class:"min"},h("div",{class:"min-h"},h("h2",null,title),h("div",{class:"sc"},score)),...rows)}
+function row(label,...kids){return h("div",{class:"row"},label?h("div",{class:"lbl"},label):null,...kids)}
+
+/* ---------- header ---------- */
+function header(){
+  const st=S.settings.termStart,t=today(),total=diff(st,termEnd());
+  const dn=termDay(t);
+  let line;
+  if(dn<1)line="Ahmed 2.0, term I begins "+fmt(st,{day:"numeric",month:"long"});
+  else if(dn>total)line="Ahmed 2.0, term I complete";
+  else line="Ahmed 2.0, term I, day "+dn+" of "+total;
+  document.getElementById("termline").textContent=line;
+  document.getElementById("termbar").style.width=Math.max(0,Math.min(100,(dn-1)/total*100))+"%";
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===S.tab?"true":"false"));
+}
+
+/* ---------- today ---------- */
+function renderToday(){
+  const s=S.selected,r=rec(),dn=termDay(s),ds=day(s);
+  const kids=[];
+  const standalone=window.navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
+  if(!standalone&&!LS.get("a2-hide-install",false))kids.push(h("div",{class:"banner"},
+    "Install Al-Mustanir: tap the Share button in Safari, then Add to Home Screen. ",
+    h("button",{class:"chip",style:"min-height:32px;padding:4px 12px;margin-top:6px",onclick:()=>{LS.set("a2-hide-install",true);render()}},"Hide")));
+  if(S.mode==="setup")kids.push(h("div",{class:"banner"},"Connect the app to your Google Sheet in Settings to start logging."));
+  else if(S.mode==="error")kids.push(h("div",{class:"banner"},"Offline or the sheet didn’t answer ("+(S.err||"no connection")+"). You can keep logging; it syncs when you’re back."));
+  else if(!S.loaded)kids.push(h("div",{class:"banner"},"Loading from your sheet…"));
+  kids.push(h("div",{class:"datebar"},
+    h("button",{"aria-label":"Previous day",onclick:()=>{S.selected=addDays(s,-1);render()}},"‹"),
+    h("div",{class:"d"},h("strong",null,fmt(s)),h("span",null,dn<1?"Rehearsal day, before the term":dn>diff(S.settings.termStart,termEnd())?"After term I":"Term day "+dn+", week "+(Math.floor((dn-1)/7)+1))),
+    h("button",{"aria-label":"Next day",disabled:s>=today(),onclick:()=>{if(s<today()){S.selected=addDays(s,1);render()}}},"›")));
+  kids.push(h("div",{class:"status",id:"status"}));
+
+  // body
+  const wkStart=dn>=1?addDays(S.settings.termStart,Math.floor((dn-1)/7)*7):addDays(s,-6);
+  const wkSessions=range(wkStart,addDays(s,1)).filter(k=>TRAINED.includes((S.days[k]||{}).train)).length;
+  kids.push(ministry("Ministry of Body",wkSessions+" of "+S.settings.sessionsPerWeek+" sessions this week",
+    row("Training today",...[["gym","Gym"],["tennis","Tennis"],["walk","Walking pad"],["rest","Rest"]].map(([k,l])=>chip(l,r.train===k,()=>set("train",r.train===k?null:k)))),
+    row("Walking pad (minutes)",stepper("walkMin",10)),
+    row("Calorie deficit today (kcal)",numIn("deficit","50","e.g. 600",v=>{if(v!=null)rec().diet=v>=S.settings.deficitMin})),
+    row("Stayed in my calorie deficit",...yesNo("diet","Yes","No")),
+    h("p",{class:"hint"},"Target "+S.settings.deficitMin+" kcal or more. Apple Health fills this in the next morning if your food is logged; you can also enter it yourself."+(r.dietaryKcal?" Burned "+((r.activeKcal||0)+(r.basalKcal||0))+", ate "+r.dietaryKcal+" kcal.":"")),
+    row("Weight (kg), optional, weekly is enough",h("input",{class:"txt",type:"number",inputmode:"decimal",step:"0.1",value:r.weight!=null?String(r.weight):"",placeholder:"e.g. 89.4",style:"max-width:140px",onchange:e=>{const v=parseFloat(e.target.value);set("weight",isNaN(v)?null:v)}}))));
+
+  // faith
+  const pr=r.prayers||{};
+  const cyc=k=>{const cur=pr[k];const nx=cur==null?"on":cur==="on"?"late":null;const p={...pr};if(nx)p[k]=nx;else delete p[k];set("prayers",p)};
+  kids.push(ministry("Ministry of Faith",Math.round(ds.faith*5*10)/10+" of 5",
+    row(null,...PRAYERS.map(([k,l])=>chip(pr[k]==="late"?l+" (qada)":l,!!pr[k],()=>cyc(k),pr[k]==="late"?"half":""))),
+    h("p",{class:"hint"},"Tap once for on time, twice for made up, a third time to clear. Combined prayers while travelling count as on time.")));
+
+  // knowledge
+  kids.push(ministry("Ministry of Knowledge",(r.pages||0)+" of "+S.settings.pagesPerDay+" pages",
+    row("Pages read"+(S.settings.book?" in "+S.settings.book:""),stepper("pages",5)),
+    row("Margin learning (minutes, not scored)",stepper("margin",15))));
+
+  // purity
+  const last=lastMastBefore(s),iv=intervalFor(s);
+  let allow;
+  if(!last)allow="Allowed today. Current spacing: every "+iv+" days.";
+  else{const next=addDays(last,iv);allow=next<=s?"Allowed today. Current spacing: every "+iv+" days.":"Next allowed "+fmt(next,{weekday:"short",day:"numeric",month:"short"})+". Current spacing: every "+iv+" days."}
+  const viol=violation(s);
+  kids.push(ministry("Ministry of Purity",r.pornFree===true?(viol?"Outside schedule":"Clean"):r.pornFree===false?"Slip logged":"Not confirmed",
+    row("No porn today",...yesNo("pornFree","Confirmed","Slipped")),
+    row("Masturbation today",chip("No",r.mast===false,()=>set("mast",r.mast===false?null:false)),chip("Yes",r.mast===true,()=>set("mast",r.mast===true?null:true),viol?"no":"")),
+    h("div",{class:"allow"},viol?"This was inside the spacing window. Log the trigger below and carry on.":allow),
+    (r.pornFree===false||viol)?row("What triggered it? Time, mood, place",h("input",{class:"txt",type:"text",value:r.note||"",placeholder:"e.g. 1am, bored, phone in bed",onchange:e=>set("note",e.target.value.trim())})):null));
+
+  // habits
+  kids.push(ministry("Ministry of Habits",pct(ds.habits),
+    row("Sleep window "+S.settings.bedtime+" to "+S.settings.wake+" ("+S.settings.windowHours+" hours), aim for "+S.settings.sleepTarget+" hours asleep",toggle("bed","In bed by "+S.settings.bedtime),toggle("wake","Up for Fajr by "+S.settings.wake)),
+    row("Hours slept"+(r.sleepStart?", from Apple Health":", filled by Apple Health each morning"),numIn("sleepH","0.25","e.g. 7.2"),h("span",{class:"hint",style:"margin:0"},(r.sleepH||0)>=S.settings.sleepTarget?"Target met":"Target "+S.settings.sleepTarget+" hours")),
+    row("Morning",toggle("hair","Hair"),toggle("skinAm","Skin"),toggle("teethAm","Teeth")),
+    row("Night",toggle("skinPm","Skin"),toggle("teethPm","Teeth")),
+    row("Tracking",toggle("watch","Watch worn and charged"))));
+
+  // feedback
+  const note=(k,label,ph)=>row(label,h("textarea",{class:"txt",placeholder:ph,oninput:e=>{rec()[k]=e.target.value;saveDay(S.selected)}},r[k]||""));
+  kids.push(h("section",{class:"min"},h("div",{class:"min-h"},h("h2",null,"Feedback"),h("div",{class:"sc"},"Not scored")),
+    note("good","What went well today?","e.g. Prayed Fajr on time, hit 30 pages"),
+    note("fix","What got in the way, and what changes tomorrow?","e.g. Slept late after a call, phone stays outside the bedroom")));
+  return kids;
+}
+
+/* ---------- revision ---------- */
+function verdict(x,immune){
+  const t=S.settings.threshold/100;
+  if(x==null)return ["",""];
+  if(immune)return [x>=t?"ok":"warn",x>=t?"Strong. Not impeachable":"Below the line. Not impeachable, but needs attention"];
+  if(x>=t+.15)return ["ok","On track"];
+  if(x>=t)return ["warn","Holding, close to the line"];
+  return ["bad","Impeachment risk"];
+}
+function renderRevision(){
+  const t=today(),ps=periods();
+  if(S.period==null){const cur=ps.find(p=>t>=p.start&&t<p.end);S.period=cur?cur.i:(t<ps[0].start?0:2)}
+  const p=ps[S.period];
+  const endCount=t<p.end?addDays(t,1):p.end;
+  const dates=p.start<endCount?range(p.start,endCount):[];
+  const r=score(dates);
+  const kids=[h("div",{class:"period-chips"},...ps.map(x=>chip(x.label+", "+fmt(x.start,{month:"short"}),x.i===S.period,()=>{S.period=x.i;render()})))];
+  const revDate=fmt(p.end,{day:"numeric",month:"long"});
+  if(!r){
+    kids.push(h("div",{class:"pres"},h("div",{class:"big"},"—"),h("p",null,t<p.start?"This month starts "+fmt(p.start,{day:"numeric",month:"long"})+". Its revision is on "+revDate+".":"No days counted yet.")));
+  }else{
+    const left=diff(t,p.end);
+    kids.push(h("div",{class:"pres"},
+      h("div",{class:"big"},pct(r.overall)),
+      h("p",null,"Overall adherence over "+r.n+" day"+(r.n>1?"s":"")+", "+r.logged+" logged. "+(left>0?"Revision on "+revDate+", in "+left+" day"+(left>1?"s":"")+".":"Revision was due "+revDate+"."))));
+    const det={
+      body:"Training "+pct(r.training)+" ("+r.sessions+" of "+Math.round(r.planned*10)/10+" planned sessions). Diet "+pct(r.diet)+" of days."+(r.avgDeficit?" Average deficit "+r.avgDeficit+" kcal on logged days.":"")+(r.walk?" Walking pad "+r.walk+" minutes.":""),
+      faith:"Average share of the five prayers kept, qada counted as half.",
+      knowledge:"Days at "+S.settings.pagesPerDay+" pages or more.",
+      purity:"Porn-free "+pct(r.porn)+". Within schedule "+pct(r.plan)+".",
+      habits:"Sleep counts most: "+S.settings.sleepTarget+" hours, in bed on time, up for Fajr. Routines and watch once each."
+    };
+    const box=h("div",{class:"pres"});
+    MIN.forEach(m=>{
+      const x=r[m.key],[cls,txt]=verdict(x,m.immune);
+      const col=cls==="ok"?"var(--ok)":cls==="warn"?"var(--warn)":"var(--bad)";
+      box.append(h("div",{class:"mrow"},
+        h("div",{class:"mrow-h"},h("h3",null,m.name),h("div",{class:"pct "+cls},pct(x))),
+        h("div",{class:"bar"},h("span",{style:"width:"+Math.round(x*100)+"%;background:"+col}),h("i",{style:"left:"+S.settings.threshold+"%"})),
+        h("div",{class:"verdict "+cls},txt),
+        h("div",{class:"detail"},det[m.key])));
+    });
+    kids.push(box);
+  }
+  // lagging indicator and streaks
+  const ws=Object.keys(S.days).filter(k=>k>=S.settings.termStart&&S.days[k].weight!=null).sort();
+  const lag=h("div",{class:"pres"});
+  if(ws.length){
+    const a=S.days[ws[0]].weight,b=S.days[ws[ws.length-1]].weight,dlt=Math.round((b-a)*10)/10;
+    lag.append(h("div",{class:"kv"},h("span",null,"Starting weight"),h("span",null,a+" kg")),h("div",{class:"kv"},h("span",null,"Latest weight"),h("span",null,b+" kg")),h("div",{class:"kv"},h("span",null,"Change, the result not the metric"),h("span",null,(dlt>0?"+":"")+dlt+" kg")));
+  }else lag.append(h("div",{class:"kv"},h("span",null,"Weight"),h("span",null,"Log a weight in Today")));
+  const streak=f=>{let n=0;let s=t;if(!S.days[s])s=addDays(s,-1);while(S.days[s]&&f(S.days[s],s)){n++;s=addDays(s,-1)}return n};
+  lag.append(h("div",{class:"kv"},h("span",null,"Porn-free streak"),h("span",null,streak(d=>d.pornFree===true)+" days")),
+    h("div",{class:"kv"},h("span",null,"All five prayers streak"),h("span",null,streak((d,s)=>day(s).faith===1)+" days")),
+    h("div",{class:"kv"},h("span",null,"Reading streak"),h("span",null,streak(d=>(d.pages||0)>=S.settings.pagesPerDay)+" days")));
+  kids.push(lag);
+  const notes=S.settings.revNotes||{};
+  kids.push(h("div",{class:"pres"},
+    h("h3",{style:"font-family:var(--serif);font-size:20px;margin:0 0 4px"},"Al-Mustanir’s notes, "+p.label.toLowerCase()),
+    h("p",{class:"hint",style:"margin:0 0 8px"},"Your verdict at the revision: who keeps their seat, who is replaced, and the new strategy."),
+    h("textarea",{class:"txt",style:"min-height:120px",placeholder:"e.g. Body holds. Knowledge impeached: reading moves to right after Fajr.",oninput:e=>{S.settings.revNotes={...(S.settings.revNotes||{}),[p.i]:e.target.value};clearTimeout(S.timers.rev);S.timers.rev=setTimeout(saveSettings,600)}},notes[p.i]||"")));
+  if(S.sheetUrl)kids.push(h("a",{class:"btn",href:S.sheetUrl,target:"_blank",rel:"noopener",style:"display:block;text-align:center;text-decoration:none"},"Open the Google Sheet"));
+  return kids;
+}
+/* ---------- settings ---------- */
+function renderSettings(){
+  const f=(label,k,type,attrs)=>h("div",{class:"field"},h("label",{for:"f-"+k},label),h("input",Object.assign({id:"f-"+k,type,value:String(S.settings[k]??""),onchange:e=>{let v=e.target.value;if(type==="number")v=Math.max(0,parseFloat(v)||0);S.settings[k]=v;if(k==="wake"||k==="windowHours")syncBed();S.period=null;saveSettings();if(k==="checkinTime"&&S.settings.nudge)call("setNudge",true,v).catch(()=>{});render()}},attrs||{})));
+  const DAYS=[["SAT","Sat"],["SUN","Sun"],["MON","Mon"],["TUE","Tue"],["WED","Wed"],["THU","Thu"],["FRI","Fri"]];
+  const sel=String(S.settings.trainingDays||"").split(",").filter(Boolean);
+  const togDay=k=>{const set=new Set(sel);set.has(k)?set.delete(k):set.add(k);S.settings.trainingDays=DAYS.map(d=>d[0]).filter(x=>set.has(x)).join(",");saveSettings();render()};
+  const msg=t=>{const el=document.getElementById("calmsg");if(el)el.textContent=t};
+  const run=async(fn,busy,done,...args)=>{msg(busy);try{const res=await call(fn,...args);msg(typeof done==="function"?done(res):done)}catch(e){msg("Couldn’t finish: "+(e&&e.message?e.message:"try again"))}};
+  const h3=t=>h("h3",{style:"font-family:var(--serif);font-size:20px;margin:0 0 4px"},t);
+  const connMsg=t=>{const el=document.getElementById("connmsg");if(el)el.textContent=t};
+  const connect=async()=>{
+    CONN.url=document.getElementById("c-url").value.trim();CONN.key=document.getElementById("c-key").value.trim();
+    LS.set("a2-conn",CONN);connMsg("Connecting…");
+    try{await call("ping");connMsg("Connected to your sheet.");S.loaded=false;await load();saveSettings()}
+    catch(e){connMsg("Couldn’t connect: "+e.message)}
+  };
+  return [
+    h("div",{class:"pres"},
+      h3("Connection"),
+      h("p",{class:"hint",style:"margin:0 0 8px"},"Paste your API link and key once. They stay on this phone only."),
+      h("div",{class:"row"},h("div",{class:"lbl"},"API link"),h("input",{id:"c-url",class:"txt",type:"url",placeholder:"https://script.google.com/macros/s/…/exec",value:CONN.url})),
+      h("div",{class:"row"},h("div",{class:"lbl"},"Key"),h("input",{id:"c-key",class:"txt",type:"password",autocomplete:"off",placeholder:"From setupKey in Apps Script",value:CONN.key})),
+      h("button",{class:"btn",onclick:connect},CONN.key?"Reconnect":"Connect"),
+      h("p",{class:"hint",id:"connmsg"},S.mode==="cloud"?"Connected to your sheet.":""),
+      S.sheetUrl?h("p",{class:"hint"},h("a",{href:S.sheetUrl,target:"_blank",rel:"noopener",style:"color:inherit"},"Open the Google Sheet")):null),
+    h("div",{class:"pres"},
+      h3("Targets"),
+      f("Term start","termStart","date"),
+      f("Training sessions per week","sessionsPerWeek","number",{min:"1",max:"14"}),
+      f("Minimum calorie deficit (kcal)","deficitMin","number",{min:"0",step:"50"}),
+      f("Daily reading minimum (pages)","pagesPerDay","number",{min:"1"}),
+      f("Sleep target (hours)","sleepTarget","number",{min:"1",max:"12",step:"0.5"}),
+      f("Wake for Fajr","wake","time"),
+      f("Sleep window (hours)","windowHours","number",{min:"6",max:"10",step:"0.5"}),
+      h("div",{class:"field"},h("label",null,"Bedtime, set by the window"),h("strong",null,S.settings.bedtime)),
+      f("Impeachment line (%)","threshold","number",{min:"0",max:"100"}),
+      f("Current book","book","text",{placeholder:"Book title"})),
+    h("div",{class:"pres"},
+      h3("Reminders"),
+      h("p",{class:"hint",style:"margin:0 0 8px"},"Your schedule goes into its own Google Calendar called Al-Mustanir, with a phone notification for every event, including a morning log 20 minutes after Fajr and an evening log at your check-in time. Each log reminder links straight to this app. After changing a time, add the schedule again to update it."),
+      f("Reading","readingTime","time"),
+      f("Training","trainingTime","time"),
+      h("div",{class:"field",style:"flex-wrap:wrap"},h("label",null,"Training days"),h("div",{class:"row",style:"margin:0"},...DAYS.map(([k,l])=>chip(l,sel.includes(k),()=>togDay(k))))),
+      f("Evening log","checkinTime","time"),
+      h("div",{class:"field"},h("label",null,"Email me at evening log time if today isn’t complete"),
+        chip(S.settings.nudge?"On":"Off",!!S.settings.nudge,()=>{S.settings.nudge=!S.settings.nudge;saveSettings();render();run("setNudge",S.settings.nudge?"Turning on…":"Turning off…",S.settings.nudge?"Evening email is on.":"Evening email is off.",!!S.settings.nudge,S.settings.checkinTime)})),
+      h("button",{class:"btn",style:"margin-top:12px",onclick:()=>run("syncCalendar","Adding your schedule…",n=>"Added "+n+" reminders to the Al-Mustanir calendar.",{...S.settings,appUrl:APP_URL})},"Add schedule to Google Calendar"),
+      h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>run("clearCalendar","Removing…","Schedule removed from your calendar.")},"Remove schedule from calendar"),
+      h("p",{class:"hint",id:"calmsg"})),
+    h("p",{class:"hint"},"Your record lives in your Google Sheet. Edits made directly in the sheet show up here when you reopen the app.")];
+}
+
+/* ---------- render ---------- */
+function render(){
+  header();
+  const kids=S.tab==="today"?renderToday():S.tab==="revision"?renderRevision():renderSettings();
+  main.replaceChildren(...kids);
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{S.tab=b.dataset.tab;render();window.scrollTo(0,0)}));
+syncBed();render();load();
+window.addEventListener("online",()=>{flushOutbox().then(load)});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!S.dirty.size)load()});
+})();
+</script>
+</body>
+</html>
