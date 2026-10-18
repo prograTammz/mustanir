@@ -165,60 +165,117 @@ function termDay(s){return diff(S.settings.termStart,s)+1}
 function periods(){const st=S.settings.termStart;return [0,1,2].map(i=>({i,start:addMonths(st,i),end:addMonths(st,i+1),label:"Month "+(i+1)}))}
 function intervalFor(s){const w=Math.floor(Math.max(0,diff(S.settings.termStart,s))/7)+1;return w<=3?3:w<=6?7:w<=9?14:30}
 
-/* ---------- storage: Google Sheet through the Al-Mustanir API ---------- */
-const LS={get(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-const CONN=LS.get("a2-conn",{url:"",key:""});
+/* ---------- storage: Supabase (REST, no SDK so the app works offline) ---------- */
+const SB_URL="https://qanzhisoxueaizscdial.supabase.co";
+const SB_KEY="sb_publishable_L6srdujqlW0FgMinucAqaw_qMOEMhqJ"; // publishable: safe in the page, row-level security protects the data
+const HEALTH_URL=SB_URL+"/functions/v1/health";
+const LS={get(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+let SESSION=LS.get("a2-session",null);
 const OUTBOX=LS.get("a2-outbox",{});
 const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"");
 function setStatus(t){const el=document.getElementById("status");if(el)el.textContent=t}
-async function call(action,...args){
-  if(!CONN.url||!CONN.key)throw new Error("Connect the app to your sheet in Settings first.");
-  const res=await fetch(CONN.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({key:CONN.key,action,args}),redirect:"follow"});
-  let out;try{out=await res.json()}catch(e){throw new Error("The API didn’t answer with data. Check the API link.")}
-  if(!out.ok)throw new Error(out.error||"Request failed");
-  return out.data;
+
+async function authCall(path,body){
+  const res=await fetch(SB_URL+"/auth/v1/"+path,{method:"POST",headers:{apikey:SB_KEY,"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const out=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(out.msg||out.error_description||out.message||"Sign-in failed");
+  return out;
 }
+function keepSession(out){
+  SESSION={access_token:out.access_token,refresh_token:out.refresh_token,expires_at:Date.now()+(out.expires_in||3600)*1000,email:out.user&&out.user.email};
+  LS.set("a2-session",SESSION);
+}
+async function token(){
+  if(!SESSION)throw new Error("Signed out");
+  if(Date.now()>SESSION.expires_at-60000){
+    try{keepSession(await authCall("token?grant_type=refresh_token",{refresh_token:SESSION.refresh_token}))}
+    catch(e){if(navigator.onLine!==false){SESSION=null;LS.del("a2-session");S.mode="signin";render()}throw e}
+  }
+  return SESSION.access_token;
+}
+async function rest(path,opts={}){
+  const res=await fetch(SB_URL+"/rest/v1/"+path,{...opts,headers:{apikey:SB_KEY,Authorization:"Bearer "+await token(),"Content-Type":"application/json",...(opts.headers||{})}});
+  if(!res.ok){const t=await res.text();throw new Error(t||("HTTP "+res.status))}
+  return res.status===204?null:res.json().catch(()=>null);
+}
+const upsert=(table,conflict,row)=>rest(table+"?on_conflict="+conflict,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(row)});
+
 function scoresFor(date){const d=S.days[date]||{},ds=day(date);return {faith:ds.faith,knowledge:ds.knowledge,habits:ds.habits,withinSchedule:d.mast?!violation(date):null}}
+async function pushDay(date,entry){await upsert("days","user_id,date",{date,data:entry.d,scores:entry.scores})}
 async function flushOutbox(){
-  const dates=Object.keys(OUTBOX);if(!dates.length||!CONN.key)return;
+  const dates=Object.keys(OUTBOX);if(!dates.length||!SESSION)return;
   for(const date of dates){
-    try{await call("saveDay",date,OUTBOX[date].d,OUTBOX[date].scores);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX)}
+    try{await pushDay(date,OUTBOX[date]);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX)}
     catch(e){setStatus("Saved on this phone, will sync when you’re back online");return}
   }
-  setStatus("Synced to sheet");
+  setStatus("Synced");
 }
 function saveDay(date){
-  S.dirty.add(date);setStatus("Saving to sheet…");
+  S.dirty.add(date);setStatus("Saving…");
   LS.set("a2-cache",{settings:S.settings,days:S.days});
   clearTimeout(S.timers[date]);
   S.timers[date]=setTimeout(async()=>{
-    const d=S.days[date]||{},scores=scoresFor(date);
-    OUTBOX[date]={d,scores};LS.set("a2-outbox",OUTBOX);
-    try{await call("saveDay",date,d,scores);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX);setStatus("Saved to sheet")}
-    catch(e){setStatus(navigator.onLine===false?"Saved on this phone, will sync when you’re back online":"Couldn’t save yet: "+e.message+" Will retry.")}
+    const entry={d:S.days[date]||{},scores:scoresFor(date)};
+    OUTBOX[date]=entry;LS.set("a2-outbox",OUTBOX);
+    try{await pushDay(date,entry);delete OUTBOX[date];LS.set("a2-outbox",OUTBOX);setStatus("Saved")}
+    catch(e){setStatus(navigator.onLine===false?"Saved on this phone, will sync when you’re back online":"Saved on this phone, will retry")}
     finally{S.dirty.delete(date)}
   },700);
 }
 let settingsTimer;
-function saveSettings(){LS.set("a2-cache",{settings:S.settings,days:S.days});clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{call("saveSettings",{...S.settings,appUrl:APP_URL}).catch(()=>setStatus("Couldn’t save settings yet"))},400)}
-function applyData(data){
-  S.settings={...DEFAULTS,...(data.settings||{})};syncBed();
-  const next=data.days||{};
+function saveSettings(){LS.set("a2-cache",{settings:S.settings,days:S.days});clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>{upsert("settings","user_id",{data:{...S.settings,appUrl:APP_URL}}).catch(()=>setStatus("Settings saved on this phone, will retry"))},400)}
+function applyData(settings,days){
+  S.settings={...DEFAULTS,...(settings||{})};syncBed();
+  const next={...(days||{})};
   Object.keys(OUTBOX).forEach(k=>{next[k]=OUTBOX[k].d});
   S.dirty.forEach(k=>{if(S.days[k])next[k]=S.days[k]});
   S.days=next;
 }
 async function load(){
-  if(!CONN.url||!CONN.key){S.mode="setup";render();return}
+  if(!SESSION){S.mode="signin";render();return}
   try{
     await flushOutbox();
-    const data=await call("getAll");
-    applyData(data);S.sheetUrl=data.url;S.mode="cloud";S.loaded=true;
+    const [st,rows]=await Promise.all([rest("settings?select=data"),rest("days?select=date,data&order=date")]);
+    const days={};(rows||[]).forEach(r=>{days[r.date]=r.data||{}});
+    applyData(st&&st[0]?st[0].data:{},days);S.mode="cloud";S.loaded=true;
     LS.set("a2-cache",{settings:S.settings,days:S.days});render();
-  }catch(e){S.mode="error";S.err=e.message;render()}
+  }catch(e){if(S.mode!=="signin"){S.mode="error";S.err=e.message;render()}}
+}
+async function newShortcutKey(){
+  const raw=crypto.getRandomValues(new Uint8Array(24));
+  const key="mk_"+[...raw].map(b=>b.toString(16).padStart(2,"0")).join("");
+  const hash=[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(key)))].map(b=>b.toString(16).padStart(2,"0")).join("");
+  await rest("ingest_tokens",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({token_hash:hash})});
+  return key;
 }
 const cached=LS.get("a2-cache",null);
-if(cached){applyData(cached);S.loaded=true}
+if(cached){applyData(cached.settings,cached.days);S.loaded=true}
+
+function renderSignIn(){
+  const msg=t=>{const el=document.getElementById("authmsg");if(el)el.textContent=t};
+  const val=id=>document.getElementById(id).value.trim();
+  const go=async create=>{
+    const email=val("a-email"),password=document.getElementById("a-pass").value;
+    if(!email||password.length<8){msg("Enter your email and a password of at least 8 characters.");return}
+    msg(create?"Creating your account…":"Signing in…");
+    try{
+      if(create){
+        const out=await authCall("signup",{email,password,options:{emailRedirectTo:APP_URL}});
+        if(!out.access_token){msg("Check your email and tap the confirmation link, then come back here and sign in.");return}
+        keepSession(out);
+      }else keepSession(await authCall("token?grant_type=password",{email,password}));
+      S.loaded=false;msg("");await load();saveSettings();
+    }catch(e){msg(e.message)}
+  };
+  return [h("div",{class:"pres"},
+    h("h3",{style:"font-family:var(--serif);font-size:24px;margin:0 0 4px"},"Sign in to Al-Mustanir"),
+    h("p",{class:"hint",style:"margin:0 0 12px"},"One account keeps your record synced between your phone, laptop and Apple Health."),
+    h("div",{class:"row"},h("div",{class:"lbl"},"Email"),h("input",{id:"a-email",class:"txt",type:"email",autocomplete:"username",inputmode:"email",value:LS.get("a2-email","")})),
+    h("div",{class:"row"},h("div",{class:"lbl"},"Password"),h("input",{id:"a-pass",class:"txt",type:"password",autocomplete:"current-password"})),
+    h("button",{class:"btn",style:"margin-top:8px",onclick:()=>{LS.set("a2-email",val("a-email"));go(false)}},"Sign in"),
+    h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>{LS.set("a2-email",val("a-email"));go(true)}},"First time? Create account"),
+    h("p",{class:"hint",id:"authmsg"}))];
+}
 
 /* ---------- scoring ---------- */
 const TRAINED=["gym","tennis","walk"];
@@ -288,8 +345,7 @@ function renderToday(){
   if(!standalone&&!LS.get("a2-hide-install",false))kids.push(h("div",{class:"banner"},
     "Install Al-Mustanir: tap the Share button in Safari, then Add to Home Screen. ",
     h("button",{class:"chip",style:"min-height:32px;padding:4px 12px;margin-top:6px",onclick:()=>{LS.set("a2-hide-install",true);render()}},"Hide")));
-  if(S.mode==="setup")kids.push(h("div",{class:"banner"},"Connect the app to your Google Sheet in Settings to start logging."));
-  else if(S.mode==="error")kids.push(h("div",{class:"banner"},"Offline or the sheet didn’t answer ("+(S.err||"no connection")+"). You can keep logging; it syncs when you’re back."));
+  if(S.mode==="error")kids.push(h("div",{class:"banner"},"Offline right now. Keep logging; it syncs when you’re back."));
   else if(!S.loaded)kids.push(h("div",{class:"banner"},"Loading from your sheet…"));
   kids.push(h("div",{class:"datebar"},
     h("button",{"aria-label":"Previous day",onclick:()=>{S.selected=addDays(s,-1);render()}},"‹"),
@@ -414,29 +470,29 @@ function renderRevision(){
 }
 /* ---------- settings ---------- */
 function renderSettings(){
-  const f=(label,k,type,attrs)=>h("div",{class:"field"},h("label",{for:"f-"+k},label),h("input",Object.assign({id:"f-"+k,type,value:String(S.settings[k]??""),onchange:e=>{let v=e.target.value;if(type==="number")v=Math.max(0,parseFloat(v)||0);S.settings[k]=v;if(k==="wake"||k==="windowHours")syncBed();S.period=null;saveSettings();if(k==="checkinTime"&&S.settings.nudge)call("setNudge",true,v).catch(()=>{});render()}},attrs||{})));
-  const DAYS=[["SAT","Sat"],["SUN","Sun"],["MON","Mon"],["TUE","Tue"],["WED","Wed"],["THU","Thu"],["FRI","Fri"]];
-  const sel=String(S.settings.trainingDays||"").split(",").filter(Boolean);
-  const togDay=k=>{const set=new Set(sel);set.has(k)?set.delete(k):set.add(k);S.settings.trainingDays=DAYS.map(d=>d[0]).filter(x=>set.has(x)).join(",");saveSettings();render()};
-  const msg=t=>{const el=document.getElementById("calmsg");if(el)el.textContent=t};
-  const run=async(fn,busy,done,...args)=>{msg(busy);try{const res=await call(fn,...args);msg(typeof done==="function"?done(res):done)}catch(e){msg("Couldn’t finish: "+(e&&e.message?e.message:"try again"))}};
+  const f=(label,k,type,attrs)=>h("div",{class:"field"},h("label",{for:"f-"+k},label),h("input",Object.assign({id:"f-"+k,type,value:String(S.settings[k]??""),onchange:e=>{let v=e.target.value;if(type==="number")v=Math.max(0,parseFloat(v)||0);S.settings[k]=v;if(k==="wake"||k==="windowHours")syncBed();S.period=null;saveSettings();render()}},attrs||{})));
   const h3=t=>h("h3",{style:"font-family:var(--serif);font-size:20px;margin:0 0 4px"},t);
-  const connMsg=t=>{const el=document.getElementById("connmsg");if(el)el.textContent=t};
-  const connect=async()=>{
-    CONN.url=document.getElementById("c-url").value.trim();CONN.key=document.getElementById("c-key").value.trim();
-    LS.set("a2-conn",CONN);connMsg("Connecting…");
-    try{await call("ping");connMsg("Connected to your sheet.");S.loaded=false;await load();saveSettings()}
-    catch(e){connMsg("Couldn’t connect: "+e.message)}
+  const keyMsg=t=>{const el=document.getElementById("keymsg");if(el)el.textContent=t};
+  const makeKey=async()=>{
+    keyMsg("Creating…");
+    try{
+      const key=await newShortcutKey();
+      const box=document.getElementById("keybox");box.hidden=false;box.value=key;box.select();
+      keyMsg("Copy this key into your Shortcut now. It’s shown only once.");
+    }catch(e){keyMsg("Couldn’t create a key: "+e.message)}
   };
   return [
     h("div",{class:"pres"},
-      h3("Connection"),
-      h("p",{class:"hint",style:"margin:0 0 8px"},"Paste your API link and key once. They stay on this phone only."),
-      h("div",{class:"row"},h("div",{class:"lbl"},"API link"),h("input",{id:"c-url",class:"txt",type:"url",placeholder:"https://script.google.com/macros/s/…/exec",value:CONN.url})),
-      h("div",{class:"row"},h("div",{class:"lbl"},"Key"),h("input",{id:"c-key",class:"txt",type:"password",autocomplete:"off",placeholder:"From setupKey in Apps Script",value:CONN.key})),
-      h("button",{class:"btn",onclick:connect},CONN.key?"Reconnect":"Connect"),
-      h("p",{class:"hint",id:"connmsg"},S.mode==="cloud"?"Connected to your sheet.":""),
-      S.sheetUrl?h("p",{class:"hint"},h("a",{href:S.sheetUrl,target:"_blank",rel:"noopener",style:"color:inherit"},"Open the Google Sheet")):null),
+      h3("Account"),
+      h("div",{class:"field"},h("label",null,"Signed in as"),h("strong",null,(SESSION&&SESSION.email)||"")),
+      h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>{SESSION=null;LS.del("a2-session");LS.del("a2-cache");S.days={};S.mode="signin";S.tab="today";render()}},"Sign out")),
+    h("div",{class:"pres"},
+      h3("Apple Health"),
+      h("p",{class:"hint",style:"margin:0 0 8px"},"Your Shortcut sends Health data here with a key. Create one, then paste it into the Shortcut."),
+      h("div",{class:"field"},h("label",null,"Address"),h("input",{class:"txt",readonly:true,value:HEALTH_URL,style:"max-width:60%",onclick:e=>e.target.select()})),
+      h("textarea",{id:"keybox",class:"txt",readonly:true,hidden:true,style:"min-height:56px;font-family:ui-monospace,monospace;font-size:13px"}),
+      h("button",{class:"btn",style:"margin-top:8px",onclick:makeKey},"Create Shortcut key"),
+      h("p",{class:"hint",id:"keymsg"})),
     h("div",{class:"pres"},
       h3("Targets"),
       f("Term start","termStart","date"),
@@ -449,25 +505,13 @@ function renderSettings(){
       h("div",{class:"field"},h("label",null,"Bedtime, set by the window"),h("strong",null,S.settings.bedtime)),
       f("Impeachment line (%)","threshold","number",{min:"0",max:"100"}),
       f("Current book","book","text",{placeholder:"Book title"})),
-    h("div",{class:"pres"},
-      h3("Reminders"),
-      h("p",{class:"hint",style:"margin:0 0 8px"},"Your schedule goes into its own Google Calendar called Al-Mustanir, with a phone notification for every event, including a morning log 20 minutes after Fajr and an evening log at your check-in time. Each log reminder links straight to this app. After changing a time, add the schedule again to update it."),
-      f("Reading","readingTime","time"),
-      f("Training","trainingTime","time"),
-      h("div",{class:"field",style:"flex-wrap:wrap"},h("label",null,"Training days"),h("div",{class:"row",style:"margin:0"},...DAYS.map(([k,l])=>chip(l,sel.includes(k),()=>togDay(k))))),
-      f("Evening log","checkinTime","time"),
-      h("div",{class:"field"},h("label",null,"Email me at evening log time if today isn’t complete"),
-        chip(S.settings.nudge?"On":"Off",!!S.settings.nudge,()=>{S.settings.nudge=!S.settings.nudge;saveSettings();render();run("setNudge",S.settings.nudge?"Turning on…":"Turning off…",S.settings.nudge?"Evening email is on.":"Evening email is off.",!!S.settings.nudge,S.settings.checkinTime)})),
-      h("button",{class:"btn",style:"margin-top:12px",onclick:()=>run("syncCalendar","Adding your schedule…",n=>"Added "+n+" reminders to the Al-Mustanir calendar.",{...S.settings,appUrl:APP_URL})},"Add schedule to Google Calendar"),
-      h("button",{class:"chip",style:"width:100%;margin-top:8px;border-radius:10px",onclick:()=>run("clearCalendar","Removing…","Schedule removed from your calendar.")},"Remove schedule from calendar"),
-      h("p",{class:"hint",id:"calmsg"})),
-    h("p",{class:"hint"},"Your record lives in your Google Sheet. Edits made directly in the sheet show up here when you reopen the app.")];
+    h("p",{class:"hint"},"Your record is stored in your private Supabase database and synced across your devices.")];
 }
 
 /* ---------- render ---------- */
 function render(){
   header();
-  const kids=S.tab==="today"?renderToday():S.tab==="revision"?renderRevision():renderSettings();
+  const kids=S.mode==="signin"&&!SESSION?renderSignIn():S.tab==="today"?renderToday():S.tab==="revision"?renderRevision():renderSettings();
   main.replaceChildren(...kids);
 }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{S.tab=b.dataset.tab;render();window.scrollTo(0,0)}));

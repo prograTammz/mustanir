@@ -1,6 +1,6 @@
 // Al-Mustanir service worker: keeps the app shell available offline.
 // Your data never passes through here; it goes straight to your Google Sheet.
-const CACHE = 'mustanir-v1';
+const CACHE = 'mustanir-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
