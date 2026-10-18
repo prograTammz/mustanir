@@ -3,6 +3,9 @@
 export const DEFAULTS = {
   termStart: "2026-11-01", sessionsPerWeek: 4, pagesPerDay: 20, bedtime: "21:00", wake: "05:00",
   windowHours: 8, sleepTarget: 7, deficitMin: 500, threshold: 70, book: "", revNotes: {},
+  trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
+  windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
+  notify: { morning: true, reading: true, training: true, evening: true, windDown: true, advisor: true },
 };
 
 export const S = {

@@ -91,7 +91,7 @@ export function saveSettings() {
   settingsTimer = setTimeout(() => { upsert("settings", "user_id", { data: { ...S.settings, appUrl: APP_URL } }).catch(() => setStatus("Settings saved on this phone · will retry")); }, 400);
 }
 function applyData(settings, days) {
-  S.settings = { ...DEFAULTS, ...(settings || {}) }; syncBed();
+  S.settings = { ...DEFAULTS, ...(settings || {}) }; S.settings.notify = { ...DEFAULTS.notify, ...((settings || {}).notify || {}) }; syncBed();
   const next = { ...(days || {}) };
   Object.keys(OUTBOX).forEach((k) => { next[k] = OUTBOX[k].d; });
   S.dirty.forEach((k) => { if (S.days[k]) next[k] = S.days[k]; });
@@ -133,6 +133,57 @@ export async function newShortcutKey() {
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)))].map((b) => b.toString(16).padStart(2, "0")).join("");
   await rest("ingest_tokens", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ token_hash: hash }) });
   return key;
+}
+
+/* ---------- push notifications ---------- */
+export const PALACE_URL = SB_URL + "/functions/v1/palace";
+const b64ToBytes = (b64) => { const s = atob((b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(s, (c) => c.charCodeAt(0)); };
+export const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+export async function pushState() {
+  if (!pushSupported()) return "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && (await reg.pushManager.getSubscription());
+  return sub ? "on" : "off";
+}
+export async function enablePush() {
+  const perm = await Notification.requestPermission(); // must run inside the tap that asked for it
+  if (perm !== "granted") throw new Error(perm === "denied" ? "Notifications are blocked. Allow them in iOS Settings → Notifications → Mustanir." : "Permission wasn’t given.");
+  const reg = await navigator.serviceWorker.ready;
+  const { publicKey } = await (await fetch(PALACE_URL + "/vapid")).json();
+  const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
+  const j = sub.toJSON();
+  await rest("push_subscriptions?on_conflict=endpoint", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, device: navigator.userAgent.slice(0, 120) }) });
+}
+export async function disablePush() {
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && (await reg.pushManager.getSubscription());
+  if (!sub) return;
+  await rest("push_subscriptions?endpoint=eq." + encodeURIComponent(sub.endpoint), { method: "DELETE" }).catch(() => {});
+  await sub.unsubscribe();
+}
+export async function testPush() {
+  const res = await fetch(PALACE_URL + "/test", { method: "POST", headers: { Authorization: "Bearer " + await token(), "Content-Type": "application/json" }, body: "{}" });
+  const out = await res.json().catch(() => ({}));
+  if (!out.ok) throw new Error(out.error || "Test failed");
+  return out.devices;
+}
+
+/* ---------- Apple Calendar feed ---------- */
+export async function newCalendarLink() {
+  const raw = crypto.getRandomValues(new Uint8Array(24));
+  const t = [...raw].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  await rest("feed_tokens?user_id=not.is.null", { method: "DELETE", headers: { Prefer: "return=minimal" } }).catch(() => {}); // one live link at a time
+  await rest("feed_tokens", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ token_hash: hash }) });
+  return PALACE_URL.replace(/^https:/, "webcal:") + "/calendar?t=" + t;
+}
+
+/* ---------- the advisor's weekly reports ---------- */
+export async function loadReviews() {
+  if (!SESSION) return [];
+  S.reviews = (await rest("weekly_reviews?select=week_start,title,summary,recommendations,changes,created_at&order=week_start.desc&limit=8")) || [];
+  return S.reviews;
 }
 
 const cached = LS.get("a2-cache", null);

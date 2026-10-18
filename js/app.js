@@ -4,7 +4,8 @@ import {
   periods, intervalFor, TRAINED, manual, lastMastBefore, violation, day, dayMinisters, score, verdict, currentApproval,
   dayXP, totals, rankFor, streak, bestStreak, T, medals, pct,
 } from "./logic.js";
-import { SESSION, LS, HEALTH_URL, setRenderer, setStatus, saveDay, saveSettings, load, flushOutbox, loadHealth, newShortcutKey, signIn, signUp, signOut } from "./store.js";
+import { SESSION, LS, HEALTH_URL, setRenderer, setStatus, saveDay, saveSettings, load, flushOutbox, loadHealth, newShortcutKey, signIn, signUp, signOut,
+  pushSupported, pushState, enablePush, disablePush, testPush, newCalendarLink, loadReviews } from "./store.js";
 import { lineChart, heatmap, ministerBars } from "./charts.js";
 import { xpFloat, levelUp, burst } from "./fx.js";
 
@@ -93,6 +94,26 @@ function standing() {
   return { out, r, period };
 }
 
+/* ---------- the advisor (weekly review) ---------- */
+let reviewsLoading = false, reviewsTried = false;
+function advisorCard(full) {
+  if (!reviewsTried && SESSION) { reviewsTried = true; reviewsLoading = true; loadReviews().then(() => { reviewsLoading = false; render(); }).catch(() => { reviewsLoading = false; }); }
+  const r = (S.reviews || [])[0];
+  const card = h("section", { class: "card advisor" }, h("div", { class: "card-h" }, h("h2", null, "The advisor’s report"), ar("تقرير المستشار")));
+  if (!r) { card.append(h("p", { class: "hint" }, reviewsLoading ? "Loading…" : "Every Friday the advisor reviews your week and writes here.")); }
+  else {
+    card.append(h("p", { class: "muted" }, "Week of " + fmt(r.week_start, { day: "numeric", month: "long" })), h("h3", { class: "adv-title" }, r.title));
+    if (full) {
+      card.append(h("p", null, r.summary));
+      if ((r.recommendations || []).length) card.append(h("ol", { class: "recs" }, ...r.recommendations.map((x) => h("li", null, typeof x === "string" ? x : x.text || ""))));
+      if ((r.changes || []).length) card.append(h("p", { class: "hint" }, "Changes made to the app this week:"), h("ul", { class: "recs" }, ...r.changes.map((x) => h("li", null, typeof x === "string" ? x : x.text || ""))));
+    } else card.append(h("button", { class: "chip wide", onclick: () => go("council") }, "Read the full report"));
+  }
+  if (full) card.append(h("div", { class: "row" }, h("div", { class: "lbl" }, "Notes to the advisor: what to change in your plan or in this app. Read every Friday."),
+    h("textarea", { class: "txt", placeholder: "e.g. Move reading to after Isha. Add a water counter to the Body decree.", oninput: (e) => { S.settings.advisorNotes = e.target.value; clearTimeout(S.timers.adv); S.timers.adv = setTimeout(saveSettings, 600); } }, S.settings.advisorNotes || "")));
+  return card;
+}
+
 /* ---------- palace ---------- */
 let palace3d = null, palaceHost = null, palaceTried = false;
 function palaceStage() {
@@ -138,6 +159,7 @@ function renderPalace() {
         h("div", { class: "minrow-s" }, h("strong", null, pct(s.approval)), h("span", { class: "st " + cls }, !s.status ? "Awaiting days" : m.immune ? (cls === "ok" ? "Strong" : "Needs attention") : txt)));
     })));
 
+  kids.push(advisorCard(false));
   const ms = medals(), won = ms.filter((m) => m.won).length;
   kids.push(h("section", { class: "card" },
     h("div", { class: "card-h" }, h("h2", null, "Medals"), h("span", { class: "muted" }, `${won} of ${ms.length}`)),
@@ -326,6 +348,7 @@ function renderCouncil() {
       kids.push(h("section", { class: "card" }, h("div", { class: "kv" }, h("span", null, "Weight since the term began · the result, not the measure"), h("strong", null, `${dlt > 0 ? "+" : ""}${dlt} kg`))));
     }
   }
+  kids.push(advisorCard(true));
   const notes = S.settings.revNotes || {};
   kids.push(h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "The council’s verdict"), ar("قرار المجلس")),
     h("p", { class: "hint" }, "Who keeps their seat, who is replaced, and the new strategy."),
@@ -356,6 +379,9 @@ function renderDiwan() {
       h("div", { class: "field" }, h("label", null, "Bedtime, set by the window"), h("strong", null, S.settings.bedtime)),
       f("Impeachment line (%)", "threshold", "number", { min: "0", max: "100" }),
       f("Current book", "book", "text", { placeholder: "Book title" })),
+    scheduleCard(f),
+    notifyCard(),
+    calendarCard(),
     h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Apple Health"), ar("الصحة")),
       h("p", { class: "hint" }, "Your Shortcut sends Health data here every night at 23:59, and once for the last two years. Create a key, then paste it into the Shortcut."),
       h("div", { class: "field" }, h("label", null, "Address"), h("input", { class: "txt", readonly: true, value: HEALTH_URL, onclick: (e) => e.target.select() })),
@@ -367,6 +393,73 @@ function renderDiwan() {
       h("div", { class: "field" }, h("label", null, "Signed in as"), h("strong", null, (SESSION && SESSION.email) || "")),
       h("button", { class: "chip wide", onclick: () => { signOut(); S.tab = "palace"; render(); } }, "Sign out")),
   ];
+}
+
+function scheduleCard(f) {
+  const DAYS = [["SAT", "Sat"], ["SUN", "Sun"], ["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"]];
+  const sel = String(S.settings.trainingDays || "").split(",").filter(Boolean);
+  const togDay = (k) => { const s = new Set(sel); s.has(k) ? s.delete(k) : s.add(k); S.settings.trainingDays = DAYS.map((d) => d[0]).filter((x) => s.has(x)).join(","); saveSettings(); render(); };
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "The daily schedule"), ar("جدول اليوم")),
+    h("p", { class: "hint" }, "Drives your reminders and the Apple Calendar blocks."),
+    h("div", { class: "field col" }, h("label", null, "Training days"), h("div", { class: "row tight" }, ...DAYS.map(([k, l]) => chip(l, sel.includes(k), () => togDay(k))))),
+    f("Training starts", "trainingTime", "time"),
+    f("Training length (minutes)", "trainingMin", "number", { min: "15", step: "15" }),
+    f("Reading block starts", "readingTime", "time"),
+    f("Reading length (minutes)", "readingMin", "number", { min: "10", step: "5" }),
+    f("Wind-down before bed (minutes)", "windDownMin", "number", { min: "0", step: "15" }),
+    f("Evening decrees reminder", "checkinTime", "time"),
+    h("p", { class: "hint" }, `Tonight: wind-down ${toHM(hmOf(S.settings.bedtime) - Number(S.settings.windDownMin || 0))}, lights out ${S.settings.bedtime}, up for Fajr ${S.settings.wake}.`));
+}
+const hmOf = (s) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : 0; };
+const toHM = (m) => { const x = ((m % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
+
+let pushStatus = null;
+function notifyCard() {
+  const msg = (t) => { const el = document.getElementById("pushmsg"); if (el) el.textContent = t; };
+  if (pushStatus === null) { pushStatus = "…"; pushState().then((s) => { pushStatus = s; if (S.tab === "diwan") render(); }); }
+  const standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  const n = S.settings.notify || {};
+  const pref = (k, label, when) => h("div", { class: "field" }, h("label", null, label, h("small", { class: "when" }, when)),
+    chip(n[k] ? "On" : "Off", !!n[k], () => { S.settings.notify = { ...n, [k]: !n[k] }; saveSettings(); render(); }));
+  const card = h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Notifications"), ar("التنبيهات")));
+  if (!pushSupported() || (!standalone && /iPhone|iPad/.test(navigator.userAgent))) {
+    card.append(h("p", { class: "hint" }, "On iPhone, notifications work once Al-Mustanir is on your home screen: Safari → Share → Add to Home Screen, then open it from the icon and come back here."));
+    return card;
+  }
+  if (pushStatus === "denied") card.append(h("p", { class: "hint" }, "Notifications are blocked. Allow them in iOS Settings → Notifications → Mustanir."));
+  else if (pushStatus === "on") card.append(h("p", { class: "hint" }, "This device receives reminders."),
+    h("div", { class: "row" }, h("button", { class: "chip", onclick: async () => { msg("Sending…"); try { const d = await testPush(); msg(`Sent to ${d} device${d > 1 ? "s" : ""}.`); } catch (e) { msg(e.message); } } }, "Send a test"),
+      h("button", { class: "chip", onclick: async () => { await disablePush(); pushStatus = "off"; render(); } }, "Turn off on this device")));
+  else card.append(h("button", { class: "btn", onclick: async () => { msg("Asking…"); try { await enablePush(); pushStatus = "on"; render(); } catch (e) { msg(e.message); } } }, "Turn on notifications"));
+  card.append(h("p", { class: "hint", id: "pushmsg" }));
+  const wake = hmOf(S.settings.wake), bed = hmOf(S.settings.bedtime);
+  card.append(
+    pref("morning", "Morning decrees", toHM(wake + 20)),
+    pref("reading", "Reading block", S.settings.readingTime),
+    pref("training", "Training, 30 minutes before", toHM(hmOf(S.settings.trainingTime) - 30) + " on training days"),
+    pref("evening", "Evening decrees, only if something’s open", S.settings.checkinTime),
+    pref("windDown", "Wind-down", toHM(bed - Number(S.settings.windDownMin || 0))),
+    pref("advisor", "The advisor’s weekly report", "Fridays"));
+  return card;
+}
+
+function calendarCard() {
+  const msg = (t) => { const el = document.getElementById("calmsg"); if (el) el.textContent = t; };
+  const make = async () => {
+    msg("Creating…");
+    try {
+      const link = await newCalendarLink();
+      const box = document.getElementById("calbox"); box.hidden = false; box.value = link;
+      const a = document.getElementById("caladd"); a.href = link; a.hidden = false;
+      msg("Tap “Add to Apple Calendar”, then Subscribe. Any older link stops working.");
+    } catch (e) { msg("Couldn’t create the link: " + e.message); }
+  };
+  return h("section", { class: "card" }, h("div", { class: "card-h" }, h("h2", null, "Apple Calendar"), ar("التقويم")),
+    h("p", { class: "hint" }, "Subscribe once and your training slots, reading block, wind-down, sleep and council days appear in Apple Calendar, and follow any change you make here."),
+    h("button", { class: "btn", onclick: make }, "Create calendar link"),
+    h("a", { id: "caladd", class: "chip wide center", hidden: true }, "Add to Apple Calendar"),
+    h("textarea", { id: "calbox", class: "txt mono", readonly: true, hidden: true, onclick: (e) => e.target.select() }),
+    h("p", { class: "hint", id: "calmsg" }));
 }
 
 /* ---------- sign in ---------- */
@@ -397,7 +490,7 @@ function renderSignIn() {
 }
 
 /* ---------- render ---------- */
-function go(tab) { S.tab = tab; render(); scrollTo(0, 0); }
+function go(tab) { S.tab = tab; history.replaceState(null, "", "#" + tab); render(); scrollTo(0, 0); }
 function render() {
   header();
   const signin = S.mode === "signin" && !SESSION;
@@ -407,6 +500,8 @@ function render() {
 }
 setRenderer(render);
 document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.tab)));
+const fromHash = () => { const t = location.hash.slice(1); if (["palace", "decrees", "records", "council", "diwan"].includes(t)) S.tab = t; };
+fromHash(); addEventListener("hashchange", () => { fromHash(); render(); });
 syncBed(); render(); load();
 addEventListener("online", () => { flushOutbox().then(load); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !S.dirty.size) load(); });
