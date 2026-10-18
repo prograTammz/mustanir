@@ -4,7 +4,7 @@ on:
     branches: [main, redesign]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 concurrency:
@@ -25,6 +25,14 @@ jobs:
           name: dist
           path: dist
           retention-days: 7
+      - name: Publish the preview build to the build-preview branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cd dist
+          git init -q -b build-preview
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add -A && git commit -qm "Preview build of ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" build-preview
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
