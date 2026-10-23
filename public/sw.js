@@ -1,6 +1,6 @@
 // Al-Mustanir service worker: keeps the palace available offline.
 // Your data never passes through the cache; Supabase requests always go to the network.
-const CACHE = 'mustanir-v12';
+const CACHE = 'mustanir-v13';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 // Third-party files the app needs offline: the fonts.
 const RUNTIME = ['fonts.googleapis.com', 'fonts.gstatic.com'];
