@@ -62,7 +62,30 @@ async function all(path, page = 1000) {
 }
 
 function scoresFor(date) { const d = S.days[date] || {}, ds = day(date); return { faith: ds.faith, knowledge: ds.knowledge, habits: ds.habits, withinSchedule: d.mast ? !violation(date) : null }; }
-const pushDay = (date, entry) => upsert("days", "user_id,date", { date, data: entry.d, scores: entry.scores });
+// Saving sends the whole day, so first fold in whatever Apple Health wrote since this phone last loaded it.
+// Without this, logging a prayer right after a sync erased that sync's workouts, steps and sleep.
+const MEASURED = ["steps", "activeKcal", "basalKcal", "dietaryKcal", "exerciseMin", "standHours", "restingHR", "daylightMin", "hrv", "vo2max",
+  "workouts", "workoutsDetail", "walkMin", "exByHour", "kcalByHour", "sleepStart", "sleepEnd", "deficit", "source"];
+const FILL_ONLY = ["sleepH", "weight", "bed", "wake", "train", "diet", "watch"]; // can be typed by hand: only filled when blank
+export function mergeHealth(local, server) {
+  if (!server) return local;
+  const out = { ...local }, src = String(server.source || "");
+  const newer = src.startsWith("Apple Health") && src > String(local.source || "");
+  for (const k of MEASURED) if (k in server && (!(k in out) || newer)) out[k] = server[k];
+  for (const k of FILL_ONLY) if (k in server && !(k in out)) out[k] = server[k];
+  return out;
+}
+async function pushDay(date, entry) {
+  try {
+    const rows = await rest("days?select=data&date=eq." + date);
+    const server = rows && rows[0] ? rows[0].data : null;
+    if (server) {
+      entry.d = mergeHealth(entry.d, server);
+      if (S.days[date]) { S.days[date] = mergeHealth(S.days[date], server); entry.scores = scoresFor(date); onChange(); }
+    }
+  } catch { /* offline: the save below fails too and the outbox retries */ }
+  return upsert("days", "user_id,date", { date, data: entry.d, scores: entry.scores });
+}
 
 export async function flushOutbox() {
   const dates = Object.keys(OUTBOX); if (!dates.length || !SESSION) return;
@@ -118,9 +141,11 @@ const rpc = (fn, args) => rest("rpc/" + fn, { method: "POST", body: JSON.stringi
 export async function loadHealth(days = 1500) {
   if (!SESSION) return null;
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const [series, sync] = await Promise.all([
+  const [series, sync, dataSync] = await Promise.all([
     rpc("health_series", { p_metrics: CHART_METRICS, p_from: since }),
     rest("health_syncs?select=received_at,kind,samples,workouts,first_day,last_day&order=received_at.desc&limit=1"),
+    // Workout-only syncs (Health Auto Export's workout automation) carry no steps, sleep or energy.
+    rest("health_syncs?select=received_at,samples&samples=gt.0&order=received_at.desc&limit=1").catch(() => null),
   ]);
   const byMetric = {};
   for (const [k, pts] of Object.entries(series || {})) byMetric[k] = pts.map(([d, v]) => [d, Number(v)]);
@@ -128,7 +153,7 @@ export async function loadHealth(days = 1500) {
   const sleep = {};
   for (const k of ["sleepCore", "sleepDeep", "sleepREM", "sleepAsleep"]) for (const [d, v] of byMetric[k] || []) sleep[d] = (sleep[d] || 0) + v;
   byMetric.sleepH = Object.entries(sleep).sort().map(([d, v]) => [d, v / 60]);
-  S.health = { byMetric, lastSync: sync && sync[0] ? sync[0] : null, loadedAt: Date.now() };
+  S.health = { byMetric, lastSync: sync && sync[0] ? sync[0] : null, lastData: dataSync && dataSync[0] ? dataSync[0] : null, loadedAt: Date.now() };
   return S.health;
 }
 // Every metric at a glance: latest value, this month against last, the year's average.

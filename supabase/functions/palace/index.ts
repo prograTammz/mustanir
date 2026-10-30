@@ -142,10 +142,11 @@ async function notifyRun() {
       if (open.length) due.push({ key: "evening", at: hm(s.checkinTime) ?? 1200, title: "Evening decrees · مراسيم المساء", body: "Still open: " + open.join(", ") + ".", url: APP + "#decrees" });
     }
     // Apple Health hasn't arrived in over a day (the nightly Shortcut can't read Health while the phone is locked).
+    // Workout-only syncs don't count: they carry no steps, sleep or energy.
     if ((s.notify as Record<string, boolean>).health !== false) {
-      const { data: last } = await admin.from("health_syncs").select("received_at").eq("user_id", uid).order("received_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: last } = await admin.from("health_syncs").select("received_at").eq("user_id", uid).gt("samples", 0).order("received_at", { ascending: false }).limit(1).maybeSingle();
       const hours = last ? (Date.now() - Date.parse(last.received_at)) / 3600000 : 0;
-      if (hours > 26) due.push({ key: "healthSync", at: (hm(s.checkinTime) ?? 1200) - 15, title: "Apple Health · البيانات متأخرة", body: `No sync for ${Math.floor(hours)} hours. Unlock your phone and run the Shortcut so the watch's data reaches the ministers.`, url: APP + "#diwan" });
+      if (hours > 26) due.push({ key: "healthSync", at: (hm(s.checkinTime) ?? 1200) - 15, title: "Apple Health · البيانات متأخرة", body: `No steps or sleep for ${Math.floor(hours)} hours. Unlock your phone and run the Shortcut so the watch's data reaches the ministers.`, url: APP + "#diwan" });
     }
     for (const r of due) {
       const at = ((r.at % 1440) + 1440) % 1440;

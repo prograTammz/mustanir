@@ -257,6 +257,7 @@ function AppleHealth() {
   const [key, setKey] = useState(healthKey), [msg, setMsg] = useState("");
   const ls = S.health?.lastSync;
   const staleH = ls ? (Date.now() - Date.parse(ls.received_at)) / 3600000 : 0, stale = staleH > 26;
+  const ld = S.health?.lastData, dataH = ld ? (Date.now() - Date.parse(ld.received_at)) / 3600000 : 0, dataStale = !stale && dataH > 26;
   const makeKey = async () => {
     setMsg("Creating…");
     try { healthKey = await newShortcutKey(); setKey(healthKey); setMsg("Copy it now: it’s shown only once. Creating another key keeps old ones working."); }
@@ -265,6 +266,7 @@ function AppleHealth() {
   return (
     <Section title="Apple Health" ar="الصحة" desc="Your watch fills in sleep, waking for Fajr, steps, energy, workouts, weight and 120+ more measures. Prayers, reading and purity stay yours to log.">
       {stale && <Hint className="mb-2 text-warn">No sync for {Math.floor(staleH)} hours. iPhone locks Health data while the phone is locked, so a 23:59 Shortcut often finds nothing to read. Run it once you unlock in the morning, or add a second automation at 05:30.</Hint>}
+      {dataStale && <Hint className="mb-2 text-warn">Workouts are arriving, but no steps, sleep or energy for {Math.floor(dataH)} hours (last on {new Date(ld.received_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}). Check that the Health Metrics automation (or the 23:59 Shortcut) is still switched on.</Hint>}
       <Hint className="mb-3">{ls ? `Last sync ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${Number(ls.samples || 0).toLocaleString("en")} samples, ${ls.workouts || 0} workouts.` : "No sync received yet."}</Hint>
       <div className="flex flex-col gap-3">
         <CopyField label="Address" value={HEALTH_URL} />
