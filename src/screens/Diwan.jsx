@@ -1,8 +1,8 @@
-// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, Apple Health, account.
+// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, FatSecret, account.
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
-import { SESSION, HEALTH_URL, PALACE_URL, WHOOP_URL, FATSECRET_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, loadFatsecret, fatsecretConnect, fatsecretSync, fatsecretDisconnect, saveSettings, signOut, newShortcutKey, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
+import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, loadFatsecret, fatsecretConnect, fatsecretSync, fatsecretDisconnect, saveSettings, signOut, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { Section, Hint, Subhead, Row, Ar, fmtMin } from "@/components/kit";
@@ -66,7 +66,6 @@ export default function Diwan() {
       <Calendar />
       <Whoop />
       <FatSecret />
-      <AppleHealth />
       <Section title="Account" ar="الحساب">
         <Row label="Signed in as"><span className="text-[15px] font-medium">{SESSION?.email || ""}</span></Row>
         <Button variant="outline" className="mt-3 w-full" onClick={() => { signOut(); S.tab = "palace"; bump(); }}>Sign out</Button>
@@ -247,7 +246,6 @@ function Guide({ title, children }) {
   );
 }
 
-let healthKey = "";
 let whoopLoading = false;
 function Whoop() {
   const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
@@ -274,21 +272,10 @@ function Whoop() {
         <>
           {w?.last_error && <Hint className="mb-2 text-warn">{w.last_error}</Hint>}
           <Button className="w-full" disabled={busy} onClick={() => run(whoopConnect, () => "Opening WHOOP…")}>Connect WHOOP</Button>
-          <Hint className="mt-2">You’ll sign in on WHOOP’s page and come back here. Connecting switches Apple Health off and imports your last 30 days.</Hint>
+          <Hint className="mt-2">You’ll sign in on WHOOP’s page and come back here. Connecting imports your last 30 days.</Hint>
         </>
       )}
       {msg && <Hint className="mt-2">{msg}</Hint>}
-      <div className="mt-4">
-        <Guide title="Setting up the WHOOP app (once)">
-          <ol>
-            <li>Open <b>developer-dashboard.whoop.com</b>, sign in with your WHOOP account, <b>Create App</b> named Al-Mustanir.</li>
-            <li>Redirect URL: <C>{WHOOP_URL + "/callback"}</C></li>
-            <li>Scopes: all the <C>read:</C> ones and <C>offline</C>.</li>
-            <li>Webhook URL: <C>{WHOOP_URL + "/webhook"}</C>, model version <C>v2</C>.</li>
-            <li>Supabase → SQL Editor: save the Client ID and Secret into <C>app_secrets</C> as <C>whoop_client_id</C> and <C>whoop_client_secret</C>. Then tap Connect WHOOP.</li>
-          </ol>
-        </Guide>
-      </div>
     </Section>
   );
 }
@@ -323,86 +310,6 @@ function FatSecret() {
         </>
       )}
       {msg && <Hint className="mt-2">{msg}</Hint>}
-      <div className="mt-4">
-        <Guide title="Setting up FatSecret (once)">
-          <ol>
-            <li>Install the FatSecret app and create an account; that’s where you log food.</li>
-            <li>Open <b>platform.fatsecret.com</b>, register as a developer (the free Basic plan), and create an app. Copy its <b>Consumer Key</b> and <b>Consumer Secret</b> (the OAuth 1.0 pair).</li>
-            <li>Supabase → SQL Editor: save them into <C>app_secrets</C> as <C>fatsecret_key</C> and <C>fatsecret_secret</C>.</li>
-            <li>Tap Connect FatSecret and sign in. It returns to <C>{FATSECRET_URL + "/callback"}</C>.</li>
-          </ol>
-        </Guide>
-      </div>
-    </Section>
-  );
-}
-
-function AppleHealth() {
-  if (usesWhoop()) return (
-    <Section title="Apple Health" ar="الصحة" desc="Switched off: WHOOP is your source now. Anything the Shortcut or Health Auto Export still sends is ignored.">
-      <Hint>Delete the Mustanir Sync automations in Shortcuts and the Health Auto Export automations; they no longer do anything. Your Apple Health history before {fmt(S.settings.whoopFrom || today(), { day: "numeric", month: "short", year: "numeric" })} stays in the charts. The Walking Pad shortcut still works.</Hint>
-    </Section>
-  );
-  return <AppleHealthSetup />;
-}
-
-function AppleHealthSetup() {
-  const [key, setKey] = useState(healthKey), [msg, setMsg] = useState("");
-  const ls = S.health?.lastSync;
-  const staleH = ls ? (Date.now() - Date.parse(ls.received_at)) / 3600000 : 0, stale = staleH > 26;
-  const ld = S.health?.lastData, dataH = ld ? (Date.now() - Date.parse(ld.received_at)) / 3600000 : 0, dataStale = !stale && dataH > 26;
-  const makeKey = async () => {
-    setMsg("Creating…");
-    try { healthKey = await newShortcutKey(); setKey(healthKey); setMsg("Copy it now: it’s shown only once. Creating another key keeps old ones working."); }
-    catch (e) { setMsg("Couldn’t create a key: " + e.message); }
-  };
-  return (
-    <Section title="Apple Health" ar="الصحة" desc="Your watch fills in sleep, waking for Fajr, steps, energy, workouts, weight and 120+ more measures. Prayers, reading and purity stay yours to log.">
-      {stale && <Hint className="mb-2 text-warn">No sync for {Math.floor(staleH)} hours. iPhone locks Health data while the phone is locked, so a 23:59 Shortcut often finds nothing to read. Run it once you unlock in the morning, or add a second automation at 05:30.</Hint>}
-      {dataStale && <Hint className="mb-2 text-warn">Workouts are arriving, but no steps, sleep or energy for {Math.floor(dataH)} hours (last on {new Date(ld.received_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}). Check that the Health Metrics automation (or the 23:59 Shortcut) is still switched on.</Hint>}
-      <Hint className="mb-3">{ls ? `Last sync ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${Number(ls.samples || 0).toLocaleString("en")} samples, ${ls.workouts || 0} workouts.` : "No sync received yet."}</Hint>
-      <div className="flex flex-col gap-3">
-        <CopyField label="Address" value={HEALTH_URL} />
-        {key ? <CopyField label="Your key" value={key} /> : <Button className="w-full" onClick={makeKey}>Create a key</Button>}
-        {msg && <Hint>{msg}</Hint>}
-      </div>
-      <div className="mt-4">
-        <Guide title="Health Auto Export (recommended)">
-          <p className="text-muted-foreground">A third-party iPhone app that sends every Health measure, sleep stages and each workout with its sport and exact times. Scheduled sending needs its paid upgrade.</p>
-          <ol>
-            <li>Install <b>Health Auto Export – JSON+CSV</b> and allow access to all Health categories.</li>
-            <li>Automations → New → <b>REST API</b>. URL: the address above. Header <C>Authorization</C> = <C>Bearer YOUR-KEY</C>. Format <C>JSON</C>, batch requests on.</li>
-            <li>Data type <b>Health Metrics</b>: select all. Turn <b>Summarize data</b> on, time grouping <C>Day</C>. Sleep arrives as stages per night.</li>
-            <li>A second automation with data type <b>Workouts</b> (same URL and key) so training slots are matched exactly.</li>
-            <li>Sync cadence: <C>every hour</C>, date range <C>Today</C> (or since last sync). It keeps today fresh; last night’s sleep shows by morning.</li>
-            <li>For your history, run a manual export of the last years to the same automation once, with the phone charging.</li>
-          </ol>
-        </Guide>
-        <Guide title="Apple Shortcuts (free)">
-          <p className="text-muted-foreground">One shortcut sends today’s totals; an automation runs it every night at 23:59.</p>
-          <ol>
-            <li>Shortcuts → + → name it <C>Mustanir Sync</C>. Add <b>Current Date</b> → <b>Format Date</b> → Custom <C>yyyy-MM-dd</C>.</li>
-            <li>For each total: <b>Find Health Samples</b> (type, start date <C>is today</C>, group by <C>Day</C>) → <b>Calculate Statistics</b> <C>Sum</C>. Steps, Active Energy, Resting Energy, Exercise Minutes, Stand Hours, Dietary Energy. Use <C>Average</C> for Resting Heart Rate and HRV; Weight sorted latest first, limit 1.</li>
-            <li>Sleep: <b>Find Health Samples</b> Sleep Analysis in the last 16 hours, not In Bed and not Awake, oldest first → sum of Durations as <C>sleepSeconds</C>, first start as <C>sleepStart</C>, last end as <C>sleepEnd</C> (ISO 8601).</li>
-            <li><b>Get Contents of URL</b>: the address above, <C>POST</C>, header <C>Authorization</C> = <C>Bearer YOUR-KEY</C>, JSON body with <C>date</C>, <C>steps</C>, <C>activeKcal</C>, <C>basalKcal</C>, <C>dietaryKcal</C>, <C>exerciseMin</C>, <C>standHours</C>, <C>restingHR</C>, <C>hrv</C>, <C>weight</C> and the sleep fields.</li>
-            <li>Automation → Time of Day <C>23:59</C> daily → Run Immediately → Mustanir Sync.</li>
-          </ol>
-        </Guide>
-        <Guide title="Write your meals to Apple Health">
-          <ol>
-            <li><b>Get Contents of URL</b> <C>{PALACE_URL + "/export"}</C>, <C>GET</C>, same Authorization header.</li>
-            <li><b>Get Dictionary Value</b> <C>meals</C> → <b>Repeat with Each</b> → <b>Log Health Sample</b> Dietary Energy (value <C>kcal</C>, date <C>at</C>); optionally Protein.</li>
-            <li>Then <C>POST</C> to <C>{PALACE_URL + "/export/ack"}</C> with JSON <C>batch</C> = the first response’s <C>batch</C>, so meals are never logged twice.</li>
-          </ol>
-        </Guide>
-        <Guide title="Walking Pad shortcut (one tap)">
-          <ol>
-            <li>New shortcut <C>Walking Pad</C>: <b>Get Contents of URL</b> <C>{PALACE_URL + "/walkpad"}</C>, <C>POST</C>, same header.</li>
-            <li><b>Get Dictionary Value</b> <C>message</C> → <b>Show Notification</b>: “started” or “32 min logged”.</li>
-            <li>Turn on <b>Show on Apple Watch</b>; optionally assign it to the Action button.</li>
-          </ol>
-        </Guide>
-      </div>
     </Section>
   );
 }

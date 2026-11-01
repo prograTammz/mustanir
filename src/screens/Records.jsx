@@ -54,7 +54,7 @@ function Agenda({ hs }) {
     ["Day strain", "", 1, series("strain", "strain"), "var(--m-body)", null],
     ["Sleep consistency", "%", 0, series("sleepConsistency", "sleepCons"), "var(--m-habits)", 80],
     ["Energy burned", "kcal", 0, series("totalKcal", "totalKcal"), "var(--m-body)", null],
-    ["Active energy (Apple Health)", "kcal", 0, series("activeKcal", "activeKcal"), "var(--m-body)", null],
+    ["Active energy (before WHOOP)", "kcal", 0, series("activeKcal", "activeKcal"), "var(--m-body)", null],
     ["Resting heart rate", "bpm", 0, series("restingHR"), "var(--m-purity)", null],
     ["Heart rate variability", "ms", 0, series("hrv"), "var(--m-purity)", null],
   ];
@@ -82,7 +82,7 @@ function Agenda({ hs }) {
           <TrendChart id={"a" + i} min={0} points={pts} unit={unit} digits={digits} color={color} goal={goal} smooth={pts.length > 60 ? 7 : 1} />
         </Section>
       ))}
-      <Hint className="text-center">{ls ? `Apple Health last synced ${new Date(ls.received_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.` : hs.loading ? "Loading Apple Health…" : hs.failed ? "Couldn’t load Apple Health data right now." : "Apple Health hasn’t synced yet. Set it up in the Diwan."}</Hint>
+      {(hs.loading || hs.failed) && <Hint className="text-center">{hs.loading ? "Loading…" : "Couldn’t load the health data right now."}</Hint>}
     </>
   );
 }

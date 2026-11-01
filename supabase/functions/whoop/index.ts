@@ -144,6 +144,8 @@ async function store(uid: string, kind: string, recs: Rec[], dayOf: (r: Rec) => 
   return new Set(rows.map((r) => r.day).filter(Boolean) as string[]);
 }
 const sleepDay = (s: Rec) => cairoDay(s.end || s.start);
+// A WHOOP cycle runs from falling asleep to the next sleep, so it belongs to the day you wake into, not the date it began.
+const cycleDay = (c: Rec) => cairoDay(new Date(Date.parse(c.start) + 12 * 3600000));
 async function dayOfSleep(uid: string, sleepId: string, known: Map<string, string>) {
   if (known.has(sleepId)) return known.get(sleepId)!;
   const { data } = await admin.from("whoop_records").select("day").eq("user_id", uid).eq("kind", "sleep").eq("id", sleepId).maybeSingle();
@@ -159,7 +161,7 @@ async function pull(uid: string, since: string) {
   ]);
   const known = new Map<string, string>(sleeps.map((s) => [String(s.id), sleepDay(s)]));
   for (const d of await store(uid, "sleep", sleeps, sleepDay)) days.add(d);
-  for (const d of await store(uid, "cycle", cycles, (c) => cairoDay(c.start))) days.add(d);
+  for (const d of await store(uid, "cycle", cycles, cycleDay)) days.add(d);
   for (const d of await store(uid, "workout", wks, (w) => cairoDay(w.start))) days.add(d);
   const recDays = new Map<string, string | null>();
   for (const r of recs) recDays.set(String(r.sleep_id), await dayOfSleep(uid, String(r.sleep_id), known));
@@ -253,7 +255,7 @@ async function rebuild(uid: string, dayList: string[], body: Rec = null) {
       if (typeof sc.spo2_percentage === "number") { M.spo2 = sc.spo2_percentage; d.spo2 = r1(sc.spo2_percentage); }
       if (typeof sc.skin_temp_celsius === "number") { M.skinTemp = sc.skin_temp_celsius; d.skinTemp = r1(sc.skin_temp_celsius); }
     }
-    // The cycle runs wake-up to wake-up; it belongs to the day it started.
+    // The cycle runs sleep to sleep; it belongs to the day you woke into (see cycleDay).
     if (cycle) {
       const sc = cycle.score || {};
       const steps = cycle.step_count ?? sc.step_count ?? sc.steps ?? null;
@@ -351,7 +353,7 @@ async function handleEvent(ev: { user_id: number; id: string; type: string }) {
         if (sl.cycle_id != null) {
           const [rec, cyc] = await Promise.all([api(uid, `/v2/cycle/${sl.cycle_id}/recovery`).catch(() => null), api(uid, `/v2/cycle/${sl.cycle_id}`).catch(() => null)]);
           if (rec) await store(uid, "recovery", [rec], () => sleepDay(sl), (r) => String(r.sleep_id || id));
-          if (cyc) for (const d of await store(uid, "cycle", [cyc], (c) => cairoDay(c.start))) touched.add(d);
+          if (cyc) for (const d of await store(uid, "cycle", [cyc], cycleDay)) touched.add(d);
         }
       }
     }

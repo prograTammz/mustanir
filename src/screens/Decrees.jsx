@@ -212,7 +212,7 @@ function latestWeight(s, r) {
 }
 function weightSub(s, r) {
   const w = latestWeight(s, r), steps = r.steps ? `${r.steps.toLocaleString("en")} steps · ` : "";
-  return w == null ? steps + "Weigh in on your scale; Apple Health passes it to WHOOP" : steps + (r.weight != null ? "From WHOOP" : "Last reading, from WHOOP");
+  return w == null ? steps + "Weigh in on your scale; it reaches WHOOP" : steps + (r.weight != null ? "From WHOOP" : "Last reading, from WHOOP");
 }
 
 function WeighIn({ s }) {

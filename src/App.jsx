@@ -32,7 +32,7 @@ if (WHOOP_BACK) history.replaceState(null, "", location.pathname + location.hash
 const FS_BACK = new URLSearchParams(location.search).get("fatsecret");
 if (FS_BACK) history.replaceState(null, "", location.pathname + location.hash);
 const FS_MSG = { connected: "FatSecret connected. Your last 14 days of meals are in.", denied: "FatSecret access wasn’t granted.", expired: "That FatSecret link expired. Tap Connect FatSecret again.", failed: "FatSecret didn’t accept the connection. See the Diwan for details." };
-const WHOOP_MSG = { connected: "WHOOP connected. Your last 30 days are in; Apple Health is off.", denied: "WHOOP access wasn’t granted.", expired: "That WHOOP link expired. Tap Connect WHOOP again.", failed: "WHOOP didn’t accept the connection. See the Diwan for details." };
+const WHOOP_MSG = { connected: "WHOOP connected. Your last 30 days are in.", denied: "WHOOP access wasn’t granted.", expired: "That WHOOP link expired. Tap Connect WHOOP again.", failed: "WHOOP didn’t accept the connection. See the Diwan for details." };
 
 export default function App() {
   useApp();
