@@ -1,6 +1,6 @@
-// Al-Mustanir: the app shell. Three rooms (Today, Progress, Settings), a quiet bar on scroll, a floating tab bar.
+// Al-Mustanir: the app shell. Three rooms (Today, Palace, Settings), a quiet bar on scroll, a floating tab bar.
 import { useEffect, useState } from "react";
-import { CircleCheck, ChartNoAxesColumn, Settings as SettingsIcon } from "lucide-react";
+import { CircleCheck, Landmark, Settings as SettingsIcon } from "lucide-react";
 import { S, today, PRAYERS } from "@/lib/logic.js";
 import { SESSION, load, flushOutbox } from "@/lib/store.js";
 import { useApp, go, bump, TABS, tabOf, isDark } from "@/lib/app-state.js";
@@ -9,13 +9,13 @@ import { toast } from "sonner";
 import { Sheets } from "@/components/sheets.jsx";
 import { cn } from "@/lib/utils";
 import Today from "@/screens/Today.jsx";
-import Progress from "@/screens/Progress.jsx";
+import Palace from "@/screens/Palace.jsx";
 import Diwan from "@/screens/Diwan.jsx";
 import SignIn from "@/screens/SignIn.jsx";
 
 const ROOMS = {
   today: { en: "Today", icon: CircleCheck, view: Today },
-  progress: { en: "Progress", icon: ChartNoAxesColumn, view: Progress },
+  palace: { en: "Palace", icon: Landmark, view: Palace },
   settings: { en: "Settings", icon: SettingsIcon, view: Diwan },
 };
 

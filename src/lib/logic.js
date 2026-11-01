@@ -471,60 +471,87 @@ const sumOf = (k) => officeDays().reduce((a, d) => a + (d[k] || 0), 0);
 /* ---------- medals ---------- */
 export const MEDALS = [
   // Office
-  { id: "first", ar: "أول مرسوم", en: "First decree", how: "Log your first day in office", test: (t) => t.logged >= 1 },
-  { id: "office7", ar: "الأسبوع الأول", en: "First week", how: "Log 7 days in a row", test: () => bestStreak(T.office) >= 7 },
-  { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", test: () => bestStreak(T.office) >= 30 },
-  { id: "office90", ar: "ولاية بلا انقطاع", en: "Unbroken term", how: "Log 90 days in a row", test: () => bestStreak(T.office) >= 90 },
-  { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
-  { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "Every minister at 90% or more in one day", test: (t) => t.perfect >= 1 },
-  { id: "perfect7", ar: "أسبوع ذهبي", en: "Golden week", how: "7 perfect days", test: (t) => t.perfect >= 7 },
-  { id: "perfect30", ar: "العصر الذهبي", en: "Golden age", how: "30 perfect days", test: (t) => t.perfect >= 30 },
-  { id: "lvl5", ar: "النائب", en: "Deputy", how: "Reach level 5", test: (t) => t.level >= 5 },
-  { id: "lvl10", ar: "رجل الدولة", en: "Statesman", how: "Reach level 10", test: (t) => t.level >= 10 },
-  { id: "lvl20", ar: "الحكيم", en: "The Sage", how: "Reach level 20", test: (t) => t.level >= 20 },
+  { id: "first", ar: "أول مرسوم", en: "First decree", how: "Log your first day in office", cur: (t) => t.logged, goal: 1, test: (t) => t.logged >= 1 },
+  { id: "office7", ar: "الأسبوع الأول", en: "First week", how: "Log 7 days in a row", cur: () => bestStreak(T.office), goal: 7, test: () => bestStreak(T.office) >= 7 },
+  { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", cur: () => bestStreak(T.office), goal: 30, test: () => bestStreak(T.office) >= 30 },
+  { id: "office90", ar: "ولاية بلا انقطاع", en: "Unbroken term", how: "Log 90 days in a row", cur: () => bestStreak(T.office), goal: 90, test: () => bestStreak(T.office) >= 90 },
+  { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", cur: () => Math.max(0, Math.min(termLength(), termDay(today()) - 1)), goal: () => termLength(), test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
+  { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "Every minister at 90% or more in one day", cur: (t) => t.perfect, goal: 1, test: (t) => t.perfect >= 1 },
+  { id: "perfect7", ar: "أسبوع ذهبي", en: "Golden week", how: "7 perfect days", cur: (t) => t.perfect, goal: 7, test: (t) => t.perfect >= 7 },
+  { id: "perfect30", ar: "العصر الذهبي", en: "Golden age", how: "30 perfect days", cur: (t) => t.perfect, goal: 30, test: (t) => t.perfect >= 30 },
+  { id: "lvl5", ar: "النائب", en: "Deputy", how: "Reach level 5", cur: (t) => t.level, goal: 5, test: (t) => t.level >= 5 },
+  { id: "lvl10", ar: "رجل الدولة", en: "Statesman", how: "Reach level 10", cur: (t) => t.level, goal: 10, test: (t) => t.level >= 10 },
+  { id: "lvl20", ar: "الحكيم", en: "The Sage", how: "Reach level 20", cur: (t) => t.level, goal: 20, test: (t) => t.level >= 20 },
   // Faith
-  { id: "pray7", ar: "المحافظ", en: "The Steadfast", how: "All five prayers 7 days in a row", test: () => bestStreak(T.prayers) >= 7 },
-  { id: "pray40", ar: "الأربعين", en: "The Forty", how: "All five prayers 40 days in a row", test: () => bestStreak(T.prayers) >= 40 },
-  { id: "pray100", ar: "المئة", en: "The Hundred", how: "All five prayers 100 days in a row", test: () => bestStreak(T.prayers) >= 100 },
+  { id: "pray7", ar: "المحافظ", en: "The Steadfast", how: "All five prayers 7 days in a row", cur: () => bestStreak(T.prayers), goal: 7, test: () => bestStreak(T.prayers) >= 7 },
+  { id: "pray40", ar: "الأربعين", en: "The Forty", how: "All five prayers 40 days in a row", cur: () => bestStreak(T.prayers), goal: 40, test: () => bestStreak(T.prayers) >= 40 },
+  { id: "pray100", ar: "المئة", en: "The Hundred", how: "All five prayers 100 days in a row", cur: () => bestStreak(T.prayers), goal: 100, test: () => bestStreak(T.prayers) >= 100 },
   // Sleep (all from WHOOP)
-  { id: "fajr7", ar: "وسام الفجر", en: "Order of Fajr", how: "Up for Fajr 7 days in a row", test: () => bestStreak(T.fajr) >= 7 },
-  { id: "fajr30", ar: "أهل الفجر", en: "People of Fajr", how: "Up for Fajr 30 days in a row", test: () => bestStreak(T.fajr) >= 30 },
-  { id: "fajr90", ar: "حارس الفجر", en: "Guardian of Fajr", how: "Up for Fajr 90 days in a row", test: () => bestStreak(T.fajr) >= 90 },
-  { id: "regular7", ar: "المنتظم", en: "The Regular", how: "Sleep consistency on target 7 nights in a row", test: () => bestStreak(T.regular) >= 7 },
-  { id: "regular30", ar: "ساعة الجسد", en: "Body clock", how: "Sleep consistency on target 30 nights in a row", test: () => bestStreak(T.regular) >= 30 },
-  { id: "slept7", ar: "الراحة", en: "Well rested", how: "Your sleep target 7 nights in a row", test: () => bestStreak(T.slept) >= 7 },
-  { id: "green7", ar: "الأخضر", en: "In the green", how: "WHOOP recovery 67% or more 7 days in a row", test: () => bestStreak(T.green) >= 7 },
+  { id: "fajr7", ar: "وسام الفجر", en: "Order of Fajr", how: "Up for Fajr 7 days in a row", cur: () => bestStreak(T.fajr), goal: 7, test: () => bestStreak(T.fajr) >= 7 },
+  { id: "fajr30", ar: "أهل الفجر", en: "People of Fajr", how: "Up for Fajr 30 days in a row", cur: () => bestStreak(T.fajr), goal: 30, test: () => bestStreak(T.fajr) >= 30 },
+  { id: "fajr90", ar: "حارس الفجر", en: "Guardian of Fajr", how: "Up for Fajr 90 days in a row", cur: () => bestStreak(T.fajr), goal: 90, test: () => bestStreak(T.fajr) >= 90 },
+  { id: "regular7", ar: "المنتظم", en: "The Regular", how: "Sleep consistency on target 7 nights in a row", cur: () => bestStreak(T.regular), goal: 7, test: () => bestStreak(T.regular) >= 7 },
+  { id: "regular30", ar: "ساعة الجسد", en: "Body clock", how: "Sleep consistency on target 30 nights in a row", cur: () => bestStreak(T.regular), goal: 30, test: () => bestStreak(T.regular) >= 30 },
+  { id: "slept7", ar: "الراحة", en: "Well rested", how: "Your sleep target 7 nights in a row", cur: () => bestStreak(T.slept), goal: 7, test: () => bestStreak(T.slept) >= 7 },
+  { id: "green7", ar: "الأخضر", en: "In the green", how: "WHOOP recovery 67% or more 7 days in a row", cur: () => bestStreak(T.green), goal: 7, test: () => bestStreak(T.green) >= 7 },
   // Body
-  { id: "weigh1", ar: "أول نزول", en: "First drop", how: "A lower weight at the Sunday weigh-in", test: (t) => t.drops >= 1 },
-  { id: "weigh4run", ar: "المنحدر", en: "The descent", how: "4 Sundays in a row, each lower than the last", test: () => sundayRun(true) >= 4 },
-  { id: "weigh12", ar: "اثنا عشر نزولًا", en: "Twelve drops", how: "12 Sunday weigh-ins lower than the week before", test: (t) => t.drops >= 12 },
-  { id: "under90", ar: "تحت التسعين", en: "Under 90", how: "Weigh under 90 kg", test: () => lowestWeight() < 90 },
-  { id: "under85", ar: "تحت الخمسة والثمانين", en: "Under 85", how: "Weigh under 85 kg", test: () => lowestWeight() < 85 },
-  { id: "under80", ar: "تحت الثمانين", en: "Under 80", how: "Weigh under 80 kg", test: () => lowestWeight() < 80 },
-  { id: "iron10", ar: "البداية", en: "Ten sessions", how: "Train 10 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 10 },
-  { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 30 },
-  { id: "iron100", ar: "الفولاذ", en: "Steel", how: "Train 100 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 100 },
-  { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", test: () => officeDays().filter(dietMet).length >= 30 },
-  { id: "steps15", ar: "المشّاء", en: "The walker", how: "15,000 steps in a day", test: () => officeDays().some((d) => (d.steps || 0) >= 15000) },
-  { id: "steps1m", ar: "مليون خطوة", en: "A million steps", how: "1,000,000 steps since taking office", test: () => sumOf("steps") >= 1000000 },
-  { id: "vital7", ar: "الحيوية", en: "Vitality · 7", how: "4 of the 5 vitals 7 days in a row", test: () => bestStreak(T.vital) >= 7 },
-  { id: "vital30", ar: "الجسد الحي", en: "Vitality · 30", how: "4 of the 5 vitals 30 days in a row", test: () => bestStreak(T.vital) >= 30 },
+  { id: "weigh1", ar: "أول نزول", en: "First drop", how: "A lower weight at the Sunday weigh-in", cur: (t) => t.drops, goal: 1, test: (t) => t.drops >= 1 },
+  { id: "weigh4run", ar: "المنحدر", en: "The descent", how: "4 Sundays in a row, each lower than the last", cur: () => sundayRun(true), goal: 4, test: () => sundayRun(true) >= 4 },
+  { id: "weigh12", ar: "اثنا عشر نزولًا", en: "Twelve drops", how: "12 Sunday weigh-ins lower than the week before", cur: (t) => t.drops, goal: 12, test: (t) => t.drops >= 12 },
+  { id: "under90", ar: "تحت التسعين", en: "Under 90", how: "Weigh under 90 kg", cur: () => lowestWeight(), goal: 90, down: true, test: () => lowestWeight() < 90 },
+  { id: "under85", ar: "تحت الخمسة والثمانين", en: "Under 85", how: "Weigh under 85 kg", cur: () => lowestWeight(), goal: 85, down: true, test: () => lowestWeight() < 85 },
+  { id: "under80", ar: "تحت الثمانين", en: "Under 80", how: "Weigh under 80 kg", cur: () => lowestWeight(), goal: 80, down: true, test: () => lowestWeight() < 80 },
+  { id: "iron10", ar: "البداية", en: "Ten sessions", how: "Train 10 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 10, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 10 },
+  { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 30, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 30 },
+  { id: "iron100", ar: "الفولاذ", en: "Steel", how: "Train 100 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 100, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 100 },
+  { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", cur: () => officeDays().filter(dietMet).length, goal: 30, test: () => officeDays().filter(dietMet).length >= 30 },
+  { id: "steps15", ar: "المشّاء", en: "The walker", how: "15,000 steps in a day", cur: () => Math.max(0, ...officeDays().map((d) => d.steps || 0)), goal: 15000, test: () => officeDays().some((d) => (d.steps || 0) >= 15000) },
+  { id: "steps1m", ar: "مليون خطوة", en: "A million steps", how: "1,000,000 steps since taking office", cur: () => sumOf("steps"), goal: 1000000, test: () => sumOf("steps") >= 1000000 },
+  { id: "vital7", ar: "الحيوية", en: "Vitality · 7", how: "4 of the 5 vitals 7 days in a row", cur: () => bestStreak(T.vital), goal: 7, test: () => bestStreak(T.vital) >= 7 },
+  { id: "vital30", ar: "الجسد الحي", en: "Vitality · 30", how: "4 of the 5 vitals 30 days in a row", cur: () => bestStreak(T.vital), goal: 30, test: () => bestStreak(T.vital) >= 30 },
   // Purity
-  { id: "pure7", ar: "العفيف", en: "The Chaste · 7", how: "7 porn-free days in a row", test: () => bestStreak(T.pure) >= 7 },
-  { id: "pure30", ar: "الطاهر", en: "The Pure · 30", how: "30 porn-free days in a row", test: () => bestStreak(T.pure) >= 30 },
-  { id: "pure90", ar: "المنتصر", en: "The Victor · 90", how: "90 porn-free days in a row", test: () => bestStreak(T.pure) >= 90 },
-  { id: "abstain7", ar: "ضبط النفس", en: "Self-mastery · 7", how: "7 days in a row with no masturbation and no porn", test: () => bestStreak(T.abstain) >= 7 },
-  { id: "abstain30", ar: "المالك لنفسه", en: "Master of himself · 30", how: "30 days in a row with no masturbation and no porn", test: () => bestStreak(T.abstain) >= 30 },
-  { id: "abstain90", ar: "الحر", en: "The Free · 90", how: "90 days in a row with no masturbation and no porn", test: () => bestStreak(T.abstain) >= 90 },
+  { id: "pure7", ar: "العفيف", en: "The Chaste · 7", how: "7 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 7, test: () => bestStreak(T.pure) >= 7 },
+  { id: "pure30", ar: "الطاهر", en: "The Pure · 30", how: "30 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 30, test: () => bestStreak(T.pure) >= 30 },
+  { id: "pure90", ar: "المنتصر", en: "The Victor · 90", how: "90 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 90, test: () => bestStreak(T.pure) >= 90 },
+  { id: "abstain7", ar: "ضبط النفس", en: "Self-mastery · 7", how: "7 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 7, test: () => bestStreak(T.abstain) >= 7 },
+  { id: "abstain30", ar: "المالك لنفسه", en: "Master of himself · 30", how: "30 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 30, test: () => bestStreak(T.abstain) >= 30 },
+  { id: "abstain90", ar: "الحر", en: "The Free · 90", how: "90 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 90, test: () => bestStreak(T.abstain) >= 90 },
   // Knowledge and work
-  { id: "read7", ar: "طالب العلم", en: "Seeker of knowledge", how: "Hit your pages 7 days in a row", test: () => bestStreak(T.read) >= 7 },
-  { id: "read30", ar: "القارئ", en: "The Reader", how: "Hit your pages 30 days in a row", test: () => bestStreak(T.read) >= 30 },
-  { id: "pages1000", ar: "ألف صفحة", en: "A thousand pages", how: "Read 1,000 pages in office", test: () => sumOf("pages") >= 1000 },
-  { id: "pages5000", ar: "خمسة آلاف صفحة", en: "Five thousand pages", how: "Read 5,000 pages in office", test: () => sumOf("pages") >= 5000 },
-  { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", test: () => bestStreak(T.productive) >= 7 },
-  { id: "chancellor30", ar: "آلة الإنجاز", en: "The Engine", how: "80% of the checklist 30 days in a row", test: () => bestStreak(T.productive) >= 30 },
+  { id: "read7", ar: "طالب العلم", en: "Seeker of knowledge", how: "Hit your pages 7 days in a row", cur: () => bestStreak(T.read), goal: 7, test: () => bestStreak(T.read) >= 7 },
+  { id: "read30", ar: "القارئ", en: "The Reader", how: "Hit your pages 30 days in a row", cur: () => bestStreak(T.read), goal: 30, test: () => bestStreak(T.read) >= 30 },
+  { id: "pages1000", ar: "ألف صفحة", en: "A thousand pages", how: "Read 1,000 pages in office", cur: () => sumOf("pages"), goal: 1000, test: () => sumOf("pages") >= 1000 },
+  { id: "pages5000", ar: "خمسة آلاف صفحة", en: "Five thousand pages", how: "Read 5,000 pages in office", cur: () => sumOf("pages"), goal: 5000, test: () => sumOf("pages") >= 5000 },
+  { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", cur: () => bestStreak(T.productive), goal: 7, test: () => bestStreak(T.productive) >= 7 },
+  { id: "chancellor30", ar: "آلة الإنجاز", en: "The Engine", how: "80% of the checklist 30 days in a row", cur: () => bestStreak(T.productive), goal: 30, test: () => bestStreak(T.productive) >= 30 },
 ];
-export function medals() { const t = totals(); return MEDALS.map((m) => ({ ...m, won: !!m.test(t) })); }
+// Every medal with how close you are: cur of goal (for weight medals, how far from your first weight in office to the goal).
+export function medals() {
+  const t = totals(), w0 = officeDays().map((d) => d.weight).find((w) => w != null);
+  return MEDALS.map((m) => {
+    const won = !!m.test(t), cur = m.cur ? m.cur(t) : won ? 1 : 0, goal = typeof m.goal === "function" ? m.goal() : m.goal || 1;
+    let frac = won ? 1 : m.down ? (w0 == null || !isFinite(cur) ? 0 : (w0 - cur) / Math.max(0.1, w0 - goal)) : cur / goal;
+    frac = Math.max(0, Math.min(1, frac || 0));
+    return { ...m, won, cur: isFinite(cur) ? cur : null, goal, frac };
+  });
+}
+
+/* ---------- what each part of the day pays (the quest board) ---------- */
+// The same arithmetic as dayXP, split so the app can show "+4 XP" on a prayer and "16 of 20" on a minister.
+export function xpParts(s) {
+  const d = S.days[s], m = dayMinisters(s), on = manual(d);
+  const ministers = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { earned: Math.round(v * XP_PER_MINISTER), max: XP_PER_MINISTER, frac: v }]));
+  const perfect = Object.values(m).every((v) => v >= 0.9), near = Object.values(m).filter((v) => v >= 0.9).length;
+  const c = checklistFor(s), v = vitalityFor(s), w = weighIn(s);
+  return {
+    ministers, near,
+    perfect: { earned: perfect ? PERFECT_BONUS : 0, max: PERFECT_BONUS },
+    checklist: { earned: on ? Math.round((c.frac || 0) * CHECKLIST_XP) : 0, max: CHECKLIST_XP },
+    vitality: { earned: on ? Math.round((v.frac || 0) * VITALITY_XP) : 0, max: VITALITY_XP },
+    abstain: { earned: abstained(d) && on ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
+    weighIn: isSunday(s) ? { earned: inOffice(s) && w?.won ? WEIGH_IN_XP : 0, max: WEIGH_IN_XP } : null,
+    logged: on,
+  };
+}
 
 export const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
 

@@ -1,7 +1,7 @@
-// Progress: where you stand. Level and streaks, this month's council, the advisor, medals, trends and every measure.
+// The palace: where you stand in the game. Rank ladder, XP, streaks, medals, then the council, the advisor, trends and every measure.
 import { useEffect, useState } from "react";
-import { Crown, ChevronRight } from "lucide-react";
-import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict,
+import { Crown, ChevronRight, Flame, Lock, Trophy } from "lucide-react";
+import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
 import { useApp, bump } from "@/lib/app-state.js";
@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import Health from "./Health.jsx";
+import { Seal, fmtN } from "./Today.jsx";
 
 let healthLoading = false, healthFailedAt = 0;
 export function useHealth() {
@@ -24,16 +25,17 @@ export function useHealth() {
   return { loading: healthLoading, failed: !!healthFailedAt };
 }
 
-export default function Progress() {
+export default function Palace() {
   useApp();
   const hs = useHealth();
   return (
     <>
-      <div className="px-1 pt-2 pb-1"><h1 className="text-[30px] leading-tight font-bold tracking-tight">Progress</h1></div>
-      <Standing />
+      <div className="flex items-end justify-between px-1 pt-2 pb-1"><h1 className="text-[30px] leading-tight font-bold tracking-tight">Palace</h1><Ar className="pb-1 text-[22px] text-gold">القصر</Ar></div>
+      <Ladder />
+      <Streaks />
+      <Medals />
       <Council />
       <AdvisorCard full />
-      <Medals />
       <Trends />
       <Card className="py-1"><CardContent>
         <Fold title="All health data" summary="Body plan · every measure">
@@ -44,36 +46,70 @@ export default function Progress() {
   );
 }
 
-/* ---------- level, rank, streaks ---------- */
-function Standing() {
+/* ---------- the rank ladder and XP ---------- */
+function Ladder() {
   const t = totals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
-  const ms = medals(), won = ms.filter((m) => m.won).length;
-  const stats = [[streak(T.office), "day streak"], [bestStreak(T.office), "best streak"], [t.perfect, "perfect days"], [`${won}/${ms.length}`, "medals"]];
+  const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
+  const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
+  const best = days.reduce((a, k) => Math.max(a, dayXP(k)), 0);
   return (
-    <Card className="gap-4 px-4 py-4">
-      <div className="flex items-center gap-4">
-        <div className="relative grid size-16 shrink-0 place-items-center">
-          <svg viewBox="0 0 24 24" className="absolute inset-0 size-full fill-gold"><path d="M12 2l2.4 4.2 4.7-1-1 4.7L22 12l-4.2 2.4 1 4.7-4.7-1L12 22l-2.4-4.2-4.7 1 1-4.7L2 12l4.2-2.4-1-4.7 4.7 1z" /></svg>
-          <span className="relative text-[20px] font-bold text-[oklch(0.22_0.03_70)] tnum">{t.level}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[17px] font-semibold">{rank.en} <Ar className="ms-1 text-[15px] text-gold">{rank.ar}</Ar></div>
-          <Bar className="mt-2" value={t.frac} color="var(--gold)" />
-          <div className="mt-1.5 flex justify-between text-[12px] text-muted-foreground tnum">
-            <span>{t.xp.toLocaleString("en")} XP</span><span>{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</span>
+    <Card className="gap-4 overflow-hidden py-0">
+      <div className="bg-[linear-gradient(140deg,#13584A_0%,#0F4A3C_45%,#0A3329_100%)] px-4 pt-5 pb-4 text-white">
+        <div className="flex items-center gap-4">
+          <Seal level={t.level} size={72} />
+          <div className="min-w-0 flex-1">
+            <Ar className="block text-left text-[26px] leading-tight text-[#E6C77E]">{rank.ar}</Ar>
+            <div className="text-[14px] text-white/75">{rank.en} · Level {t.level}</div>
           </div>
         </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[linear-gradient(90deg,#C99A3E,#EBD08E)]" style={{ width: `${t.frac * 100}%` }} /></div>
+        <div className="mt-1.5 flex justify-between text-[12px] text-white/65 tnum"><span>{t.xp.toLocaleString("en")} XP</span><span>{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</span></div>
       </div>
-      <div className="grid grid-cols-4 gap-2">
-        {stats.map(([v, l]) => (
+      <div className="no-scrollbar -mt-1 flex gap-2 overflow-x-auto px-4">
+        {RANKS.map((r) => {
+          const cur = r === rank, got = t.level >= r.from;
+          return (
+            <div key={r.from} className={cn("flex w-[92px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center", cur ? "bg-gold-soft ring-1 ring-gold/50" : "bg-muted", !got && "opacity-60")}>
+              {got ? <Seal level={r.from} size={30} /> : <span className="grid size-[30px] place-items-center"><Lock className="size-4 text-muted-foreground" /></span>}
+              <Ar className={cn("text-[14px] leading-tight", got ? "text-gold" : "text-muted-foreground")}>{r.ar}</Ar>
+              <span className="text-[10.5px] leading-tight text-muted-foreground">{r.en}<br />Level {r.from} · {levelStart(r.from).toLocaleString("en")} XP</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+        {[[week.toLocaleString("en"), "XP this week"], [best, "best day"], [days.length, "days logged"]].map(([v, l]) => (
           <div key={l} className="rounded-2xl bg-muted px-2 py-2.5 text-center">
             <div className="text-[18px] font-semibold tracking-tight tnum">{v}</div>
-            <div className="text-[10.5px] leading-tight text-muted-foreground">{l}</div>
+            <div className="text-[11px] leading-tight text-muted-foreground">{l}</div>
           </div>
         ))}
       </div>
-      {next && <Hint>Next rank: {next.en} at level {next.from}.</Hint>}
+      {next && <Hint className="-mt-2 px-4 pb-4">Next rank: <b className="text-foreground">{next.en}</b> at level {next.from}, {Math.max(0, levelStart(next.from) - t.xp).toLocaleString("en")} XP away.</Hint>}
     </Card>
+  );
+}
+
+/* ---------- streaks ---------- */
+const STREAKS = [["office", "Days in office", "Log something every day"], ["prayers", "All five prayers", "Every prayer, every day"], ["fajr", "Up for Fajr", "Awake around Fajr, from WHOOP"],
+  ["abstain", "Purity", "No porn, no masturbation"], ["read", "Reading", "Your pages, every day"], ["regular", "Sleep rhythm", "Consistency on target"], ["vital", "Vitality", "4 of 5 vitals"]];
+function Streaks() {
+  return (
+    <Section title="Streaks" right={<span className="text-[13px] text-muted-foreground">now · best</span>}>
+      <div className="flex flex-col">
+        {STREAKS.map(([k, l, how]) => {
+          const now = streak(T[k]), best = bestStreak(T[k]);
+          return (
+            <div key={k} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
+              <Flame className={cn("size-[18px] shrink-0", now ? "fill-[#F0A23B] text-[#F0A23B]" : "text-muted-foreground/40")} />
+              <div className="min-w-0 flex-1"><div className="text-[15px]">{l}</div><div className="truncate text-[11.5px] text-muted-foreground">{how}</div></div>
+              <span className="text-[17px] font-semibold tnum">{now}</span>
+              <span className="w-10 text-right text-[13px] text-muted-foreground tnum">{best}</span>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
   );
 }
 
@@ -117,23 +153,31 @@ function Council() {
   );
 }
 
-/* ---------- medals ---------- */
+/* ---------- medals, with how close each one is ---------- */
 function Medals() {
   const [all, setAll] = useState(false);
-  const ms = medals(), won = ms.filter((m) => m.won), next = ms.filter((m) => !m.won);
-  const shown = all ? [...won, ...next] : [...won, ...next].slice(0, Math.max(6, won.length));
+  const ms = medals(), won = ms.filter((m) => m.won), rest = ms.filter((m) => !m.won).sort((a, b) => b.frac - a.frac);
+  const list = [...won, ...rest], shown = all ? list : list.slice(0, Math.max(9, won.length + 3));
   return (
     <Section title="Medals" right={<span className="text-[13px] text-muted-foreground tnum">{won.length} of {ms.length}</span>}>
+      <Bar value={won.length / ms.length} color="var(--gold)" className="mb-3" />
       <div className="grid grid-cols-3 gap-2">
         {shown.map((m) => (
-          <div key={m.id} className={cn("flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center", m.won ? "bg-gold-soft" : "bg-muted")}>
-            <Crown className={cn("size-5", m.won ? "text-gold" : "text-muted-foreground/40")} />
+          <div key={m.id} className={cn("flex flex-col items-center gap-1 rounded-2xl px-2 pt-3 pb-2.5 text-center", m.won ? "bg-gold-soft ring-1 ring-gold/30" : "bg-muted")}>
+            {m.won ? <Trophy className="size-5 text-gold" /> : <Crown className="size-5 text-muted-foreground/40" />}
             <span className={cn("text-[12.5px] leading-tight font-semibold", !m.won && "text-muted-foreground")}>{m.en}</span>
+            <Ar className={cn("text-[12px] leading-tight", m.won ? "text-gold" : "text-muted-foreground/70")}>{m.ar}</Ar>
             <span className="text-[10.5px] leading-tight text-muted-foreground">{m.how}</span>
+            {!m.won && (
+              <div className="mt-1 w-full">
+                <Bar value={m.frac} color="var(--gold)" className="h-1" />
+                <div className="mt-1 text-[10px] text-muted-foreground tnum">{m.down ? `${fmtN(m.cur)} → ${m.goal}` : `${fmtN(m.cur)} / ${fmtN(m.goal)}`}</div>
+              </div>
+            )}
           </div>
         ))}
       </div>
-      {ms.length > shown.length || all ? (
+      {list.length > shown.length || all ? (
         <button className="press mt-3 h-10 w-full rounded-full bg-muted text-[14px] font-medium" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${ms.length}`}</button>
       ) : null}
     </Section>

@@ -21,10 +21,10 @@
   ],
   "shortcuts": [
     { "name": "Check in", "short_name": "Check in", "description": "Log today's prayers, reading and routines", "url": "./#today", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Progress", "short_name": "Progress", "description": "Level, council, medals and trends", "url": "./#progress", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Palace", "short_name": "Palace", "description": "Rank, streaks, medals and the council", "url": "./#palace", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ],
   "screenshots": [
     { "src": "screenshots/today.png", "sizes": "1170x2532", "type": "image/png", "form_factor": "narrow", "label": "Today: a quick check-in" },
-    { "src": "screenshots/progress.png", "sizes": "1170x2532", "type": "image/png", "form_factor": "narrow", "label": "Progress: level, council and medals" }
+    { "src": "screenshots/palace.png", "sizes": "1170x2532", "type": "image/png", "form_factor": "narrow", "label": "Palace: rank ladder, streaks and medals" }
   ]
 }
