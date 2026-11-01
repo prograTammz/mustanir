@@ -7,15 +7,16 @@ const SHELL = "./index.html";
 const RUNTIME = ["fonts.googleapis.com", "fonts.gstatic.com"]; // the Arabic fonts
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", SHELL, ...PRECACHE])).then(() => {
-    // First install: take over at once. Later updates wait until you tap "Update".
-    if (!self.registration.active) return self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", SHELL, ...PRECACHE])).then(async () => {
+    // First install, or replacing the pre-redesign worker: take over at once. Later updates wait until you tap "Update".
+    const legacy = (await caches.keys()).some((k) => /^mustanir-v\d+$/.test(k));
+    if (!self.registration.active || legacy) return self.skipWaiting();
   }));
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith("mustanir-") && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if (k.startsWith("mustanir") && k !== CACHE) await caches.delete(k);
     await self.clients.claim();
   })());
 });

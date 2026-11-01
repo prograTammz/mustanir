@@ -31,7 +31,7 @@ function Field({ label, k, type = "text", hint, ...attrs }) {
       <div className="flex min-h-10 items-center gap-3">
         <Label htmlFor={"f-" + k} className="min-w-0 flex-1 text-[15px] leading-snug font-normal">{label}</Label>
         <Input id={"f-" + k} key={k + String(v)} type={type} defaultValue={String(v)} inputMode={type === "number" ? "decimal" : undefined} {...attrs}
-          className={cn("h-9 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none", type === "text" ? "w-44" : type === "date" ? "w-40" : "w-28")}
+          className={cn("h-9 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none", type === "text" ? "w-44" : type === "date" || type === "time" ? "w-36" : "w-28")}
         onBlur={(e) => { let x = e.target.value; if (type === "number") x = Math.max(0, parseFloat(x) || 0); if (String(x) !== String(v)) setSetting(k, x); }}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
       </div>
