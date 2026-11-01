@@ -32,6 +32,25 @@ const hm = (s: string) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/)
 const addDays = (s: string, n: number) => { const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const r1 = (x: number) => Math.round(x * 10) / 10;
 const min = (ms: unknown) => (typeof ms === "number" ? ms / 60000 : 0);
+// Fajr in New Cairo (Egyptian General Authority of Survey, 19.5°) as a UTC timestamp. Same formula as the app.
+function fajrAt(s: string) {
+  const rad = Math.PI / 180, t0 = Date.parse(s + "T12:00:00Z"), d = (t0 - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const g = (357.529 + 0.98560028 * d) * rad, q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, e = (23.439 - 0.00000036 * d) * rad;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)) / rad / 15, dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const eq = (((q / 15 - (((ra % 24) + 24) % 24)) + 12) % 24 + 24) % 24 - 12, noon = 12 - 31.47 / 15 - eq;
+  const h = Math.acos((-Math.sin(19.5 * rad) - Math.sin(dec) * Math.sin(30.03 * rad)) / (Math.cos(dec) * Math.cos(30.03 * rad))) / rad / 15;
+  return t0 - 12 * 3600000 + (noon - h) * 3600000;
+}
+// Up for Fajr: awake at some moment from 10 minutes before Fajr to 45 minutes after (going back to sleep later is fine).
+// deno-lint-ignore no-explicit-any
+function upForFajr(day: string, sleeps: any[]) {
+  const f = fajrAt(day), w0 = f - 10 * 60000, w1 = f + 45 * 60000;
+  const iv = sleeps.map((x) => [Date.parse(x.start), Date.parse(x.end)]).filter(([a, b]) => b > w0 && a < w1).sort((x, y) => x[0] - y[0]);
+  let t = w0;
+  for (const [a, b] of iv) { if (a > t) return true; t = Math.max(t, b); if (t >= w1) return false; }
+  return t < w1;
+}
 
 /* ---------- secrets and auth ---------- */
 async function creds() {
@@ -160,7 +179,9 @@ function scores(d: any, s: any) {
   const faith = PRAYERS.reduce((a, k) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
   const knowledge = (d.pages || 0) >= (s.pagesPerDay || 20) ? 1 : 0;
   const slept = (d.sleepH || 0) >= (s.sleepTarget || 7) ? 1 : 0;
-  const habits = (+!!d.bed + 2 * +!!d.wake + 2 * slept + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 11;
+  const regular = d.sleepCons != null && d.sleepCons >= ((s.vitality || {}).sleepCons ?? 80) ? 1 : 0;
+  // Sleep is judged by WHOOP alone: Fajr, hours and consistency count double; no bedtime check.
+  const habits = (2 * +!!d.wake + 2 * slept + 2 * regular + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
   return { faith, knowledge, habits };
 }
 const trainOf = (names: string) =>
@@ -270,13 +291,11 @@ async function rebuild(uid: string, dayList: string[], body: Rec = null) {
     const ate = eaten.get(day);
     if (ate != null) d.dietaryKcal = Math.round(ate);
     if (d.totalKcal && ate) d.deficit = Math.round(d.totalKcal - ate);
-    // Verdicts fill only blanks, and only for days since WHOOP was connected.
+    // Up for Fajr is decided by the sleep data alone, every day (no bedtime check any more).
+    if (main) d.wake = upForFajr(day, sleeps);
+    delete d.bed;
+    // Other verdicts fill only blanks, and only for days since WHOOP was connected.
     if (day >= from) {
-      if (main && d.bed == null) {
-        const st0 = hm(cairoTime(main.start)), t = hm(s.bedtime), late = (x: number) => (x < 12 * 60 ? x + 1440 : x);
-        if (st0 != null && t != null) d.bed = late(st0) <= late(t) + 30;
-      }
-      if (main && d.wake == null) { const en = hm(cairoTime(main.end)), t = hm(s.wake); if (en != null && t != null) d.wake = en <= t + 10; }
       if (wks.length && !d.train) { const t = trainOf(wks.map((w) => w.sport_name).join(" ")); if (t) d.train = t; }
       if (d.deficit != null && d.diet == null && day < cairoDay(new Date())) d.diet = d.deficit >= (s.deficitMin || 500);
       if (d.watch == null && (sleeps.length || cycle?.score?.strain != null)) d.watch = true; // WHOOP worn

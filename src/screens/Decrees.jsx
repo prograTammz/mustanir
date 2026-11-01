@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Plane, Plus, X, Watch, TriangleAlert, Info } from "lucide-react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termLength, termInfo, day, dayMinisters, dayXP, MAX_DAY_XP, matchDay, hasSchedule,
-  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, vitalsFor, vitalNeed, VITALITY_XP, usesWhoop, isMeasured, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
+  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, vitalsFor, vitalNeed, VITALITY_XP, fajrTime, sleptEnough, consistent, isSunday, weighIn, WEIGH_IN_XP, usesWhoop, isMeasured, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
 import { SESSION, LS, loadMeals, addMeal, deleteMeal, saveDay } from "@/lib/store.js";
 import { useApp, set, setQuiet, rec, bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
@@ -197,6 +197,7 @@ function BodyDecree({ s, r, dn }) {
       <Row label="Weight" sub={weightSub(s, r)}>
         <span className="text-[15px] font-semibold tnum">{latestWeight(s, r) != null ? `${latestWeight(s, r).toFixed(1)} kg` : "—"}</span>
       </Row>
+      {isSunday(s) && <WeighIn s={s} />}
     </Decree>
   );
 }
@@ -212,6 +213,14 @@ function latestWeight(s, r) {
 function weightSub(s, r) {
   const w = latestWeight(s, r), steps = r.steps ? `${r.steps.toLocaleString("en")} steps · ` : "";
   return w == null ? steps + "Weigh in on your scale; Apple Health passes it to WHOOP" : steps + (r.weight != null ? "From WHOOP" : "Last reading, from WHOOP");
+}
+
+function WeighIn({ s }) {
+  const w = weighIn(s);
+  const txt = !w || w.drop == null ? "Sunday weigh-in: needs a reading this week and last." :
+    w.won ? `Sunday weigh-in: down ${w.drop.toFixed(1)} kg from last week (${w.before.toFixed(1)} → ${w.now.toFixed(1)}). +${WEIGH_IN_XP} XP.` :
+    `Sunday weigh-in: ${w.drop === 0 ? "level with" : `up ${(-w.drop).toFixed(1)} kg on`} last week. Next Sunday.`;
+  return <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", w?.won ? "bg-ok/10 text-ok" : "bg-muted/70 text-muted-foreground")}>{txt}</div>;
 }
 
 function PurityDecree({ s, r }) {
@@ -231,10 +240,13 @@ function PurityDecree({ s, r }) {
 function HabitsDecree({ r }) {
   const tg = (k, l) => <Chip size="sm" on={!!r[k]} onClick={() => set(k, !r[k])}>{l}</Chip>;
   return (
-    <Decree k="habits" side={`Window ${S.settings.bedtime} to ${S.settings.wake} · aim ${S.settings.sleepTarget} h`}>
-      <Row label="Sleep">{tg("bed", "In bed by " + S.settings.bedtime)}{tg("wake", "Up for Fajr")}</Row>
-      <Row label="Hours slept" sub={r.sleepH == null ? "Fills in when WHOOP scores your sleep" : `${r.sleepH >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h`} · from ${String(r.source || "").startsWith("Apple") ? "the watch" : "WHOOP"}`}>
+    <Decree k="habits" side={`Sleep from WHOOP · aim ${S.settings.sleepTarget} h, consistency ${consGoal()}%`}>
+      <Row label="Up for Fajr" sub={`Fajr ${fajrTime(S.selected)} · awake around it, from your sleep`}><Verdict v={r.wake} /></Row>
+      <Row label="Hours slept" sub={r.sleepH == null ? "Fills in when WHOOP scores your sleep" : sleptEnough(r) ? "Target met" : `Target ${S.settings.sleepTarget} h`}>
         <span className="text-[15px] font-semibold tnum">{r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : "—"}</span>
+      </Row>
+      <Row label="Sleep consistency" sub={r.sleepCons == null ? "Fills in when WHOOP scores your sleep" : consistent(r) ? "On target: same rhythm, rewarded" : `Target ${consGoal()}%`}>
+        <span className="text-[15px] font-semibold tnum">{r.sleepCons != null ? `${Math.round(r.sleepCons)}%` : "—"}</span>
       </Row>
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>
@@ -242,6 +254,12 @@ function HabitsDecree({ r }) {
       {(r.recovery != null || r.sleepPerf != null) && <Hint className="mt-1">WHOOP: {[r.recovery != null && `recovery ${r.recovery}%`, r.sleepPerf != null && `sleep performance ${Math.round(r.sleepPerf)}%`, r.sleepCons != null && `consistency ${Math.round(r.sleepCons)}%`, r.sleepNeedH != null && `needed ${r.sleepNeedH} h`, r.strain != null && `strain ${r.strain}`].filter(Boolean).join(" · ")}.</Hint>}
     </Decree>
   );
+}
+
+const consGoal = () => (S.settings.vitality || {}).sleepCons ?? 80;
+function Verdict({ v }) {
+  if (v == null) return <span className="text-[15px] text-muted-foreground">—</span>;
+  return <Badge variant={v ? "ok" : "bad"}>{v ? "Yes" : "No"}</Badge>;
 }
 
 function ChecklistCard({ s, r }) {

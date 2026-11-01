@@ -67,9 +67,9 @@ function scoresFor(date) { const d = S.days[date] || {}, ds = day(date); return 
 const MEASURED = ["steps", "activeKcal", "basalKcal", "dietaryKcal", "exerciseMin", "standHours", "restingHR", "daylightMin", "hrv", "vo2max",
   "workouts", "workoutsDetail", "walkMin", "exByHour", "kcalByHour", "sleepStart", "sleepEnd", "deficit", "source",
   // WHOOP
-  "sleepH", "weight", "totalKcal", "strain", "recovery", "spo2", "skinTemp", "respRate", "sleepPerf", "sleepCons", "sleepEff", "sleepNeedH", "napMin", "avgHR"];
+  "sleepH", "weight", "wake", "totalKcal", "strain", "recovery", "spo2", "skinTemp", "respRate", "sleepPerf", "sleepCons", "sleepEff", "sleepNeedH", "napMin", "avgHR"];
 const srcTime = (s) => Date.parse(String(s || "").replace(/^\D+/, "")) || 0; // "WHOOP 2026-11-01T…" → time
-const FILL_ONLY = ["bed", "wake", "train", "diet", "watch"]; // can be typed by hand: only filled when blank
+const FILL_ONLY = ["train", "diet", "watch"]; // can be typed by hand: only filled when blank
 export function mergeHealth(local, server) {
   if (!server) return local;
   const out = { ...local };
