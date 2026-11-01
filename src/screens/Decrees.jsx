@@ -179,8 +179,8 @@ function BodyDecree({ s, r, dn }) {
       <Subhead>Food</Subhead>
       {meals.map((m) => (
         <div key={m.id} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
-          <div className="min-w-0 flex-1"><span className="font-semibold tnum">{Math.round(m.kcal)} kcal</span> <span className="text-sm text-muted-foreground">{m.name || "Meal"} · {new Date(m.eaten_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}{m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}</span></div>
-          {m.exported_at ? <Badge variant="ok">In Health</Badge> : <Button size="icon-sm" variant="ghost" aria-label="Remove meal" onClick={async () => { await deleteMeal(s, m.id).catch(() => {}); bump(); }}><X /></Button>}
+          <div className="min-w-0 flex-1"><span className="font-semibold tnum">{Math.round(m.kcal)} kcal</span> <span className="text-sm text-muted-foreground">{m.name || "Meal"}{m.source === "fatsecret" ? "" : ` · ${new Date(m.eaten_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`}{m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}</span></div>
+          {m.source === "fatsecret" ? <Badge variant="muted">FatSecret</Badge> : m.exported_at ? <Badge variant="ok">In Health</Badge> : <Button size="icon-sm" variant="ghost" aria-label="Remove meal" onClick={async () => { await deleteMeal(s, m.id).catch(() => {}); bump(); }}><X /></Button>}
         </div>
       ))}
       <Input className="mt-2" placeholder="What did you eat?" value={food.name} onChange={(e) => setFood({ ...food, name: e.target.value })} />
@@ -189,7 +189,7 @@ function BodyDecree({ s, r, dn }) {
         <Input type="number" inputMode="numeric" placeholder="Protein (g)" value={food.protein} onChange={(e) => setFood({ ...food, protein: e.target.value })} />
         <Button size="icon" className="size-11" aria-label="Add meal" onClick={addFood}><Plus /></Button>
       </div>
-      <Hint className="mt-2">{foodMsg || (eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : "Meals go to Apple Health with the nightly Shortcut.")}</Hint>
+      <Hint className="mt-2">{foodMsg || (eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : (S.fatsecret?.connected_at || meals.some((m) => m.source === "fatsecret")) ? "Meals you log in FatSecret arrive here every hour." : "Log meals here, or connect FatSecret in the Diwan to have them arrive by themselves.")}</Hint>
       <Row label="On my deficit target" className="mt-2 border-t">
         <Chip size="sm" on={r.diet === true} tone="ok" onClick={() => set("diet", r.diet === true ? null : true)}>Yes</Chip>
         <Chip size="sm" on={r.diet === false} tone="bad" onClick={() => set("diet", r.diet === false ? null : false)}>No</Chip>

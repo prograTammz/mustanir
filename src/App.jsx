@@ -29,6 +29,9 @@ fromHash();
 // Back from WHOOP's consent page: ?whoop=connected|denied|expired|failed
 const WHOOP_BACK = new URLSearchParams(location.search).get("whoop");
 if (WHOOP_BACK) history.replaceState(null, "", location.pathname + location.hash);
+const FS_BACK = new URLSearchParams(location.search).get("fatsecret");
+if (FS_BACK) history.replaceState(null, "", location.pathname + location.hash);
+const FS_MSG = { connected: "FatSecret connected. Your last 14 days of meals are in.", denied: "FatSecret access wasn’t granted.", expired: "That FatSecret link expired. Tap Connect FatSecret again.", failed: "FatSecret didn’t accept the connection. See the Diwan for details." };
 const WHOOP_MSG = { connected: "WHOOP connected. Your last 30 days are in; Apple Health is off.", denied: "WHOOP access wasn’t granted.", expired: "That WHOOP link expired. Tap Connect WHOOP again.", failed: "WHOOP didn’t accept the connection. See the Diwan for details." };
 
 export default function App() {
@@ -36,6 +39,7 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     load();
+    if (FS_BACK) setTimeout(() => (FS_BACK === "connected" ? toast.success : toast.error)(FS_MSG[FS_BACK] || "FatSecret: " + FS_BACK), 400);
     if (WHOOP_BACK) setTimeout(() => (WHOOP_BACK === "connected" ? toast.success : toast.error)(WHOOP_MSG[WHOOP_BACK] || "WHOOP: " + WHOOP_BACK), 400);
     const onScroll = () => setScrolled(scrollY > 30);
     const onHash = () => { fromHash(); bump(); };

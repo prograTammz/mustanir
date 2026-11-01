@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
-import { SESSION, HEALTH_URL, PALACE_URL, WHOOP_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, saveSettings, signOut, newShortcutKey, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
+import { SESSION, HEALTH_URL, PALACE_URL, WHOOP_URL, FATSECRET_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, loadFatsecret, fatsecretConnect, fatsecretSync, fatsecretDisconnect, saveSettings, signOut, newShortcutKey, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { Section, Hint, Subhead, Row, Ar, fmtMin } from "@/components/kit";
@@ -65,6 +65,7 @@ export default function Diwan() {
       <Notifications />
       <Calendar />
       <Whoop />
+      <FatSecret />
       <AppleHealth />
       <Section title="Account" ar="الحساب">
         <Row label="Signed in as"><span className="text-[15px] font-medium">{SESSION?.email || ""}</span></Row>
@@ -285,6 +286,50 @@ function Whoop() {
             <li>Scopes: all the <C>read:</C> ones and <C>offline</C>.</li>
             <li>Webhook URL: <C>{WHOOP_URL + "/webhook"}</C>, model version <C>v2</C>.</li>
             <li>Supabase → SQL Editor: save the Client ID and Secret into <C>app_secrets</C> as <C>whoop_client_id</C> and <C>whoop_client_secret</C>. Then tap Connect WHOOP.</li>
+          </ol>
+        </Guide>
+      </div>
+    </Section>
+  );
+}
+
+let fsLoading = false;
+function FatSecret() {
+  const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
+  const f = S.fatsecret;
+  useEffect(() => {
+    if (!f && !fsLoading && SESSION) { fsLoading = true; loadFatsecret().finally(() => { fsLoading = false; bump(); }); }
+  }, [f]);
+  const run = async (fn, ok) => { setBusy(true); setMsg(""); try { const r = await fn(); setMsg(ok(r)); } catch (e) { setMsg(e.message); } finally { setBusy(false); bump(); } };
+  const on = !!f?.connected_at;
+  const when = (t) => new Date(t).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <Section title="FatSecret" ar="الطعام" desc="Log meals in the FatSecret app (photo, barcode or search). They arrive here every hour and count against what WHOOP says you burned.">
+      {on ? (
+        <>
+          <Hint className="mb-2">Connected {when(f.connected_at)}{f.last_sync_at ? ` · last update ${when(f.last_sync_at)}` : ""}. Edits and deletions in FatSecret carry over.</Hint>
+          {f.last_error && <Hint className="mb-2 text-warn">Last problem: {f.last_error}</Hint>}
+          <div className="grid grid-cols-2 gap-2">
+            <Button disabled={busy} onClick={() => run(() => fatsecretSync(3), (r) => `Updated ${r.days} days · ${r.meals} meals.`)}>Sync now</Button>
+            <Button disabled={busy} variant="outline" onClick={() => run(() => fatsecretSync(30), (r) => `Imported ${r.days} days · ${r.meals} meals.`)}>Import 30 days</Button>
+          </div>
+          <Button disabled={busy} variant="ghost" className="mt-2 w-full" onClick={() => { if (confirm("Disconnect FatSecret? Meals already here stay; new ones stop.")) run(fatsecretDisconnect, () => "Disconnected."); }}>Disconnect</Button>
+        </>
+      ) : (
+        <>
+          {f?.last_error && <Hint className="mb-2 text-warn">{f.last_error}</Hint>}
+          <Button className="w-full" disabled={busy} onClick={() => run(fatsecretConnect, () => "Opening FatSecret…")}>Connect FatSecret</Button>
+          <Hint className="mt-2">You’ll sign in with your FatSecret account and come back here. Your last 14 days come in.</Hint>
+        </>
+      )}
+      {msg && <Hint className="mt-2">{msg}</Hint>}
+      <div className="mt-4">
+        <Guide title="Setting up FatSecret (once)">
+          <ol>
+            <li>Install the FatSecret app and create an account; that’s where you log food.</li>
+            <li>Open <b>platform.fatsecret.com</b>, register as a developer (the free Basic plan), and create an app. Copy its <b>Consumer Key</b> and <b>Consumer Secret</b> (the OAuth 1.0 pair).</li>
+            <li>Supabase → SQL Editor: save them into <C>app_secrets</C> as <C>fatsecret_key</C> and <C>fatsecret_secret</C>.</li>
+            <li>Tap Connect FatSecret and sign in. It returns to <C>{FATSECRET_URL + "/callback"}</C>.</li>
           </ol>
         </Guide>
       </div>

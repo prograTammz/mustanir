@@ -182,6 +182,7 @@ export async function newShortcutKey() {
 /* ---------- push notifications ---------- */
 export const PALACE_URL = SB_URL + "/functions/v1/palace";
 export const WHOOP_URL = SB_URL + "/functions/v1/whoop";
+export const FATSECRET_URL = SB_URL + "/functions/v1/fatsecret";
 
 /* ---------- WHOOP ---------- */
 async function whoopCall(path, body) {
@@ -198,6 +199,21 @@ export async function loadWhoop() {
 export async function whoopConnect() { const { url } = await whoopCall("start"); location.href = url; }
 export async function whoopSync(days = 7) { const r = await whoopCall("sync", { days }); await load(); await loadWhoop(); return r; }
 export async function whoopDisconnect() { await whoopCall("disconnect"); await load(); await loadWhoop(); }
+/* ---------- FatSecret (meals logged there arrive here on their own) ---------- */
+async function fsCall(path, body) {
+  const res = await fetch(FATSECRET_URL + "/" + path, { method: "POST", headers: { apikey: SB_KEY, Authorization: "Bearer " + await token(), "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.ok === false) throw new Error(j.error || "HTTP " + res.status);
+  return j;
+}
+export async function loadFatsecret() {
+  const rows = await rest("fatsecret_status?select=connected_at,last_sync_at,last_error").catch(() => null);
+  S.fatsecret = rows && rows[0] ? rows[0] : { connected_at: null };
+  return S.fatsecret;
+}
+export async function fatsecretConnect() { const { url } = await fsCall("start"); location.href = url; }
+export async function fatsecretSync(days = 3) { const r = await fsCall("sync", { days }); S.meals = {}; await load(); await loadFatsecret(); return r; }
+export async function fatsecretDisconnect() { await fsCall("disconnect"); await loadFatsecret(); }
 const b64ToBytes = (b64) => { const s = atob((b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(s, (c) => c.charCodeAt(0)); };
 export const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 export async function pushState() {
@@ -243,7 +259,7 @@ export async function newCalendarLink() {
 /* ---------- food (written to Apple Health by the nightly Shortcut) ---------- */
 export async function loadMeals(date) {
   if (!SESSION) return [];
-  const rows = (await rest(`meals?select=id,eaten_at,name,kcal,protein,exported_at&day=eq.${date}&order=eaten_at`)) || [];
+  const rows = (await rest(`meals?select=id,eaten_at,name,kcal,protein,exported_at,source&day=eq.${date}&order=eaten_at`)) || [];
   (S.meals ||= {})[date] = rows;
   return rows;
 }
