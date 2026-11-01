@@ -148,7 +148,8 @@ Deno.serve(async (req) => {
   try {
     if (route === "start" && req.method === "POST") {
       const uid = await signedIn(req); if (!uid) return json({ ok: false, error: "Sign in first." }, 401);
-      const r = form(await signed("POST", AUTH + "/request_token", { oauth_callback: CALLBACK }));
+      // FatSecret only accepts GET here (their docs say POST; that fails with "Invalid signature").
+      const r = form(await signed("GET", AUTH + "/request_token", { oauth_callback: CALLBACK }));
       if (!r.oauth_token) return json({ ok: false, error: "FatSecret didn't issue a sign-in token. Check the keys." }, 502);
       await admin.from("fatsecret_states").delete().lt("created_at", new Date(Date.now() - 3600000).toISOString());
       await admin.from("fatsecret_states").insert({ token: r.oauth_token, secret: r.oauth_token_secret || "", user_id: uid });
