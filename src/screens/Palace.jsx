@@ -95,7 +95,7 @@ function Ladder() {
 
 /* ---------- streaks ---------- */
 const STREAKS = [["office", "Days in office", "Log something every day"], ["prayers", "All five prayers", "Every prayer, every day"], ["fajr", "Up for Fajr", "Awake around Fajr, from WHOOP"],
-  ["abstain", "Purity", "No porn, no masturbation"], ["read", "Reading", "Your pages, every day"], ["regular", "Sleep rhythm", "Consistency on target"], ["vital", "Vitality", "4 of 5 vitals"]];
+  ["abstain", "Purity", "Clean, no slip logged"], ["read", "Reading", "Your pages, every day"], ["regular", "Sleep rhythm", "Consistency on target"], ["vital", "Vitality", "4 of 5 vitals"]];
 function Streaks() {
   return (
     <Section title="Streaks" right={<span className="text-[13px] text-muted-foreground">now · best</span>}>
