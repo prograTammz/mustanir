@@ -7,7 +7,7 @@ export const DEFAULTS = {
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
   // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
   birthDate: "", sex: "male",
-  vitality: { steps: 8000, exerciseMin: 30, standHours: 10, sleepH: 7, daylightMin: 20, sleepCons: 80, strain: 10 },
+  vitality: { steps: 8000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
   proteinTarget: 160,
   // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
   training: [
@@ -257,23 +257,23 @@ export function dayXP(s) {
   return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a);
 }
 
-/* ---------- vitality: the five things the watch keeps every day ---------- */
-export const VITALS_APPLE = [
+/* ---------- vitality: the five things WHOOP keeps every day ----------
+   Steps, exercise (WHOOP workouts) and sleep hours are measured on every day; sleep consistency and
+   day strain only exist on WHOOP days (from settings.whoopFrom, or any day WHOOP filled), so earlier days are judged on the first three. */
+export const VITALS = [
   { k: "steps", en: "Steps", ar: "خطوات", unit: "", fmt: (v) => Math.round(v).toLocaleString("en") },
   { k: "exerciseMin", en: "Exercise", ar: "تمرين", unit: "min", fmt: (v) => Math.round(v) },
-  { k: "standHours", en: "Stand hours", ar: "وقوف", unit: "h", fmt: (v) => Math.round(v) },
   { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
-  { k: "daylightMin", en: "Daylight", ar: "شمس", unit: "min", fmt: (v) => Math.round(v) },
-];
-// With WHOOP there is no stand or daylight sensor: sleep consistency and day strain take their place.
-export const VITALS_WHOOP = [
-  ...VITALS_APPLE.filter((x) => ["steps", "exerciseMin", "sleepH"].includes(x.k)),
   { k: "sleepCons", en: "Sleep consistency", ar: "انتظام النوم", unit: "%", fmt: (v) => Math.round(v) },
   { k: "strain", en: "Day strain", ar: "الجهد", unit: "", fmt: (v) => (+v).toFixed(1) },
 ];
-export const vitalsFor = (s) => (S.settings.whoopFrom && s >= S.settings.whoopFrom ? VITALS_WHOOP : VITALS_APPLE);
+const WHOOP_ONLY = ["sleepCons", "strain"];
+const onWhoop = (s) => (S.settings.whoopFrom && s >= S.settings.whoopFrom) || /^WHOOP/.test((S.days[s] || {}).source || "");
+export const vitalsFor = (s) => (onWhoop(s) ? VITALS : VITALS.filter((x) => !WHOOP_ONLY.includes(x.k)));
+// The Vitality medal: 4 of 5 kept (or all 3 on a pre-WHOOP day).
+export const vitalNeed = (total) => Math.ceil(total * 0.8);
 
-export const FLOOR = { steps: 6000, exerciseMin: 20, standHours: 8, sleepH: 6.5, daylightMin: 10, sleepCons: 65, strain: 6 }; // the away-day minimum
+export const FLOOR = { steps: 6000, exerciseMin: 20, sleepH: 6.5, sleepCons: 65, strain: 6 }; // the away-day minimum
 export function vitalityFor(s) {
   const d = S.days[s] || {}, goals = d.away ? FLOOR : { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
   const items = vitalsFor(s).map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
@@ -384,7 +384,7 @@ export function bestStreak(test) {
 }
 export const T = {
   productive: (d, s) => (checklistFor(s).frac || 0) >= 0.8,
-  vital: (d, s) => manual(d) && vitalityFor(s).hits >= 4,
+  vital: (d, s) => { if (!manual(d)) return false; const v = vitalityFor(s); return v.hits >= vitalNeed(v.total); },
   office: (d) => manual(d),
   prayers: (d, s) => day(s).faith === 1,
   pure: (d) => d.pornFree === true,
@@ -437,13 +437,13 @@ export const BODY_PLAN = {
   ],
   // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
   terms: [
-    { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, standHours: 10, sleepH: 7, daylightMin: 20 },
+    { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
       rules: ["750 kcal deficit, 160 g protein", "4 strength sessions a week on top of tennis", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
-    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, standHours: 10, sleepH: 7, daylightMin: 20 },
+    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepH: 7, sleepCons: 75, strain: 11 },
       rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
-    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, standHours: 9, sleepH: 7, daylightMin: 10 },
+    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
       rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 strength sessions minimum, indoors with AC", "Tennis early morning, walking pad at home in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
-    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, standHours: 10, sleepH: 7, daylightMin: 20 },
+    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, sleepH: 7, sleepCons: 80, strain: 12 },
       rules: ["August: maintenance and routine rebuild after summer", "September–October: 400 kcal deficit, 4 sessions", "1–2 interval sessions a week to push VO₂ max past 52", "Plan the next year at the November council"] },
   ],
 };

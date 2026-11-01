@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Plane, Plus, X, Watch, TriangleAlert, Info } from "lucide-react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termLength, termInfo, day, dayMinisters, dayXP, MAX_DAY_XP, matchDay, hasSchedule,
-  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, vitalsFor, VITALITY_XP, usesWhoop, isMeasured, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
+  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, vitalsFor, vitalNeed, VITALITY_XP, usesWhoop, isMeasured, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
 import { SESSION, LS, loadMeals, addMeal, deleteMeal, saveDay } from "@/lib/store.js";
 import { useApp, set, setQuiet, rec, bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
@@ -277,7 +277,7 @@ function VitalityCard({ s }) {
             </div>
           ))}
         </div>
-        <Hint className="mt-3">Filled by {usesWhoop() ? "WHOOP" : "the watch"}. Each vital kept is worth {VITALITY_XP / vitalsFor(s).length} XP on days you log; 4 of 5 for 7 days wins the Vitality medal.</Hint>
+        <Hint className="mt-3">Filled by {usesWhoop() ? "WHOOP" : "the watch"}. Each vital kept is worth {VITALITY_XP / vitalsFor(s).length} XP on days you log; {vitalNeed(vitalsFor(s).length)} of {vitalsFor(s).length} for 7 days wins the Vitality medal.</Hint>
       </CardContent>
     </Card>
   );
