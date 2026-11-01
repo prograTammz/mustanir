@@ -4,4 +4,24 @@ import "./index.css";
 import App from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>);
-if ("serviceWorker" in navigator) addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+
+// Offline shell and updates: a new version installs quietly in the background and waits for you to tap "Update".
+if ("serviceWorker" in navigator) {
+  addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("sw.js");
+      const offer = (w) => dispatchEvent(new CustomEvent("mustanir:update", { detail: () => w.postMessage("SKIP_WAITING") }));
+      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+      reg.addEventListener("updatefound", () => {
+        const w = reg.installing;
+        w?.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) offer(w); });
+      });
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloading) { reloading = true; location.reload(); } });
+      // Opening the app from the home screen checks for a new version.
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    } catch { /* no service worker: the app still works online */ }
+  });
+}
+// Ask the browser to keep this app's storage (offline log, outbox) even under storage pressure.
+navigator.storage?.persist?.().catch(() => {});

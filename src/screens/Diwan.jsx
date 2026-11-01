@@ -39,6 +39,7 @@ function Field({ label, k, type = "text", hint, ...attrs }) {
 export default function Diwan() {
   return (
     <>
+      <div className="px-1 pt-2 pb-1"><h1 className="text-[30px] leading-tight font-bold tracking-tight">Settings</h1></div>
       <Appearance />
       <Section title="Targets" ar="الأهداف" desc="The body plan sets the deficit, protein, sessions and steps when each term begins.">
         <Field label="First term starts" k="termStart" type="date" />

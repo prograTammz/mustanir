@@ -27,8 +27,11 @@ export function set(k, v) {
 }
 export function setQuiet(k, v) { rec()[k] = v; saveDay(S.selected); }
 
-export const TABS = ["palace", "decrees", "records", "council", "diwan"];
-export function go(tab) { S.tab = tab; history.replaceState(null, "", "#" + tab); bump(); scrollTo({ top: 0 }); }
+export const TABS = ["today", "progress", "settings"];
+// Older links (notifications, shortcuts, bookmarks) still land in the right place.
+export const ALIAS = { palace: "today", decrees: "today", records: "progress", council: "progress", diwan: "settings" };
+export const tabOf = (h) => (TABS.includes(h) ? h : ALIAS[h] || null);
+export function go(tab) { S.tab = tabOf(tab) || "today"; history.replaceState(null, "", "#" + S.tab); bump(); scrollTo({ top: 0 }); }
 
 /* ---------- appearance: system, light or dark ---------- */
 const mq = matchMedia("(prefers-color-scheme: dark)");
@@ -37,7 +40,7 @@ export const isDark = () => (themePref() === "system" ? mq.matches : themePref()
 export function applyTheme() {
   const dark = isDark();
   document.documentElement.classList.toggle("dark", dark);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0B161D" : "#F8F5EE");
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.setAttribute("content", dark ? "#0E1110" : "#F6F6F3"); m.removeAttribute("media"); });
 }
 export function setTheme(p) { LS.set("a2-theme", p); applyTheme(); bump(); }
 mq.addEventListener?.("change", () => { if (themePref() === "system") { applyTheme(); bump(); } });

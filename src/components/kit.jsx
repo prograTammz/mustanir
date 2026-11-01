@@ -1,5 +1,6 @@
 // Small building blocks shared by every screen.
-import { Minus, Plus } from "lucide-react";
+import { useState } from "react";
+import { Minus, Plus, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
@@ -41,17 +42,17 @@ export function Ring({ value = 0, color = "var(--primary)", size = 44, stroke = 
   );
 }
 
-// A card with the English title on the left and the Arabic name on the right.
+// A card with a quiet title. (The Arabic name is kept for screen readers only: the UI stays minimal.)
 export function Section({ title, ar, desc, right, children, className, contentClassName }) {
   return (
     <Card className={className}>
-      {(title || ar || right) && (
-        <CardHeader>
+      {(title || right) && (
+        <CardHeader className="items-center">
           <div className="min-w-0">
-            <CardTitle>{title}</CardTitle>
+            <CardTitle>{title}{ar && <span className="sr-only"> · {ar}</span>}</CardTitle>
             {desc && <CardDescription className="mt-1">{desc}</CardDescription>}
           </div>
-          {right ?? (ar && <Ar className="text-gold text-lg leading-none pt-0.5 whitespace-nowrap shrink-0">{ar}</Ar>)}
+          {right}
         </CardHeader>
       )}
       <CardContent className={contentClassName}>{children}</CardContent>
@@ -61,7 +62,7 @@ export function Section({ title, ar, desc, right, children, className, contentCl
 
 export function Stat({ value, label, className, tone }) {
   return (
-    <div className={cn("rounded-2xl bg-muted/70 px-3.5 py-3", className)}>
+    <div className={cn("rounded-2xl bg-muted px-3.5 py-3", className)}>
       <div className={cn("text-[22px] leading-tight font-bold tracking-tight tnum", tone === "ok" && "text-ok", tone === "warn" && "text-warn", tone === "bad" && "text-bad")}>{value}</div>
       <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
     </div>
@@ -73,7 +74,7 @@ export function Hint({ children, className }) {
 }
 
 export function Subhead({ children, className }) {
-  return <div className={cn("mt-5 mb-2 text-[13px] font-semibold tracking-wide text-muted-foreground uppercase", className)}>{children}</div>;
+  return <div className={cn("mt-5 mb-2 text-[12px] font-semibold tracking-[0.06em] text-muted-foreground uppercase", className)}>{children}</div>;
 }
 
 // A labelled row: label on the left (wraps on small screens), control on the right.
@@ -91,7 +92,7 @@ export function Row({ label, sub, children, className }) {
 
 export function Stepper({ value = 0, step = 1, onChange, label }) {
   return (
-    <div className="flex items-center rounded-full border bg-background/60 dark:bg-input/30">
+    <div className="flex items-center rounded-full bg-muted">
       <button aria-label={`Less ${label || ""}`} className="grid size-10 place-items-center rounded-full active:bg-muted" onClick={() => onChange(Math.max(0, (value || 0) - step))}><Minus className="size-4" /></button>
       <input aria-label={label} type="number" inputMode="numeric" min="0" value={value || 0} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
         className="w-12 bg-transparent text-center text-base font-semibold tnum outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
@@ -104,7 +105,7 @@ export function Stepper({ value = 0, step = 1, onChange, label }) {
 export function Chip({ on, onClick, children, tone = "primary", size = "md", className, ...p }) {
   return (
     <button aria-pressed={!!on} onClick={onClick} {...p}
-      className={cn("inline-flex items-center justify-center gap-1.5 rounded-full border bg-card font-medium transition-all select-none active:scale-[0.96]",
+      className={cn("press inline-flex items-center justify-center gap-1.5 rounded-full border border-transparent bg-muted font-medium select-none",
         size === "sm" ? "h-8 px-3 text-[13px]" : "h-10 px-4 text-sm",
         on && tone === "primary" && "border-primary bg-primary text-primary-foreground",
         on && tone === "bad" && "border-bad bg-bad text-white",
@@ -119,3 +120,50 @@ export function Chip({ on, onClick, children, tone = "primary", size = "md", cla
 export const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} m` : `${Math.round(m)} min`);
 export const SHORT = { day: "numeric", month: "short", year: "numeric" };
 export const pctTxt = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
+
+// A section that opens on tap: a title and a one-line summary when closed.
+export function Fold({ title, summary, children, defaultOpen = false, className }) {
+  return (
+    <details open={defaultOpen || undefined} className={cn("group", className)}>
+      <summary className="press flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <span className="text-[15px] font-medium">{title}</span>
+        <span className="ml-auto truncate text-[13px] text-muted-foreground tnum">{summary}</span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="pb-1">{children}</div>
+    </details>
+  );
+}
+
+// A small measured number: label, value, and whether it met its goal.
+export function Tile({ label, value, sub, hit, icon: Icon }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-2xl bg-muted px-3 py-2.5">
+      <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground">{Icon && <Icon className="size-3.5" />}<span className="truncate">{label}</span></div>
+      <div className={cn("text-[19px] leading-tight font-semibold tracking-tight tnum", hit === true && "text-ok", hit === false && "text-foreground")}>{value}</div>
+      {sub && <div className="truncate text-[11px] text-muted-foreground tnum">{sub}</div>}
+    </div>
+  );
+}
+
+// A thin progress bar.
+export function Bar({ value = 0, color = "var(--primary)", className }) {
+  const f = Math.max(0, Math.min(1, value || 0));
+  return (
+    <div className={cn("h-1.5 overflow-hidden rounded-full bg-muted", className)}>
+      <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${f * 100}%`, background: color }} />
+    </div>
+  );
+}
+
+// A round tick for tasks.
+export function Tick({ on, onClick, label }) {
+  return (
+    <button role="checkbox" aria-checked={!!on} aria-label={label} onClick={onClick}
+      className={cn("press grid size-6 shrink-0 place-items-center rounded-full border-[1.5px]", on ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40")}>
+      {on && <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 8.5l3 3 6-7" /></svg>}
+    </button>
+  );
+}
+
+export function useToggle(init = false) { const [v, setV] = useState(init); return [v, () => setV((x) => !x), setV]; }

@@ -27,7 +27,7 @@ export const DEFAULTS = {
 };
 
 export const S = {
-  settings: { ...DEFAULTS }, days: {}, health: null, tab: "palace", selected: null, period: null,
+  settings: { ...DEFAULTS }, days: {}, health: null, tab: "today", selected: null, period: null,
   mode: "local", loaded: false, dirty: new Set(), timers: {}, range: 90, err: "",
 };
 

@@ -68,7 +68,7 @@ function MinisterSheet({ k }) {
       {st && <p className="mt-2 text-[15px]">{st[0]} streak: <b>{streak(st[1])}</b> days now, best <b>{bestStreak(st[1])}</b>.</p>}
       {k === "purity" && <p className="mt-1 text-[15px]">Abstinence streak (no masturbation, no porn): <b>{streak(T.abstain)}</b> days now, best <b>{bestStreak(T.abstain)}</b>. Each one is +10 XP.</p>}
       <Hint className="mt-3">{m.immune ? "The prayer is the foundation: this minister can never be impeached." : `Below ${S.settings.threshold}% at a council review, the strategy is impeached and replaced. The agenda stays.`}</Hint>
-      <Button className="my-5 w-full" size="lg" onClick={() => { closeSheet(); go("decrees"); setTimeout(() => document.getElementById("dec-" + k)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120); }}>Go to today’s decree</Button>
+      <Button className="my-5 w-full" size="lg" onClick={() => { closeSheet(); go("today"); }}>Open today</Button>
     </>
   );
 }

@@ -1,55 +1,59 @@
-// Al-Mustanir service worker: keeps the palace available offline.
-// Your data never passes through the cache; Supabase requests always go to the network.
-const CACHE = 'mustanir-v16';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
-// Third-party files the app needs offline: the fonts.
-const RUNTIME = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+// Al-Mustanir service worker. The app shell works offline; your data never passes through the cache.
+// At build time vite.config.ts fills in BUILD (a fresh id per deploy) and PRECACHE (every built file).
+const BUILD = "__BUILD__";
+const PRECACHE = self.__PRECACHE || [];
+const CACHE = "mustanir-" + BUILD;
+const SHELL = "./index.html";
+const RUNTIME = ["fonts.googleapis.com", "fonts.gstatic.com"]; // the Arabic fonts
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", SHELL, ...PRECACHE])).then(() => {
+    // First install: take over at once. Later updates wait until you tap "Update".
+    if (!self.registration.active) return self.skipWaiting();
+  }));
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-    .then(() => self.clients.claim()));
+self.addEventListener("activate", (e) => {
+  e.waitUntil((async () => {
+    for (const k of await caches.keys()) if (k.startsWith("mustanir-") && k !== CACHE) await caches.delete(k);
+    await self.clients.claim();
+  })());
 });
 
-const put = (key, res) => { if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(CACHE).then(c => c.put(key, copy)); } return res; };
+self.addEventListener("message", (e) => { if (e.data === "SKIP_WAITING") self.skipWaiting(); });
 
-self.addEventListener('fetch', e => {
+const put = (key, res) => { if (res && (res.ok || res.type === "opaque")) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(key, copy)); } return res; };
+
+self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin === self.location.origin) {
-    if (url.pathname.includes('/assets/')) {
-      // built files carry a content hash in their name: cache first, they never change
-      e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => put(req, res))));
-      return;
-    }
-    // pages and the rest: newest when online, cached copy when offline
-    const key = req.mode === 'navigate' ? './index.html' : req;
-    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => put(key, res)).catch(() => caches.match(key)));
+  if (req.mode === "navigate") {
+    // The shell of this version, instantly (it matches its own assets); the network only if it's missing.
+    e.respondWith(caches.match(SHELL).then((hit) => hit || fetch(req).then((r) => put(SHELL, r))).catch(() => caches.match("./")));
     return;
   }
-  if (RUNTIME.includes(url.hostname)) {
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => put(req, res))));
+  if (url.origin === self.location.origin) {
+    // Hashed assets and icons never change within a version: cache first, then fill in from the network.
+    e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((r) => put(req, r))));
+    return;
   }
-  // everything else (Supabase) goes straight to the network
+  if (RUNTIME.includes(url.hostname)) e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((r) => put(req, r))));
+  // Everything else (Supabase) goes straight to the network.
 });
 
 // Reminders from the cabinet.
-self.addEventListener('push', e => {
+self.addEventListener("push", (e) => {
   let m = {};
   try { m = e.data ? e.data.json() : {}; } catch { m = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(m.title || 'Al-Mustanir', {
-    body: m.body || '', tag: m.tag, renotify: !!m.tag, icon: './icons/icon-192.png', badge: './icons/icon-192.png', data: { url: m.url || './' },
+  e.waitUntil(self.registration.showNotification(m.title || "Al-Mustanir", {
+    body: m.body || "", tag: m.tag, renotify: !!m.tag, icon: "./icons/icon-192.png", badge: "./icons/icon-192.png", data: { url: m.url || "./#today" },
   }));
 });
-self.addEventListener('notificationclick', e => {
+self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const url = new URL((e.notification.data && e.notification.data.url) || './', self.location.href).href;
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+  const url = new URL((e.notification.data && e.notification.data.url) || "./#today", self.location.href).href;
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
     for (const c of list) if (c.url.startsWith(self.location.origin)) { c.navigate(url).catch(() => {}); return c.focus(); }
     return self.clients.openWindow(url);
   }));

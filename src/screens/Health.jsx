@@ -54,7 +54,7 @@ function PlanCard() {
   const f = (x) => (x == null ? "—" : String(Math.round(x * 10) / 10));
   return (
     <Section title="The body plan" ar="خطة الجسد" desc="Aim for strong, accept likely.">
-      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {TERMS.map((x, i) => (
           <div key={x.n} className={cn("min-w-[132px] rounded-2xl border px-3 py-2.5", i === ti ? "border-primary bg-primary/8" : "bg-card", i < ti && "opacity-60")}>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">Term {x.n}{i >= 2 && <Sun className="size-3.5 text-warn" />}{i < ti && <Check className="size-3.5 text-ok" />}</div>
@@ -112,7 +112,7 @@ function Explorer() {
   const cats = CATS.filter(([k]) => metas.some((m) => m.category === k));
   return (
     <Section title="Every measure" ar="كل المقاييس" desc={`${metas.length} measures · ${sum.rows.reduce((a, r) => a + r.days, 0).toLocaleString("en")} daily records`}>
-      <div className="no-scrollbar -mx-5 mb-1 flex gap-2 overflow-x-auto px-5 pb-1">
+      <div className="no-scrollbar -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1">
         {cats.map(([k, l]) => <button key={k} onClick={() => { S.hcat = k; bump(); }} className={cn("h-8 shrink-0 rounded-full border px-3.5 text-[13px] font-semibold", k === cat ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}>{l}</button>)}
       </div>
       {metas.filter((m) => m.category === cat).map((m) => {

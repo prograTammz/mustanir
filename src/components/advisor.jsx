@@ -30,7 +30,7 @@ export function AdvisorCard({ full = false }) {
               {(r.recommendations || []).length > 0 && <ol className="ml-5 list-decimal space-y-1.5 text-[15px]">{r.recommendations.map((x, i) => <li key={i}>{txt(x)}</li>)}</ol>}
               {(r.changes || []).length > 0 && <><Subhead>Changes made to the app</Subhead><ul className="ml-5 list-disc space-y-1 text-sm text-muted-foreground">{r.changes.map((x, i) => <li key={i}>{txt(x)}</li>)}</ul></>}
             </>
-          ) : <Button variant="secondary" className="mt-1" onClick={() => go("council")}>Read the full report</Button>}
+          ) : <Button variant="secondary" className="mt-1" onClick={() => go("progress")}>Read the full report</Button>}
         </div>
       )}
       {full && (
