@@ -103,7 +103,7 @@ export default function App() {
         </nav>
       )}
       {!signin && <Sheets />}
-      <Toaster theme={isDark() ? "dark" : "light"} position="top-center" />
+      <Toaster theme={isDark() ? "dark" : "light"} />
     </div>
   );
 }
