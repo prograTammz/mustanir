@@ -1,5 +1,5 @@
 // The palace: where you stand in the game. Rank ladder, XP, streaks, medals, then the council, the advisor, trends and every measure.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crown, ChevronRight, Flame, Lock, Trophy } from "lucide-react";
 import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
@@ -48,6 +48,8 @@ export default function Palace() {
 
 /* ---------- the rank ladder and XP ---------- */
 function Ladder() {
+  const strip = useRef(null);
+  useEffect(() => { const el = strip.current?.querySelector("[data-cur]"); if (el) strip.current.scrollLeft = el.offsetLeft - 16; }, []);
   const t = totals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
   const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
   const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
@@ -65,14 +67,15 @@ function Ladder() {
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[linear-gradient(90deg,#C99A3E,#EBD08E)]" style={{ width: `${t.frac * 100}%` }} /></div>
         <div className="mt-1.5 flex justify-between text-[12px] text-white/65 tnum"><span>{t.xp.toLocaleString("en")} XP</span><span>{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</span></div>
       </div>
-      <div className="no-scrollbar -mt-1 flex gap-2 overflow-x-auto px-4">
+      <div ref={strip} className="no-scrollbar -mt-1 flex gap-2 overflow-x-auto px-4">
         {RANKS.map((r) => {
           const cur = r === rank, got = t.level >= r.from;
           return (
-            <div key={r.from} className={cn("flex w-[92px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center", cur ? "bg-gold-soft ring-1 ring-gold/50" : "bg-muted", !got && "opacity-60")}>
+            <div key={r.from} data-cur={cur || undefined} className={cn("flex w-[96px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center", cur ? "bg-gold-soft ring-1 ring-gold/50" : "bg-muted", !got && "opacity-60")}>
               {got ? <Seal level={r.from} size={30} /> : <span className="grid size-[30px] place-items-center"><Lock className="size-4 text-muted-foreground" /></span>}
               <Ar className={cn("text-[14px] leading-tight", got ? "text-gold" : "text-muted-foreground")}>{r.ar}</Ar>
-              <span className="text-[10.5px] leading-tight text-muted-foreground">{r.en}<br />Level {r.from} · {levelStart(r.from).toLocaleString("en")} XP</span>
+              <span className="text-[12px] leading-tight font-medium">{r.en}</span>
+              <span className="text-[10.5px] leading-tight text-muted-foreground tnum">Level {r.from}<br />{levelStart(r.from).toLocaleString("en")} XP</span>
             </div>
           );
         })}

@@ -80,7 +80,7 @@ function PlayerCard({ s }) {
           <div className="text-[11px] text-white/65">day streak</div>
         </div>
         <div className="rounded-2xl bg-white/[0.08] px-3 py-2.5">
-          <div className="text-[20px] font-bold tnum">{xp}<span className="text-[12px] font-medium text-white/55">/{MAX_DAY_XP}</span></div>
+          <div className="text-[20px] font-bold tnum">{xp}<span className="text-[12px] font-medium text-white/55">/{MAX_DAY_XP + (isSunday(s) ? WEIGH_IN_XP : 0)}</span></div>
           <div className="text-[11px] text-white/65">XP today</div>
         </div>
         <div className="rounded-2xl bg-white/[0.08] px-3 py-2.5">
