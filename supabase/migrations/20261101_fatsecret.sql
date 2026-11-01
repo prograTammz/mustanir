@@ -27,8 +27,8 @@ create table public.fatsecret_status (
 alter table public.fatsecret_status enable row level security;
 create policy "own fatsecret status" on public.fatsecret_status for select to authenticated using (user_id = (select auth.uid()));
 
--- Hourly, a few minutes before the WHOOP poll so each deficit uses the newest meals.
-select cron.schedule('mustanir-fatsecret', '2 * * * *', $$
+-- Every 10 minutes, offset 5 minutes from the WHOOP poll.
+select cron.schedule('mustanir-fatsecret', '5-59/10 * * * *', $$
   select net.http_post(
     url := 'https://qanzhisoxueaizscdial.supabase.co/functions/v1/fatsecret/poll',
     headers := jsonb_build_object('Content-Type', 'application/json',

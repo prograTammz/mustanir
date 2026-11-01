@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
-import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, loadFatsecret, fatsecretConnect, fatsecretSync, fatsecretDisconnect, saveSettings, signOut, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
+import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { Section, Hint, Subhead, Row, Ar, fmtMin } from "@/components/kit";
@@ -260,13 +260,9 @@ function Whoop() {
     <Section title="WHOOP" ar="ووب" desc="Sleep, recovery, HRV, resting heart rate, strain, steps, energy burned and every workout with its heart-rate zones. Prayers, reading and purity stay yours to log.">
       {on ? (
         <>
-          <Hint className="mb-2">Connected {when(w.connected_at)}{w.last_sync_at ? ` · last update ${when(w.last_sync_at)}` : ""}. New sleeps and workouts arrive within minutes; strain and steps every hour.</Hint>
+          <Hint className="mb-2">Connected {when(w.connected_at)}{w.last_sync_at ? ` · last update ${when(w.last_sync_at)}` : ""}. Everything syncs on its own every 10 minutes; new sleeps and workouts usually arrive sooner.</Hint>
           {w.last_error && <Hint className="mb-2 text-warn">Last problem: {w.last_error}</Hint>}
-          <div className="grid grid-cols-2 gap-2">
-            <Button disabled={busy} onClick={() => run(() => whoopSync(7), (r) => `Updated ${r.days} days from ${r.records} WHOOP records.`)}>Sync now</Button>
-            <Button disabled={busy} variant="outline" onClick={() => run(() => whoopSync(90), (r) => `Imported ${r.days} days from ${r.records} WHOOP records.`)}>Import 90 days</Button>
-          </div>
-          <Button disabled={busy} variant="ghost" className="mt-2 w-full" onClick={() => { if (confirm("Disconnect WHOOP? Your stored data stays; new data stops.")) run(whoopDisconnect, () => "Disconnected."); }}>Disconnect</Button>
+          <Button className="w-full" disabled={busy} onClick={() => run(() => whoopSync(30), (r) => `Updated ${r.days} days from ${r.records} WHOOP records.`)}>Sync now</Button>
         </>
       ) : (
         <>
@@ -291,16 +287,12 @@ function FatSecret() {
   const on = !!f?.connected_at;
   const when = (t) => new Date(t).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
   return (
-    <Section title="FatSecret" ar="الطعام" desc="Log meals in the FatSecret app (photo, barcode or search). They arrive here every hour and count against what WHOOP says you burned.">
+    <Section title="FatSecret" ar="الطعام" desc="Log meals in the FatSecret app (photo, barcode or search). They arrive here every 10 minutes and count against what WHOOP says you burned.">
       {on ? (
         <>
-          <Hint className="mb-2">Connected {when(f.connected_at)}{f.last_sync_at ? ` · last update ${when(f.last_sync_at)}` : ""}. Edits and deletions in FatSecret carry over.</Hint>
+          <Hint className="mb-2">Connected {when(f.connected_at)}{f.last_sync_at ? ` · last update ${when(f.last_sync_at)}` : ""}. Meals sync on its own every 10 minutes; edits and deletions carry over.</Hint>
           {f.last_error && <Hint className="mb-2 text-warn">Last problem: {f.last_error}</Hint>}
-          <div className="grid grid-cols-2 gap-2">
-            <Button disabled={busy} onClick={() => run(() => fatsecretSync(3), (r) => `Updated ${r.days} days · ${r.meals} meals.`)}>Sync now</Button>
-            <Button disabled={busy} variant="outline" onClick={() => run(() => fatsecretSync(30), (r) => `Imported ${r.days} days · ${r.meals} meals.`)}>Import 30 days</Button>
-          </div>
-          <Button disabled={busy} variant="ghost" className="mt-2 w-full" onClick={() => { if (confirm("Disconnect FatSecret? Meals already here stay; new ones stop.")) run(fatsecretDisconnect, () => "Disconnected."); }}>Disconnect</Button>
+          <Button className="w-full" disabled={busy} onClick={() => run(() => fatsecretSync(7), (r) => `Updated ${r.days} days · ${r.meals} meals.`)}>Sync now</Button>
         </>
       ) : (
         <>
