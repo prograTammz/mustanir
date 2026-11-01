@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Plane, Plus, X, Watch, TriangleAlert, Info } from "lucide-react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termLength, termInfo, day, dayMinisters, dayXP, MAX_DAY_XP, matchDay, hasSchedule,
-  slotName, lastMastBefore, intervalFor, violation, streak, T, checklistFor, vitalityFor, VITALS, VITALITY_XP, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
+  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, VITALS, VITALITY_XP, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
 import { SESSION, LS, loadMeals, addMeal, deleteMeal, saveDay } from "@/lib/store.js";
 import { useApp, set, setQuiet, rec, bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
@@ -205,10 +205,10 @@ function PurityDecree({ s, r }) {
   const next = last ? addDays(last, iv) : null;
   const allow = !last || next <= s ? `Allowed today. Current spacing: every ${iv} days.` : `Next allowed ${fmt(next, { weekday: "short", day: "numeric", month: "short" })}. Current spacing: every ${iv} days.`;
   return (
-    <Decree k="purity" side={r.pornFree === true ? (viol ? "Outside the schedule" : `Clean · ${streak(T.pure)}-day streak`) : r.pornFree === false ? "Slip logged" : "Not confirmed"}>
+    <Decree k="purity" side={abstained(r) ? `Abstained · ${streak(T.abstain)}-day streak · +${ABSTAIN_XP} XP` : r.pornFree === true ? (viol ? "Outside the schedule" : `Clean · ${streak(T.pure)}-day streak`) : r.pornFree === false ? "Slip logged" : "Not confirmed"}>
       <Row label="No porn today"><Chip size="sm" tone="ok" on={r.pornFree === true} onClick={() => set("pornFree", r.pornFree === true ? null : true)}>Confirmed</Chip><Chip size="sm" tone="bad" on={r.pornFree === false} onClick={() => set("pornFree", r.pornFree === false ? null : false)}>Slipped</Chip></Row>
       <Row label="Masturbation today"><Chip size="sm" on={r.mast === false} onClick={() => set("mast", r.mast === false ? null : false)}>No</Chip><Chip size="sm" tone={viol ? "bad" : "primary"} on={r.mast === true} onClick={() => set("mast", r.mast === true ? null : true)}>Yes</Chip></Row>
-      <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", viol ? "bg-bad/10 text-bad" : "bg-muted/70 text-muted-foreground")}>{viol ? "This was inside the spacing window. Log the trigger and carry on: a slip is data, not defeat." : allow}</div>
+      <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", viol ? "bg-bad/10 text-bad" : "bg-muted/70 text-muted-foreground")}>{viol ? "This was inside the spacing window. Log the trigger and carry on: a slip is data, not defeat." : allow}{!viol && <> A day with no masturbation and no porn earns +{ABSTAIN_XP} XP.</>}</div>
       {(r.pornFree === false || viol) && <Input className="mt-3" key={"n" + s} defaultValue={r.note || ""} placeholder="What triggered it? e.g. 1am, bored, phone in bed" onBlur={(e) => set("note", e.target.value.trim())} />}
     </Decree>
   );

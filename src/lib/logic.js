@@ -240,14 +240,18 @@ export function currentApproval(s = today()) {
 }
 
 /* ---------- XP, levels, ranks ---------- */
-export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20;
+export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, ABSTAIN_XP = 10, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20 + 10;
+// A day with no masturbation and no porn, both confirmed by hand, earns a bonus on top of Purity's verdict.
+// Purity's approval is still judged on the spacing schedule; abstaining is rewarded, never required.
+export const abstained = (d) => !!d && d.mast === false && d.pornFree === true;
 export function dayXP(s) {
   const m = dayMinisters(s);
   const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
   const perfect = Object.values(m).every((v) => v >= 0.9);
   const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
   const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
-  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP);
+  const a = abstained(S.days[s]) ? ABSTAIN_XP : 0;
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a);
 }
 
 /* ---------- vitality: the five things the watch keeps every day ---------- */
@@ -373,6 +377,7 @@ export const T = {
   office: (d) => manual(d),
   prayers: (d, s) => day(s).faith === 1,
   pure: (d) => d.pornFree === true,
+  abstain: (d) => abstained(d),
   read: (d) => (d.pages || 0) >= S.settings.pagesPerDay,
   fajr: (d) => d.wake === true,
 };
@@ -386,6 +391,8 @@ export const MEDALS = [
   { id: "pure7", ar: "العفيف", en: "The Chaste · 7", how: "7 porn-free days in a row", test: () => bestStreak(T.pure) >= 7 },
   { id: "pure30", ar: "الطاهر", en: "The Pure · 30", how: "30 porn-free days in a row", test: () => bestStreak(T.pure) >= 30 },
   { id: "pure90", ar: "المنتصر", en: "The Victor · 90", how: "90 porn-free days in a row", test: () => bestStreak(T.pure) >= 90 },
+  { id: "abstain7", ar: "ضبط النفس", en: "Self-mastery · 7", how: "7 days in a row with no masturbation and no porn", test: () => bestStreak(T.abstain) >= 7 },
+  { id: "abstain30", ar: "المالك لنفسه", en: "Master of himself · 30", how: "30 days in a row with no masturbation and no porn", test: () => bestStreak(T.abstain) >= 30 },
   { id: "read7", ar: "طالب العلم", en: "Seeker of knowledge", how: "Hit your pages 7 days in a row", test: () => bestStreak(T.read) >= 7 },
   { id: "pages1000", ar: "ألف صفحة", en: "A thousand pages", how: "Read 1,000 pages in total", test: () => Object.values(S.days).reduce((a, d) => a + (d.pages || 0), 0) >= 1000 },
   { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "Every minister at 90% or more in one day", test: (t) => t.perfect >= 1 },
