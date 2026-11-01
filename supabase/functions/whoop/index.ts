@@ -294,11 +294,13 @@ async function rebuild(uid: string, dayList: string[], body: Rec = null) {
     // Up for Fajr is decided by the sleep data alone, every day (no bedtime check any more).
     if (main) d.wake = upForFajr(day, sleeps);
     delete d.bed;
+    // WHOOP worn and charged: it recorded your sleep or the day's strain. A past day with neither counts as not worn.
+    const worn = sleeps.length > 0 || cycle?.score?.strain != null;
+    if (worn) d.watch = true; else if (day < todayKey) d.watch = false;
     // Other verdicts fill only blanks, and only for days since WHOOP was connected.
     if (day >= from) {
       if (wks.length && !d.train) { const t = trainOf(wks.map((w) => w.sport_name).join(" ")); if (t) d.train = t; }
       if (d.deficit != null && d.diet == null && day < cairoDay(new Date())) d.diet = d.deficit >= (s.deficitMin || 500);
-      if (d.watch == null && (sleeps.length || cycle?.score?.strain != null)) d.watch = true; // WHOOP worn
     }
     // Weight: WHOOP reads it from Apple Health; it lands on today's record (the app no longer takes it by hand).
     if (day === todayKey && body && typeof body.weight_kilogram === "number") d.weight = r1(body.weight_kilogram);

@@ -250,7 +250,7 @@ function HabitsDecree({ r }) {
       </Row>
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>
-      <Row label="Tracking">{tg("watch", usesWhoop() ? "WHOOP worn and charged" : "Watch worn and charged")}</Row>
+      <Row label="WHOOP worn and charged" sub="From WHOOP: it recorded your sleep or the day's strain"><Verdict v={r.watch} /></Row>
       {(r.recovery != null || r.sleepPerf != null) && <Hint className="mt-1">WHOOP: {[r.recovery != null && `recovery ${r.recovery}%`, r.sleepPerf != null && `sleep performance ${Math.round(r.sleepPerf)}%`, r.sleepCons != null && `consistency ${Math.round(r.sleepCons)}%`, r.sleepNeedH != null && `needed ${r.sleepNeedH} h`, r.strain != null && `strain ${r.strain}`].filter(Boolean).join(" · ")}.</Hint>}
     </Decree>
   );

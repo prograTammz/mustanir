@@ -178,7 +178,7 @@ export const TRAINED = ["gym", "tennis", "walk"];
 export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
-    d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.watch || d.good || d.fix || d.margin > 0 ||
+    d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix || d.margin > 0 ||
     (d.checks && Object.values(d.checks).some(Boolean)) || d.away || (d.slotMarks && Object.keys(d.slotMarks).length) ||
     (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
