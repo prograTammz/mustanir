@@ -133,11 +133,9 @@ function BodyDecree({ s, r, dn }) {
   const wkStart = dn >= 1 ? addDays(termStartFor(s), Math.floor((dn - 1) / 7) * 7) : addDays(s, -6);
   const wk = range(wkStart, addDays(s, 1)).flatMap((k) => matchDay(k));
   const wkPlanned = wk.length, wkDone = wk.filter((m) => m.status === "done").length;
-  const [food, setFood] = useState({ kcal: "", name: "", protein: "" }), [foodMsg, setFoodMsg] = useState("");
   useEffect(() => {
     if (SESSION && !(S.meals || {})[s] && !mealsLoading.has(s)) { mealsLoading.add(s); loadMeals(s).then(() => { mealsLoading.delete(s); bump(); }).catch(() => mealsLoading.delete(s)); }
   }, [s]);
-  const mark = (id, val, sport) => { const marks = { ...(rec().slotMarks || {}) }; if (val) marks[id] = val; else delete marks[id]; if (val === "done" && sport) rec().train = sport; set("slotMarks", marks); };
   const status = (m) => ({ done: m.done ? `${fmtMin(m.done)} active${m.kcal ? ` · ${m.kcal} kcal` : ""}` : "Done", partial: `${fmtMin(m.done)} of ${fmtMin(m.planned)}${m.kcal ? ` · ${m.kcal} kcal` : ""}`, live: `${fmtMin(m.done)} so far`, missed: "No activity recorded", upcoming: "Upcoming", skipped: "Skipped" }[m.status]);
   const dot = { done: "bg-ok", partial: "bg-warn", live: "bg-warn animate-pulse", missed: "bg-bad", upcoming: "bg-muted-foreground/40", skipped: "bg-muted-foreground/40" };
   const meals = (S.meals || {})[s] || [];
@@ -146,13 +144,6 @@ function BodyDecree({ s, r, dn }) {
   const eaten = usesWhoop() ? meals.reduce((a, m) => a + Number(m.kcal), 0) : (r.dietaryKcal || 0) + pending;
   const burned = r.totalKcal || (r.activeKcal || 0) + (r.basalKcal || 0), deficit = burned && eaten ? burned - eaten : null, target = S.settings.deficitMin || 700;
   const protein = meals.reduce((a, m) => a + (Number(m.protein) || 0), 0);
-  const addFood = async () => {
-    const kcal = parseFloat(food.kcal), protein = parseFloat(food.protein);
-    if (!(kcal > 0)) return setFoodMsg("Enter the calories.");
-    try { await addMeal(s, { kcal, name: food.name.trim(), protein: isNaN(protein) ? null : protein }); setFood({ kcal: "", name: "", protein: "" }); setFoodMsg(""); bump(); }
-    catch { setFoodMsg("Couldn’t save the meal. Food needs a connection."); }
-  };
-  const marked = (m) => (r.slotMarks || {})[m.slot.id];
   return (
     <Decree k="body" side={r.away ? "Away day · schedule paused" : wkPlanned ? `${wkDone} of ${wkPlanned} sessions this week` : "Training and diet"}>
       <Subhead className="mt-1">Today’s sessions</Subhead>
@@ -161,35 +152,19 @@ function BodyDecree({ s, r, dn }) {
           <span className={cn("size-2.5 shrink-0 rounded-full", dot[m.status])} />
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold">{slotName(m.slot)} <span className="font-normal text-muted-foreground">{m.slot.start}–{m.slot.end}</span></div>
-            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">{status(m)}{m.source && !marked(m) && <Badge variant="muted" className="gap-1"><Watch />{String(r.source || "").startsWith("WHOOP") ? "WHOOP" : "Watch"}</Badge>}</div>
+            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">{status(m)}{m.source && <Badge variant="muted" className="gap-1"><Watch />{String(r.source || "").startsWith("WHOOP") ? "WHOOP" : "Watch"}</Badge>}</div>
           </div>
-          {marked(m) ? <Button size="sm" variant="secondary" onClick={() => mark(m.slot.id, null)}>Undo</Button> : (
-            <div className="flex gap-1.5">
-              {m.status !== "done" && <Button size="sm" variant="secondary" onClick={() => mark(m.slot.id, "done", m.slot.sport)}>Done</Button>}
-              {(m.status === "upcoming" || m.status === "missed") && <Button size="sm" variant="ghost" onClick={() => mark(m.slot.id, "skipped")}>Skip</Button>}
-            </div>
-          )}
         </div>
       )) : <Hint>{r.away ? "Away today: the schedule is paused." : hasSchedule() ? "Rest day. Nothing scheduled." : "No training schedule yet. Add your slots in the Diwan."}</Hint>}
-      <Button variant="outline" className="mt-2 w-full" onClick={() => openSheet({ type: "slot", date: s })}><Plus />Add a session today</Button>
-
-      <Subhead>Walking pad</Subhead>
-      <Row label="Minutes walked" sub={r.walkMin && isMeasured(r) ? "Logged by your tracker or the Walking Pad shortcut" : "Logs itself with the Walking Pad shortcut"}><Stepper label="walking minutes" value={r.walkMin} step={10} onChange={(v) => set("walkMin", v)} /></Row>
 
       <Subhead>Food</Subhead>
       {meals.map((m) => (
         <div key={m.id} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
           <div className="min-w-0 flex-1"><span className="font-semibold tnum">{Math.round(m.kcal)} kcal</span> <span className="text-sm text-muted-foreground">{m.name || "Meal"}{m.source === "fatsecret" ? "" : ` · ${new Date(m.eaten_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`}{m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}</span></div>
-          {m.source === "fatsecret" ? <Badge variant="muted">FatSecret</Badge> : m.exported_at ? <Badge variant="ok">In Health</Badge> : <Button size="icon-sm" variant="ghost" aria-label="Remove meal" onClick={async () => { await deleteMeal(s, m.id).catch(() => {}); bump(); }}><X /></Button>}
+          <Badge variant="muted">{m.source === "fatsecret" ? "FatSecret" : "Logged"}</Badge>
         </div>
       ))}
-      <Input className="mt-2" placeholder="What did you eat?" value={food.name} onChange={(e) => setFood({ ...food, name: e.target.value })} />
-      <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
-        <Input type="number" inputMode="numeric" placeholder="kcal" value={food.kcal} onChange={(e) => setFood({ ...food, kcal: e.target.value })} />
-        <Input type="number" inputMode="numeric" placeholder="Protein (g)" value={food.protein} onChange={(e) => setFood({ ...food, protein: e.target.value })} />
-        <Button size="icon" className="size-11" aria-label="Add meal" onClick={addFood}><Plus /></Button>
-      </div>
-      <Hint className="mt-2">{foodMsg || (eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : (S.fatsecret?.connected_at || meals.some((m) => m.source === "fatsecret")) ? "Meals you log in FatSecret arrive here every 10 minutes." : "Log meals here, or connect FatSecret in the Diwan to have them arrive by themselves.")}</Hint>
+      <Hint className="mt-2">{(eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : "Meals you log in FatSecret arrive here every 10 minutes.")}</Hint>
       <Row label="On my deficit target" className="mt-2 border-t"
         sub={deficit == null ? `Target ${target} kcal · needs WHOOP's burn and at least one meal` : `${Math.round(deficit).toLocaleString("en")} of ${target} kcal${s === today() ? " so far today" : ""} · WHOOP burned − eaten`}>
         <Verdict v={deficit == null ? null : deficit >= target} />

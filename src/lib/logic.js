@@ -115,7 +115,7 @@ export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.setting
 
 /* ---------- training slots and the watch ---------- */
 export const SPORTS = {
-  tennis: { en: "Tennis", ar: "التنس" }, gym: { en: "Gym", ar: "الحديد" }, walk: { en: "Walking pad", ar: "المشي" },
+  tennis: { en: "Tennis", ar: "التنس" }, gym: { en: "Gym", ar: "الحديد" }, walk: { en: "Walk", ar: "المشي" },
   run: { en: "Running", ar: "الجري" }, swim: { en: "Swimming", ar: "السباحة" }, other: { en: "Training", ar: "التدريب" },
 };
 export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -151,10 +151,10 @@ export function matchSlot(date, slot, nowMin = null) {
     }
   }
   done = Math.round(Math.min(done, planned + 60)); kcal = Math.round(kcal);
-  const manual = (d.slotMarks || {})[slot.id];
   const t = today(), past = date < t || (date === t && (nowMin ?? new Date().getHours() * 60 + new Date().getMinutes()) > b);
-  let status = manual === "done" ? "done" : manual === "skipped" ? "skipped" : done >= planned * 0.5 ? "done" : done > 0 ? (past ? "partial" : "live") : past ? "missed" : "upcoming";
-  const frac = manual === "done" ? 1 : manual === "skipped" ? 0 : Math.min(1, done / planned);
+  // Judged by WHOOP alone: half the planned time or more is done.
+  let status = done >= planned * 0.5 ? "done" : done > 0 ? (past ? "partial" : "live") : past ? "missed" : "upcoming";
+  const frac = Math.min(1, done / planned);
   return { slot, planned, done, kcal, source, status, frac };
 }
 // An away day (travel, illness, a family day) pauses the schedule: slots aren't judged, the floor goals apply.
@@ -179,7 +179,7 @@ export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix || d.margin > 0 ||
-    (d.checks && Object.values(d.checks).some(Boolean)) || d.away || (d.slotMarks && Object.keys(d.slotMarks).length) ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || d.away ||
     (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
 // Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
