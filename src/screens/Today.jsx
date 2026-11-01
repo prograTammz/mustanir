@@ -7,7 +7,7 @@ import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, d
 import { SESSION, loadMeals, saveDay } from "@/lib/store.js";
 import { useApp, set, rec, bump, go } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
-import { Ar, Ring, Stepper, Chip, Hint, Fold, Tile, Bar, Tick, fmtMin } from "@/components/kit";
+import { Ar, LargeTitle, Ring, Stepper, Chip, Hint, Fold, Tile, Bar, Tick, fmtMin } from "@/components/kit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,21 +33,27 @@ export default function Today() {
 }
 
 function DayHeader({ s, isToday }) {
-  const dn = termDay(s), term = termInfo(s);
+  const dn = termDay(s), term = termInfo(s), yest = s === addDays(today(), -1);
+  const caption = fmt(s, { weekday: isToday ? "long" : undefined, day: "numeric", month: "long" }) + (dn >= 1 ? ` · Day ${dn} of term ${term.n}` : "");
+  return <LargeTitle caption={caption} title={isToday ? "Today" : yest ? "Yesterday" : fmt(s, { weekday: "long" })} ar={<bdi>{hijri(s)}</bdi>} />;
+}
+// In the top row, iOS style: a glass capsule to step through days, and a way back to today.
+export function DayNav() {
+  useApp();
+  const s = S.selected, isToday = s === today();
   const move = (n) => { const nx = addDays(s, n); if (nx <= today()) { S.selected = nx; bump(); } };
   return (
-    <div className="flex items-end justify-between gap-3 px-1 pt-2 pb-1">
-      <div className="min-w-0">
-        <Ar className="block text-left text-[13px] leading-tight text-gold"><bdi>{hijri(s)}</bdi></Ar>
-        <h1 className="text-[30px] leading-tight font-bold tracking-tight">{isToday ? "Today" : fmt(s, { weekday: "long" })}</h1>
-        <p className="truncate text-[13px] text-muted-foreground">{fmt(s, { weekday: isToday ? "long" : undefined, day: "numeric", month: "long" })}{dn >= 1 ? ` · day ${dn} of term ${term.n}` : ""}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-1 pb-1">
-        <button aria-label="Previous day" onClick={() => move(-1)} className="press grid size-9 place-items-center rounded-full bg-muted"><ChevronLeft className="size-[18px]" /></button>
-        <button aria-label="Next day" disabled={isToday} onClick={() => move(1)} className="press grid size-9 place-items-center rounded-full bg-muted disabled:opacity-30"><ChevronRight className="size-[18px]" /></button>
-      </div>
+    <div className="glass flex h-10 items-center rounded-full">
+      <button aria-label="Previous day" onClick={() => move(-1)} className="press grid h-10 w-11 place-items-center rounded-l-full"><ChevronLeft className="size-5" /></button>
+      <span className="h-4 w-px bg-foreground/15" />
+      <button aria-label="Next day" disabled={isToday} onClick={() => move(1)} className="press grid h-10 w-11 place-items-center rounded-r-full disabled:opacity-30"><ChevronRight className="size-5" /></button>
     </div>
   );
+}
+export function BackToToday() {
+  useApp();
+  if (S.selected === today()) return null;
+  return <button onClick={() => { S.selected = today(); bump(); }} className="glass press h-10 rounded-full px-4 text-[15px] font-semibold text-primary">Today</button>;
 }
 
 /* ---------- the player card ---------- */

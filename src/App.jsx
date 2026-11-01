@@ -1,4 +1,5 @@
-// Al-Mustanir: the app shell. Three rooms (Today, Palace, Settings), a quiet bar on scroll, a floating tab bar.
+// Al-Mustanir: the app shell. Three rooms (Today, Palace, Settings), an iOS 26 top row (glass buttons, the scroll edge
+// effect, the inline title once the large one scrolls away) and a floating glass tab bar.
 import { useEffect, useState } from "react";
 import { CircleCheck, Landmark, Settings as SettingsIcon } from "lucide-react";
 import { S, today, PRAYERS } from "@/lib/logic.js";
@@ -8,13 +9,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Sheets } from "@/components/sheets.jsx";
 import { cn } from "@/lib/utils";
-import Today from "@/screens/Today.jsx";
+import Today, { DayNav, BackToToday } from "@/screens/Today.jsx";
 import Palace from "@/screens/Palace.jsx";
 import Diwan from "@/screens/Diwan.jsx";
 import SignIn from "@/screens/SignIn.jsx";
 
 const ROOMS = {
-  today: { en: "Today", icon: CircleCheck, view: Today },
+  today: { en: "Today", icon: CircleCheck, view: Today, left: BackToToday, right: DayNav },
   palace: { en: "Palace", icon: Landmark, view: Palace },
   settings: { en: "Settings", icon: SettingsIcon, view: Diwan },
 };
@@ -39,12 +40,12 @@ function updateBadge() {
 
 export default function App() {
   useApp();
-  const [scrolled, setScrolled] = useState(false);
+  const [y, setY] = useState(0);
   useEffect(() => {
     load();
     window.__mustanirReady?.(); // lift the boot screen once the first frame is on screen
     for (const [k, v] of [["whoop", WHOOP_BACK], ["fatsecret", FS_BACK]]) if (v) setTimeout(() => (v === "connected" ? toast.success : toast.error)(MSG[k][v] || `${k}: ${v}`), 500);
-    const onScroll = () => setScrolled(scrollY > 8);
+    const onScroll = () => setY(scrollY);
     const onHash = () => { fromHash(); bump(); };
     const onOnline = () => flushOutbox().then(load);
     const onVis = () => { if (!document.hidden && !S.dirty.size) load(); };
@@ -68,14 +69,16 @@ export default function App() {
   useEffect(updateBadge);
 
   const signin = S.mode === "signin" && !SESSION;
-  const room = ROOMS[S.tab] || ROOMS.today, View = room.view;
+  const room = ROOMS[S.tab] || ROOMS.today, View = room.view, L = room.left, R = room.right;
 
   return (
     <div className="min-h-dvh">
-      <header className={cn("pt-safe sticky top-0 z-40 transition-[background-color,border-color] duration-200",
-        scrolled ? "border-b border-border/70 bg-[var(--bar)] backdrop-blur-xl backdrop-saturate-150" : "border-b border-transparent")}>
-        <div className="mx-auto flex h-11 max-w-lg items-center justify-center px-4">
-          <span className={cn("text-[15px] font-semibold transition-opacity duration-200", scrolled && !signin ? "opacity-100" : "opacity-0")}>{room.en}</span>
+      <header className="pt-safe sticky top-0 z-40">
+        <div aria-hidden className={cn("edge pointer-events-none absolute inset-x-0 top-0 -bottom-6 transition-opacity duration-300", y > 4 ? "opacity-100" : "opacity-0")} />
+        <div className="relative mx-auto grid h-[52px] max-w-lg grid-cols-[1fr_auto_1fr] items-center gap-2 px-4">
+          <div className="flex justify-start">{!signin && L && <L />}</div>
+          <span className={cn("text-[17px] font-semibold transition-opacity duration-200", y > 56 && !signin ? "opacity-100" : "opacity-0")}>{room.en}</span>
+          <div className="flex justify-end">{!signin && R && <R />}</div>
         </div>
       </header>
 
@@ -85,12 +88,12 @@ export default function App() {
 
       {!signin && (
         <nav aria-label="Rooms" className="pb-safe fixed inset-x-0 bottom-0 z-40 px-6">
-          <div className="mx-auto flex max-w-xs items-stretch rounded-full border border-border/70 bg-[var(--bar)] p-1 shadow-[0_8px_30px_-10px_rgb(0_0_0/0.25)] backdrop-blur-xl backdrop-saturate-150">
+          <div className="glass mx-auto flex max-w-xs items-stretch rounded-full p-1">
             {TABS.map((k) => {
               const R = ROOMS[k], on = S.tab === k, Icon = R.icon;
               return (
                 <button key={k} onClick={() => go(k)} aria-current={on ? "page" : undefined}
-                  className={cn("press flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10.5px] font-semibold", on ? "bg-foreground/[0.06] text-foreground dark:bg-white/10" : "text-muted-foreground")}>
+                  className={cn("press flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10.5px] font-semibold", on ? "bg-foreground/[0.07] text-primary dark:bg-white/[0.12]" : "text-foreground/70")}>
                   <Icon className="size-[21px]" strokeWidth={on ? 2.2 : 1.8} />
                   {R.en}
                 </button>

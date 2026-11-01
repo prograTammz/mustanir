@@ -28,6 +28,19 @@ export function Ar({ children, className, ...p }) {
   return <span lang="ar" dir="rtl" className={cn("ar", className)} {...p}>{children}</span>;
 }
 
+// The iOS large title: a small caption over the 34 pt title, the Arabic name across from it.
+export function LargeTitle({ title, ar, caption }) {
+  return (
+    <div className="px-1 pt-0.5 pb-1">
+      {caption && <p className="truncate text-[12.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">{caption}</p>}
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="min-w-0 truncate text-[34px] leading-[1.15] font-bold tracking-[-0.022em]">{title}</h1>
+        {ar && <Ar className="shrink-0 text-[17px] text-gold">{ar}</Ar>}
+      </div>
+    </div>
+  );
+}
+
 // A progress ring like Apple's Activity rings: one measure, its own colour, the number inside.
 export function Ring({ value = 0, color = "var(--primary)", size = 44, stroke = 5, label, children, className }) {
   const r = size / 2 - stroke / 2 - 0.5, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, value || 0));

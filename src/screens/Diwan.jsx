@@ -5,7 +5,7 @@ import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
-import { Section, Hint, Subhead, Row, Ar, fmtMin } from "@/components/kit";
+import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin } from "@/components/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +43,7 @@ function Field({ label, k, type = "text", hint, ...attrs }) {
 export default function Diwan() {
   return (
     <>
-      <div className="px-1 pt-2 pb-1"><h1 className="text-[30px] leading-tight font-bold tracking-tight">Settings</h1></div>
+      <LargeTitle title="Settings" ar="الديوان" />
       <Appearance />
       <Section title="Targets" ar="الأهداف" desc="The body plan sets the deficit, protein, sessions and steps when each term begins.">
         <Field label="First term starts" k="termStart" type="date" />

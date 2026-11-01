@@ -1,4 +1,5 @@
 import { Toaster as Sonner } from "sonner";
+// Glass toasts below the status bar (see .toast-glass and the safe-area rule in index.css).
 export function Toaster({ theme }: { theme: "light" | "dark" }) {
-  return <Sonner theme={theme} position="top-center" offset={60} toastOptions={{ classNames: { toast: "!rounded-2xl !border-border !bg-popover !text-popover-foreground !shadow-lg" } }} />;
+  return <Sonner theme={theme} position="top-center" toastOptions={{ className: "toast-glass" }} />;
 }

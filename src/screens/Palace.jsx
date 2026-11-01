@@ -1,13 +1,13 @@
 // The palace: where you stand in the game. Rank ladder, XP, streaks, medals, then the council, the advisor, trends and every measure.
 import { useEffect, useRef, useState } from "react";
 import { Crown, ChevronRight, Flame, Lock, Trophy } from "lucide-react";
-import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart,
+import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart, termDay, termLength,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
 import { useApp, bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { AdvisorCard } from "@/components/advisor.jsx";
-import { Ar, Section, Hint, Fold, Bar, pctTxt } from "@/components/kit";
+import { Ar, LargeTitle, Section, Hint, Fold, Bar, pctTxt } from "@/components/kit";
 import { TrendChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +30,7 @@ export default function Palace() {
   const hs = useHealth();
   return (
     <>
-      <div className="flex items-end justify-between px-1 pt-2 pb-1"><h1 className="text-[30px] leading-tight font-bold tracking-tight">Palace</h1><Ar className="pb-1 text-[22px] text-gold">القصر</Ar></div>
+      <LargeTitle title="Palace" ar="القصر" caption={`Term ${termInfo().n} · day ${Math.max(1, termDay(today()))} of ${termLength()}`} />
       <Ladder />
       <Streaks />
       <Medals />
