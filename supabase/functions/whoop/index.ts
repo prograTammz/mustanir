@@ -186,8 +186,16 @@ function scores(d: any, s: any) {
   const habits = (2 * +!!d.wake + 2 * slept + 2 * regular + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
   return { faith, knowledge, habits };
 }
-const trainOf = (names: string) =>
-  /weight|strength|functional|cross|hiit|power|gym|core|pilates|boxing/i.test(names) ? "gym" : /tennis|padel|squash/i.test(names) ? "tennis" : /walk/i.test(names) ? "walk" : null;
+// The day's training, from WHOOP's workout names. Same sports, same order as SPORTS in the app's logic.js.
+const SPORT_MATCH: [string, RegExp][] = [
+  ["gym", /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic/i],
+  ["tennis", /tennis|padel|squash|pickleball|badminton/i],
+  ["mma", /martial|mma|box|kick|jiu|jitsu|muay|wrestl|judo|karate|taekwondo|grappl|fight/i],
+  ["swim", /swim|water polo/i],
+  ["run", /run|jog|track/i],
+  ["walk", /walk|hik/i],
+];
+const trainOf = (names: string) => SPORT_MATCH.find(([, re]) => re.test(names))?.[0] ?? null;
 
 async function rebuild(uid: string, dayList: string[], body: Rec = null) {
   const todayKey = cairoDay(new Date());

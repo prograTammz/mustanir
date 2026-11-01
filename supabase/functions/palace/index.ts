@@ -49,8 +49,8 @@ const trainingDays = (s: Settings) => String(s.trainingDays || "").split(",").ma
 
 // Training slots: weekly { id, sport, label?, days[], start, end } and one-off { id, sport, label?, date, start, end }.
 type Slot = { id: string; sport: string; label?: string; days?: string[]; date?: string; start: string; end: string };
-const SPORT: Record<string, string> = { tennis: "Tennis", gym: "Gym", walk: "Walk", run: "Running", swim: "Swimming", other: "Training" };
-const AR: Record<string, string> = { tennis: "التنس", gym: "الحديد", walk: "المشي", run: "الجري", swim: "السباحة", other: "التدريب" };
+const SPORT: Record<string, string> = { gym: "Gym", tennis: "Tennis", mma: "MMA", swim: "Swimming", run: "Running", walk: "Walk", other: "Training" };
+const AR: Record<string, string> = { gym: "الحديد", tennis: "التنس", mma: "الفنون القتالية", swim: "السباحة", run: "الجري", walk: "المشي", other: "التدريب" };
 const slotName = (x: Slot) => x.label || SPORT[x.sport] || "Training";
 function weeklySlots(s: Settings): Slot[] {
   if (Array.isArray(s.training)) return s.training.filter((x: Slot) => x && x.start && x.end && Array.isArray(x.days) && x.days.length);

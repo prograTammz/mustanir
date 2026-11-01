@@ -114,10 +114,18 @@ export const periods = (s = today()) => { const st = termStartFor(s); return [0,
 export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.settings.termStart, s)) / 7) + 1; return w <= 3 ? 3 : w <= 6 ? 7 : w <= 9 ? 14 : 30; }
 
 /* ---------- training slots and the watch ---------- */
+// Every sport a slot can be. `match` reads a WHOOP workout name, so a slot is only met by its own sport
+// (or by a workout WHOOP couldn't name). Add a sport here and it shows up in the slot sheet, Settings and the checks.
 export const SPORTS = {
-  tennis: { en: "Tennis", ar: "التنس" }, gym: { en: "Gym", ar: "الحديد" }, walk: { en: "Walk", ar: "المشي" },
-  run: { en: "Running", ar: "الجري" }, swim: { en: "Swimming", ar: "السباحة" }, other: { en: "Training", ar: "التدريب" },
+  gym: { en: "Gym", ar: "الحديد", match: /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic/i },
+  tennis: { en: "Tennis", ar: "التنس", match: /tennis|padel|squash|pickleball|badminton/i },
+  mma: { en: "MMA", ar: "الفنون القتالية", match: /martial|mma|box|kick|jiu|jitsu|muay|wrestl|judo|karate|taekwondo|grappl|fight/i },
+  swim: { en: "Swimming", ar: "السباحة", match: /swim|water polo/i },
+  run: { en: "Running", ar: "الجري", match: /run|jog|track/i },
+  walk: { en: "Walk", ar: "المشي", match: /walk|hik/i },
+  other: { en: "Training", chip: "Other", ar: "التدريب" },
 };
+export const sportOf = (name) => Object.keys(SPORTS).find((k) => SPORTS[k].match?.test(name || "")) || null;
 export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 export const hmMin = (t) => { const m = String(t || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
 export const minHM = (m) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return pad(Math.floor(x / 60)) + ":" + pad(x % 60); };
@@ -138,7 +146,8 @@ export function matchSlot(date, slot, nowMin = null) {
   const d = S.days[date] || {}, a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440;
   const planned = b - a, A = a - 30, B = b + 30;
   let done = 0, kcal = 0, source = null;
-  const wks = (d.workoutsDetail || []).filter((w) => slot.sport === "walk" ? /walk/i.test(w.a) : !/walking pad/i.test(w.a));
+  // A slot is met by a workout of its own sport, or one WHOOP couldn't name ("Activity"). A walk never counts for anything but a walk slot.
+  const wks = (d.workoutsDetail || []).filter((w) => { const k = sportOf(w.a); return slot.sport === "other" ? k !== "walk" : k === slot.sport || (k == null && slot.sport !== "walk"); });
   for (const w of wks) {
     const s0 = hmMin(w.s), e0 = hmMin(w.e); if (s0 == null || e0 == null) continue;
     const e1 = e0 >= s0 ? e0 : e0 + 1440, ov = overlap(s0, e1, A, B);
@@ -171,7 +180,7 @@ export function checklistFor(date) {
 }
 
 /* ---------- scoring ---------- */
-export const TRAINED = ["gym", "tennis", "walk"];
+export const TRAINED = Object.keys(SPORTS); // gym, tennis, MMA, swimming, running, walk, other
 
 // A day counts as logged only when something was entered by hand. Health data alone
 // (two years of backfill) must not count as days in office.
@@ -573,11 +582,11 @@ export const BODY_PLAN = {
   // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
   terms: [
     { deficitMin: 700, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
-      rules: ["700 kcal deficit a day (WHOOP burned − FatSecret eaten), 160 g protein", "4 strength sessions a week on top of tennis", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
+      rules: ["700 kcal deficit a day (WHOOP burned − FatSecret eaten), 160 g protein", "4 training sessions a week across gym, tennis and MMA", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
     { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepH: 7, sleepCons: 75, strain: 11 },
       rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
     { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
-      rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 strength sessions minimum, indoors with AC", "Tennis early morning, walking pad at home in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
+      rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 sessions minimum: gym, MMA or swimming, indoors or in the water", "Tennis early morning; swim in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
     { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, sleepH: 7, sleepCons: 80, strain: 12 },
       rules: ["August: maintenance and routine rebuild after summer", "September–October: 400 kcal deficit, 4 sessions", "1–2 interval sessions a week to push VO₂ max past 52", "Plan the next year at the November council"] },
   ],

@@ -75,7 +75,7 @@ function MinisterSheet({ k }) {
 
 const DAYS = [["SAT", "Sat"], ["SUN", "Sun"], ["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"]];
 function SlotSheet({ pre }) {
-  const [st, setSt] = useState({ sport: pre.sport || "tennis", label: "", mode: pre.date ? "once" : "weekly", days: [], date: pre.date || today(), start: "19:00", end: "20:30" });
+  const [st, setSt] = useState({ sport: pre.sport || "gym", label: "", mode: pre.date ? "once" : "weekly", days: [], date: pre.date || today(), start: "19:00", end: "20:30" });
   const [msg, setMsg] = useState("");
   const up = (p) => setSt((x) => ({ ...x, ...p }));
   const save = () => {
@@ -90,8 +90,8 @@ function SlotSheet({ pre }) {
     <>
       <DrawerHeader><DrawerTitle>Add a training slot</DrawerTitle><DrawerDescription>Checked by the watch, shown in Apple Calendar, reminded 30 minutes before.</DrawerDescription></DrawerHeader>
       <Subhead className="mt-0">Sport</Subhead>
-      <div className="flex flex-wrap gap-2">{Object.entries(SPORTS).map(([k, v]) => <Chip key={k} on={st.sport === k} onClick={() => up({ sport: k })}>{v.en}</Chip>)}</div>
-      {st.sport === "other" && <Input className="mt-3" placeholder="Name, e.g. Padel" value={st.label} onChange={(e) => up({ label: e.target.value })} />}
+      <div className="flex flex-wrap gap-2">{Object.entries(SPORTS).map(([k, v]) => <Chip key={k} on={st.sport === k} onClick={() => up({ sport: k })}>{v.chip || v.en}</Chip>)}</div>
+      {st.sport === "other" && <Input className="mt-3" placeholder="Name, e.g. Yoga" value={st.label} onChange={(e) => up({ label: e.target.value })} />}
       <Subhead>Repeats</Subhead>
       <ToggleGroup type="single" value={st.mode} onValueChange={(v) => v && up({ mode: v })}><ToggleGroupItem value="weekly">Every week</ToggleGroupItem><ToggleGroupItem value="once">One date</ToggleGroupItem></ToggleGroup>
       <div className="mt-3">

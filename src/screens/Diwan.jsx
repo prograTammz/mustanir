@@ -47,7 +47,7 @@ export default function Diwan() {
       <Appearance />
       <Section title="Targets" ar="الأهداف" desc="The body plan sets the deficit, protein, sessions and steps when each term begins.">
         <Field label="First term starts" k="termStart" type="date" />
-        <Field label="Strength sessions per week" k="sessionsPerWeek" type="number" min="1" max="14" />
+        <Field label="Training sessions per week" k="sessionsPerWeek" type="number" min="1" max="14" />
         <Field label="Minimum calorie deficit (kcal)" k="deficitMin" type="number" min="0" step="50" />
         <Field label="Protein a day (g)" k="proteinTarget" type="number" min="0" step="5" />
         <Field label="Daily reading minimum (pages)" k="pagesPerDay" type="number" min="1" />
@@ -129,7 +129,7 @@ function Training() {
   );
   return (
     <Section title="Training schedule" ar="جدول التدريب" desc={perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. WHOOP checks each one.` : "Add your weekly slots. WHOOP checks each one, and they show up in Apple Calendar."}>
-      {Object.entries(bySport).map(([sport, list]) => (
+      {Object.entries(bySport).sort(([a], [b]) => Object.keys(SPORTS).indexOf(a) - Object.keys(SPORTS).indexOf(b)).map(([sport, list]) => (
         <div key={sport} className="mb-2">
           <Subhead className="mt-2 flex items-center justify-between">{(SPORTS[sport] || SPORTS.other).en}<Ar className="text-base normal-case">{(SPORTS[sport] || SPORTS.other).ar}</Ar></Subhead>
           {list.map((x) => <SlotRow key={x.id} title={`${x.start}–${x.end}`} sub={x.days.map((d) => DOWN[d]).join(", ") + (x.label ? " · " + x.label : "")} onRemove={() => remove("training", x.id)} />)}

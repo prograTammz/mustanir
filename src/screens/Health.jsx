@@ -84,7 +84,7 @@ function PlanCard() {
       <ul className="flex flex-col gap-1.5">
         {tg.rules.map((x) => <li key={x} className="flex gap-2 text-[14px] leading-snug"><span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-gold" />{x}</li>)}
       </ul>
-      <Hint className="mt-3">Targets switch on their own when a term begins: {S.settings.deficitMin} kcal deficit, {S.settings.proteinTarget || 160} g protein, {S.settings.sessionsPerWeek} strength sessions, {(S.settings.vitality || {}).steps?.toLocaleString("en")} steps. Change them any time in the Diwan.</Hint>
+      <Hint className="mt-3">Targets switch on their own when a term begins: {S.settings.deficitMin} kcal deficit, {S.settings.proteinTarget || 160} g protein, {S.settings.sessionsPerWeek} training sessions, {(S.settings.vitality || {}).steps?.toLocaleString("en")} steps. Change them any time in the Diwan.</Hint>
     </Section>
   );
 }
