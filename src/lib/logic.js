@@ -2,7 +2,7 @@
 
 export const DEFAULTS = {
   termStart: "2026-11-01", sessionsPerWeek: 4, pagesPerDay: 20, bedtime: "21:00", wake: "05:00",
-  windowHours: 8, sleepTarget: 7, deficitMin: 500, threshold: 70, book: "", revNotes: {},
+  windowHours: 8, sleepTarget: 7, deficitMin: 700, threshold: 70, book: "", revNotes: {},
   trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
   // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
@@ -185,6 +185,17 @@ export function manual(d) {
 // Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
 export const isMeasured = (d) => /^(Apple Health|WHOOP)/.test(String((d || {}).source || ""));
 export const usesWhoop = () => S.settings.healthSource === "whoop";
+// The deficit: WHOOP's energy burned minus what you ate (FatSecret and anything typed in). Null until both are known.
+export function deficitOf(d) {
+  if (!d) return null;
+  if (d.totalKcal && d.dietaryKcal) return d.totalKcal - d.dietaryKcal;
+  return d.deficit ?? null;
+}
+// On target is decided by the numbers, never ticked: deficit ≥ the daily target. Days without both numbers fall back to a hand verdict.
+export function dietMet(d) {
+  const x = deficitOf(d);
+  return x != null ? x >= (S.settings.deficitMin || 700) : d?.diet === true;
+}
 export const sleptEnough = (d) => (d?.sleepH || 0) >= (S.settings.sleepTarget || 7);
 export const consistent = (d) => d?.sleepCons != null && d.sleepCons >= ((S.settings.vitality || {}).sleepCons ?? DEFAULTS.vitality.sleepCons);
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
@@ -201,7 +212,7 @@ export function day(s) {
   return {
     logged: true, faith, habits,
     knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
-    diet: d.diet === true ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
+    diet: dietMet(d) ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
     porn: d.pornFree === true ? 1 : 0, plan: violation(s) ? 0 : 1,
   };
 }
@@ -492,7 +503,7 @@ export const MEDALS = [
   { id: "iron10", ar: "البداية", en: "Ten sessions", how: "Train 10 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 10 },
   { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 30 },
   { id: "iron100", ar: "الفولاذ", en: "Steel", how: "Train 100 sessions", test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 100 },
-  { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", test: () => officeDays().filter((d) => d.diet === true).length >= 30 },
+  { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", test: () => officeDays().filter(dietMet).length >= 30 },
   { id: "steps15", ar: "المشّاء", en: "The walker", how: "15,000 steps in a day", test: () => officeDays().some((d) => (d.steps || 0) >= 15000) },
   { id: "steps1m", ar: "مليون خطوة", en: "A million steps", how: "1,000,000 steps since taking office", test: () => sumOf("steps") >= 1000000 },
   { id: "vital7", ar: "الحيوية", en: "Vitality · 7", how: "4 of the 5 vitals 7 days in a row", test: () => bestStreak(T.vital) >= 7 },
@@ -533,8 +544,8 @@ export const BODY_PLAN = {
   ],
   // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
   terms: [
-    { deficitMin: 750, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
-      rules: ["750 kcal deficit, 160 g protein", "4 strength sessions a week on top of tennis", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
+    { deficitMin: 700, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
+      rules: ["700 kcal deficit a day (WHOOP burned − FatSecret eaten), 160 g protein", "4 strength sessions a week on top of tennis", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
     { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepH: 7, sleepCons: 75, strain: 11 },
       rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
     { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },

@@ -144,7 +144,7 @@ function BodyDecree({ s, r, dn }) {
   const pending = meals.filter((m) => !m.exported_at).reduce((a, m) => a + Number(m.kcal), 0);
   // With WHOOP every meal logged here counts; before, Apple Health held the meals already written to it.
   const eaten = usesWhoop() ? meals.reduce((a, m) => a + Number(m.kcal), 0) : (r.dietaryKcal || 0) + pending;
-  const burned = r.totalKcal || (r.activeKcal || 0) + (r.basalKcal || 0), deficit = burned && eaten ? burned - eaten : null;
+  const burned = r.totalKcal || (r.activeKcal || 0) + (r.basalKcal || 0), deficit = burned && eaten ? burned - eaten : null, target = S.settings.deficitMin || 700;
   const protein = meals.reduce((a, m) => a + (Number(m.protein) || 0), 0);
   const addFood = async () => {
     const kcal = parseFloat(food.kcal), protein = parseFloat(food.protein);
@@ -190,9 +190,9 @@ function BodyDecree({ s, r, dn }) {
         <Button size="icon" className="size-11" aria-label="Add meal" onClick={addFood}><Plus /></Button>
       </div>
       <Hint className="mt-2">{foodMsg || (eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : (S.fatsecret?.connected_at || meals.some((m) => m.source === "fatsecret")) ? "Meals you log in FatSecret arrive here every hour." : "Log meals here, or connect FatSecret in the Diwan to have them arrive by themselves.")}</Hint>
-      <Row label="On my deficit target" className="mt-2 border-t">
-        <Chip size="sm" on={r.diet === true} tone="ok" onClick={() => set("diet", r.diet === true ? null : true)}>Yes</Chip>
-        <Chip size="sm" on={r.diet === false} tone="bad" onClick={() => set("diet", r.diet === false ? null : false)}>No</Chip>
+      <Row label="On my deficit target" className="mt-2 border-t"
+        sub={deficit == null ? `Target ${target} kcal · needs WHOOP's burn and at least one meal` : `${Math.round(deficit).toLocaleString("en")} of ${target} kcal${s === today() ? " so far today" : ""} · WHOOP burned − eaten`}>
+        <Verdict v={deficit == null ? null : deficit >= target} />
       </Row>
       <Row label="Weight" sub={weightSub(s, r)}>
         <span className="text-[15px] font-semibold tnum">{latestWeight(s, r) != null ? `${latestWeight(s, r).toFixed(1)} kg` : "—"}</span>
