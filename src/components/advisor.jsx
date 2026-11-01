@@ -36,7 +36,7 @@ export function AdvisorCard({ full = false }) {
       {full && (
         <div className="mt-4 flex flex-col gap-2">
           <Hint>Notes to the advisor: what to change in your plan or in this app. Read every Friday.</Hint>
-          <Textarea defaultValue={S.settings.advisorNotes || ""} placeholder="e.g. Move reading to after Isha. Add a water counter to the Body decree."
+          <Textarea defaultValue={S.settings.advisorNotes || ""} placeholder="e.g. Move reading to after Isha. Add a water counter to Today."
             onChange={(e) => { S.settings.advisorNotes = e.target.value; clearTimeout(S.timers.adv); S.timers.adv = setTimeout(saveSettings, 600); }} />
         </div>
       )}

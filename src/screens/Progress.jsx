@@ -36,7 +36,7 @@ export default function Progress() {
       <Medals />
       <Trends />
       <Card className="py-1"><CardContent>
-        <Fold title="Body plan and every measure" summary="WHOOP history">
+        <Fold title="All health data" summary="Body plan · every measure">
           <div className="-mx-4 flex flex-col gap-3 pt-1 pb-3 [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-x-0 [&>[data-slot=card]]:border-b-0"><Health hs={hs} /></div>
         </Fold>
       </CardContent></Card>

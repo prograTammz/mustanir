@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 const hmOf = (s) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : 0; };
 const toHM = (m) => { const x = ((m % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
@@ -26,12 +27,15 @@ function setSetting(k, v) {
 function Field({ label, k, type = "text", hint, ...attrs }) {
   const v = S.settings[k] ?? "";
   return (
-    <div className="grid gap-1.5 border-t py-3 first:border-t-0">
-      <Label htmlFor={"f-" + k} className="text-[14px] font-normal">{label}</Label>
-      <Input id={"f-" + k} key={k + String(v)} type={type} defaultValue={String(v)} inputMode={type === "number" ? "decimal" : undefined} {...attrs}
+    <div className="border-t py-2 first:border-t-0">
+      <div className="flex min-h-10 items-center gap-3">
+        <Label htmlFor={"f-" + k} className="min-w-0 flex-1 text-[15px] leading-snug font-normal">{label}</Label>
+        <Input id={"f-" + k} key={k + String(v)} type={type} defaultValue={String(v)} inputMode={type === "number" ? "decimal" : undefined} {...attrs}
+          className={cn("h-9 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none", type === "text" ? "w-44" : type === "date" ? "w-40" : "w-28")}
         onBlur={(e) => { let x = e.target.value; if (type === "number") x = Math.max(0, parseFloat(x) || 0); if (String(x) !== String(v)) setSetting(k, x); }}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
-      {hint && <Hint>{hint}</Hint>}
+      </div>
+      {hint && <Hint className="mt-1">{hint}</Hint>}
     </div>
   );
 }
@@ -60,7 +64,7 @@ export default function Diwan() {
         <Field label="Reading block starts" k="readingTime" type="time" />
         <Field label="Reading length (minutes)" k="readingMin" type="number" min="10" step="5" />
         <Field label="Wind-down before bed (minutes)" k="windDownMin" type="number" min="0" step="15" />
-        <Field label="Evening decrees reminder" k="checkinTime" type="time" />
+        <Field label="Evening check-in reminder" k="checkinTime" type="time" />
         <Hint className="mt-2">Tonight: wind-down {toHM(hmOf(S.settings.bedtime) - Number(S.settings.windDownMin || 0))}, lights out {S.settings.bedtime}, up for Fajr {S.settings.wake}.</Hint>
       </Section>
       <Notifications />
@@ -93,13 +97,13 @@ function Profile() {
   const g = { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
   const setG = (k, v) => { S.settings.vitality = { ...g, [k]: Math.max(0, parseFloat(v) || 0) }; saveSettings(); bump(); };
   return (
-    <Section title="Body profile & vitals" ar="الملف الصحي">
-      <Subhead>Daily vitals</Subhead>
-      <div className="grid grid-cols-2 gap-3">
+    <Section title="Daily vitals" ar="الحيوية" desc="WHOOP fills these in; each one met is worth XP.">
+      <div className="flex flex-col">
         {vitalsFor(today()).map((x) => (
-          <div key={x.k} className="grid gap-1.5">
-            <Label htmlFor={"v-" + x.k} className="text-[13px] font-normal text-muted-foreground">{x.en}{x.unit ? ` (${x.unit})` : ""}</Label>
+          <div key={x.k} className="flex min-h-10 items-center gap-3 border-t py-2 first:border-t-0">
+            <Label htmlFor={"v-" + x.k} className="min-w-0 flex-1 text-[15px] font-normal">{x.en}{x.unit ? <span className="text-muted-foreground"> ({x.unit})</span> : ""}</Label>
             <Input id={"v-" + x.k} key={x.k + g[x.k]} type="number" inputMode="decimal" min="0" step={x.k === "sleepH" ? "0.5" : "1"} defaultValue={String(g[x.k])}
+              className="h-9 w-28 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none"
               onBlur={(e) => { if (+e.target.value !== g[x.k]) setG(x.k, e.target.value); }} />
           </div>
         ))}
@@ -124,7 +128,7 @@ function Training() {
     </div>
   );
   return (
-    <Section title="Training schedule" ar="جدول التدريب" desc={perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. The watch checks each one.` : "Add your weekly slots. The watch checks each one, and they show up in Apple Calendar."}>
+    <Section title="Training schedule" ar="جدول التدريب" desc={perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. WHOOP checks each one.` : "Add your weekly slots. WHOOP checks each one, and they show up in Apple Calendar."}>
       {Object.entries(bySport).map(([sport, list]) => (
         <div key={sport} className="mb-2">
           <Subhead className="mt-2 flex items-center justify-between">{(SPORTS[sport] || SPORTS.other).en}<Ar className="text-base normal-case">{(SPORTS[sport] || SPORTS.other).ar}</Ar></Subhead>
@@ -173,10 +177,10 @@ function Notifications() {
   const n = S.settings.notify || {};
   const wake = hmOf(S.settings.wake), bed = hmOf(S.settings.bedtime);
   const prefs = [
-    ["morning", "Morning decrees", toHM(wake + 20)],
+    ["morning", "Morning check-in", toHM(wake + 20)],
     ["reading", "Reading block", S.settings.readingTime],
     ["training", "Training, 30 minutes before", "on training days"],
-    ["evening", "Evening decrees, only if something’s open", S.settings.checkinTime],
+    ["evening", "Evening check-in, only if something’s open", S.settings.checkinTime],
     ["windDown", "Wind-down", toHM(bed - Number(S.settings.windDownMin || 0))],
     ["advisor", "The advisor’s weekly report", "Fridays"],
   ];

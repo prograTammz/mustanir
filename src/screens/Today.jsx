@@ -34,10 +34,9 @@ function DayHeader({ s, isToday }) {
   return (
     <div className="flex items-end justify-between gap-3 px-1 pt-2 pb-1">
       <div className="min-w-0">
+        <Ar className="block text-left text-[13px] leading-tight text-gold"><bdi>{hijri(s)}</bdi></Ar>
         <h1 className="text-[30px] leading-tight font-bold tracking-tight">{isToday ? "Today" : fmt(s, { weekday: "long" })}</h1>
-        <p className="truncate text-[13px] text-muted-foreground">
-          {fmt(s, { day: "numeric", month: "long" })} · <Ar>{hijri(s)}</Ar>{dn >= 1 ? ` · Day ${dn} of term ${term.n}` : ""}
-        </p>
+        <p className="truncate text-[13px] text-muted-foreground">{fmt(s, { weekday: isToday ? "long" : undefined, day: "numeric", month: "long" })}{dn >= 1 ? ` · day ${dn} of term ${term.n}` : ""}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1 pb-1">
         <button aria-label="Previous day" onClick={() => move(-1)} className="press grid size-9 place-items-center rounded-full bg-muted"><ChevronLeft className="size-[18px]" /></button>
@@ -84,8 +83,12 @@ function CheckIn({ s, r }) {
         <Row label="Reading" sub={`${r.pages || 0} of ${S.settings.pagesPerDay} pages${S.settings.book ? " · " + S.settings.book : ""}`}>
           <Stepper label="pages" value={r.pages} step={5} onChange={(v) => set("pages", v)} />
         </Row>
-        <Row label="Morning">{ROUTINES.slice(0, 3).map(([k, l]) => <Chip key={k} size="sm" on={!!r[k]} onClick={() => set(k, !r[k])}>{l}</Chip>)}</Row>
-        <Row label="Night">{ROUTINES.slice(3).map(([k, l]) => <Chip key={k} size="sm" on={!!r[k]} onClick={() => set(k, !r[k])}>{l}</Chip>)}</Row>
+        {[["Morning", ROUTINES.slice(0, 3)], ["Night", ROUTINES.slice(3)]].map(([label, items]) => (
+          <div key={label} className="flex min-h-12 items-center gap-3 border-t py-2">
+            <span className="w-20 shrink-0 text-[15px]">{label}</span>
+            <div className="flex flex-1 flex-wrap gap-2">{items.map(([k, l]) => <Chip key={k} size="sm" on={!!r[k]} onClick={() => set(k, !r[k])}>{l}</Chip>)}</div>
+          </div>
+        ))}
         <Tasks r={r} c={c} />
         <Purity s={s} r={r} />
       </CardContent>
@@ -178,12 +181,12 @@ function Measured({ s, r }) {
       </div>
       <CardContent className="flex flex-col pb-2">
         <div className="grid grid-cols-3 gap-2">
-          <Tile label="Up for Fajr" icon={Sunrise} value={r.wake == null ? "—" : r.wake ? "Yes" : "No"} sub={`Fajr ${fajrTime(s)}`} hit={r.wake == null ? null : r.wake} />
-          {tile("sleepH", "Sleep", Moon, r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : undefined)}
-          {tile("sleepCons", "Consistency", Repeat)}
-          {tile("steps", "Steps", Footprints)}
-          {tile("exerciseMin", "Exercise", Dumbbell)}
-          {tile("strain", "Strain", Activity)}
+          <Tile label="Up for Fajr" value={r.wake == null ? "—" : r.wake ? "Yes" : "No"} sub={`Fajr ${fajrTime(s)}`} hit={r.wake == null ? null : r.wake} />
+          {tile("sleepH", "Sleep", null, r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : undefined)}
+          {tile("sleepCons", "Consistency", null)}
+          {tile("steps", "Steps", null)}
+          {tile("exerciseMin", "Exercise", null)}
+          {tile("strain", "Strain", null)}
         </div>
         <Food s={s} r={r} />
         <Sessions s={s} r={r} />
