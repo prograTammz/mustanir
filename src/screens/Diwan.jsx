@@ -1,8 +1,8 @@
-// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, Apple Health, account.
+// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, Apple Health, account.
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
-import { S, DEFAULTS, VITALS, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
-import { SESSION, HEALTH_URL, PALACE_URL, saveSettings, signOut, newShortcutKey, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
+import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
+import { SESSION, HEALTH_URL, PALACE_URL, WHOOP_URL, loadWhoop, whoopConnect, whoopSync, whoopDisconnect, saveSettings, signOut, newShortcutKey, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { Section, Hint, Subhead, Row, Ar, fmtMin } from "@/components/kit";
@@ -64,6 +64,7 @@ export default function Diwan() {
       </Section>
       <Notifications />
       <Calendar />
+      <Whoop />
       <AppleHealth />
       <Section title="Account" ar="الحساب">
         <Row label="Signed in as"><span className="text-[15px] font-medium">{SESSION?.email || ""}</span></Row>
@@ -92,16 +93,9 @@ function Profile() {
   const setG = (k, v) => { S.settings.vitality = { ...g, [k]: Math.max(0, parseFloat(v) || 0) }; saveSettings(); bump(); };
   return (
     <Section title="Body profile & vitals" ar="الملف الصحي">
-      <Field label="Birth date (for biological age)" k="birthDate" type="date" />
-      <div className="grid gap-1.5 border-t py-3">
-        <Label className="text-[14px] font-normal">Sex (for the fitness norms)</Label>
-        <ToggleGroup type="single" value={S.settings.sex || "male"} onValueChange={(v) => v && setSetting("sex", v)}>
-          <ToggleGroupItem value="male">Male</ToggleGroupItem><ToggleGroupItem value="female">Female</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
       <Subhead>Daily vitals</Subhead>
       <div className="grid grid-cols-2 gap-3">
-        {VITALS.map((x) => (
+        {vitalsFor(today()).map((x) => (
           <div key={x.k} className="grid gap-1.5">
             <Label htmlFor={"v-" + x.k} className="text-[13px] font-normal text-muted-foreground">{x.en}{x.unit ? ` (${x.unit})` : ""}</Label>
             <Input id={"v-" + x.k} key={x.k + g[x.k]} type="number" inputMode="decimal" min="0" step={x.k === "sleepH" ? "0.5" : "1"} defaultValue={String(g[x.k])}
@@ -253,7 +247,61 @@ function Guide({ title, children }) {
 }
 
 let healthKey = "";
+let whoopLoading = false;
+function Whoop() {
+  const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
+  const w = S.whoop;
+  useEffect(() => {
+    if (!w && !whoopLoading && SESSION) { whoopLoading = true; loadWhoop().finally(() => { whoopLoading = false; bump(); }); }
+  }, [w]);
+  const run = async (fn, ok) => { setBusy(true); setMsg(""); try { const r = await fn(); setMsg(ok(r)); } catch (e) { setMsg(e.message); } finally { setBusy(false); bump(); } };
+  const on = !!w?.connected_at;
+  const when = (t) => new Date(t).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <Section title="WHOOP" ar="ووب" desc="Sleep, recovery, HRV, resting heart rate, strain, steps, energy burned and every workout with its heart-rate zones. Prayers, reading and purity stay yours to log.">
+      {on ? (
+        <>
+          <Hint className="mb-2">Connected {when(w.connected_at)}{w.last_sync_at ? ` · last update ${when(w.last_sync_at)}` : ""}. New sleeps and workouts arrive within minutes; strain and steps every hour.</Hint>
+          {w.last_error && <Hint className="mb-2 text-warn">Last problem: {w.last_error}</Hint>}
+          <div className="grid grid-cols-2 gap-2">
+            <Button disabled={busy} onClick={() => run(() => whoopSync(7), (r) => `Updated ${r.days} days from ${r.records} WHOOP records.`)}>Sync now</Button>
+            <Button disabled={busy} variant="outline" onClick={() => run(() => whoopSync(90), (r) => `Imported ${r.days} days from ${r.records} WHOOP records.`)}>Import 90 days</Button>
+          </div>
+          <Button disabled={busy} variant="ghost" className="mt-2 w-full" onClick={() => { if (confirm("Disconnect WHOOP? Your stored data stays; new data stops.")) run(whoopDisconnect, () => "Disconnected."); }}>Disconnect</Button>
+        </>
+      ) : (
+        <>
+          {w?.last_error && <Hint className="mb-2 text-warn">{w.last_error}</Hint>}
+          <Button className="w-full" disabled={busy} onClick={() => run(whoopConnect, () => "Opening WHOOP…")}>Connect WHOOP</Button>
+          <Hint className="mt-2">You’ll sign in on WHOOP’s page and come back here. Connecting switches Apple Health off and imports your last 30 days.</Hint>
+        </>
+      )}
+      {msg && <Hint className="mt-2">{msg}</Hint>}
+      <div className="mt-4">
+        <Guide title="Setting up the WHOOP app (once)">
+          <ol>
+            <li>Open <b>developer-dashboard.whoop.com</b>, sign in with your WHOOP account, <b>Create App</b> named Al-Mustanir.</li>
+            <li>Redirect URL: <C>{WHOOP_URL + "/callback"}</C></li>
+            <li>Scopes: all the <C>read:</C> ones and <C>offline</C>.</li>
+            <li>Webhook URL: <C>{WHOOP_URL + "/webhook"}</C>, model version <C>v2</C>.</li>
+            <li>Supabase → SQL Editor: save the Client ID and Secret into <C>app_secrets</C> as <C>whoop_client_id</C> and <C>whoop_client_secret</C>. Then tap Connect WHOOP.</li>
+          </ol>
+        </Guide>
+      </div>
+    </Section>
+  );
+}
+
 function AppleHealth() {
+  if (usesWhoop()) return (
+    <Section title="Apple Health" ar="الصحة" desc="Switched off: WHOOP is your source now. Anything the Shortcut or Health Auto Export still sends is ignored.">
+      <Hint>Delete the Mustanir Sync automations in Shortcuts and the Health Auto Export automations; they no longer do anything. Your Apple Health history before {fmt(S.settings.whoopFrom || today(), { day: "numeric", month: "short", year: "numeric" })} stays in the charts. The Walking Pad shortcut still works.</Hint>
+    </Section>
+  );
+  return <AppleHealthSetup />;
+}
+
+function AppleHealthSetup() {
   const [key, setKey] = useState(healthKey), [msg, setMsg] = useState("");
   const ls = S.health?.lastSync;
   const staleH = ls ? (Date.now() - Date.parse(ls.received_at)) / 3600000 : 0, stale = staleH > 26;

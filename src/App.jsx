@@ -5,6 +5,7 @@ import { S, today, hijri, termDay, termLength, termInfo, fmt } from "@/lib/logic
 import { SESSION, load, flushOutbox } from "@/lib/store.js";
 import { useApp, go, bump, TABS, isDark } from "@/lib/app-state.js";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { Sheets } from "@/components/sheets.jsx";
 import { Ar } from "@/components/kit";
 import { cn } from "@/lib/utils";
@@ -25,12 +26,17 @@ const ROOMS = {
 
 const fromHash = () => { const t = location.hash.slice(1); if (TABS.includes(t)) S.tab = t; };
 fromHash();
+// Back from WHOOP's consent page: ?whoop=connected|denied|expired|failed
+const WHOOP_BACK = new URLSearchParams(location.search).get("whoop");
+if (WHOOP_BACK) history.replaceState(null, "", location.pathname + location.hash);
+const WHOOP_MSG = { connected: "WHOOP connected. Your last 30 days are in; Apple Health is off.", denied: "WHOOP access wasn’t granted.", expired: "That WHOOP link expired. Tap Connect WHOOP again.", failed: "WHOOP didn’t accept the connection. See the Diwan for details." };
 
 export default function App() {
   useApp();
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     load();
+    if (WHOOP_BACK) setTimeout(() => (WHOOP_BACK === "connected" ? toast.success : toast.error)(WHOOP_MSG[WHOOP_BACK] || "WHOOP: " + WHOOP_BACK), 400);
     const onScroll = () => setScrolled(scrollY > 30);
     const onHash = () => { fromHash(); bump(); };
     const onOnline = () => flushOutbox().then(load);

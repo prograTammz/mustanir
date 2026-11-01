@@ -7,7 +7,7 @@ export const DEFAULTS = {
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
   // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
   birthDate: "", sex: "male",
-  vitality: { steps: 8000, exerciseMin: 30, standHours: 10, sleepH: 7, daylightMin: 20 },
+  vitality: { steps: 8000, exerciseMin: 30, standHours: 10, sleepH: 7, daylightMin: 20, sleepCons: 80, strain: 10 },
   proteinTarget: 160,
   // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
   training: [
@@ -158,8 +158,11 @@ export function manual(d) {
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.watch || d.good || d.fix || d.margin > 0 ||
     (d.checks && Object.values(d.checks).some(Boolean)) || d.away || (d.slotMarks && Object.keys(d.slotMarks).length) ||
-    (d.train && !String(d.source || "").startsWith("Apple Health")) || d.diet != null && d.deficit == null);
+    (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
+// Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
+export const isMeasured = (d) => /^(Apple Health|WHOOP)/.test(String((d || {}).source || ""));
+export const usesWhoop = () => S.settings.healthSource === "whoop";
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
 export function violation(s) { const d = S.days[s]; if (!d || !d.mast) return false; const last = lastMastBefore(s); return !!last && diff(last, s) < intervalFor(s); }
 
@@ -255,17 +258,25 @@ export function dayXP(s) {
 }
 
 /* ---------- vitality: the five things the watch keeps every day ---------- */
-export const VITALS = [
+export const VITALS_APPLE = [
   { k: "steps", en: "Steps", ar: "خطوات", unit: "", fmt: (v) => Math.round(v).toLocaleString("en") },
   { k: "exerciseMin", en: "Exercise", ar: "تمرين", unit: "min", fmt: (v) => Math.round(v) },
   { k: "standHours", en: "Stand hours", ar: "وقوف", unit: "h", fmt: (v) => Math.round(v) },
   { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
   { k: "daylightMin", en: "Daylight", ar: "شمس", unit: "min", fmt: (v) => Math.round(v) },
 ];
-export const FLOOR = { steps: 6000, exerciseMin: 20, standHours: 8, sleepH: 6.5, daylightMin: 10 }; // the away-day minimum
+// With WHOOP there is no stand or daylight sensor: sleep consistency and day strain take their place.
+export const VITALS_WHOOP = [
+  ...VITALS_APPLE.filter((x) => ["steps", "exerciseMin", "sleepH"].includes(x.k)),
+  { k: "sleepCons", en: "Sleep consistency", ar: "انتظام النوم", unit: "%", fmt: (v) => Math.round(v) },
+  { k: "strain", en: "Day strain", ar: "الجهد", unit: "", fmt: (v) => (+v).toFixed(1) },
+];
+export const vitalsFor = (s) => (S.settings.whoopFrom && s >= S.settings.whoopFrom ? VITALS_WHOOP : VITALS_APPLE);
+
+export const FLOOR = { steps: 6000, exerciseMin: 20, standHours: 8, sleepH: 6.5, daylightMin: 10, sleepCons: 65, strain: 6 }; // the away-day minimum
 export function vitalityFor(s) {
   const d = S.days[s] || {}, goals = d.away ? FLOOR : { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
-  const items = VITALS.map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
+  const items = vitalsFor(s).map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
   const seen = items.some((i) => i.val != null);
   const hits = items.filter((i) => i.hit).length;
   return { items, hits, total: items.length, frac: seen ? hits / items.length : null, seen };

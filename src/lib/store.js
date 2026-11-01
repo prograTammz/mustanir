@@ -65,12 +65,15 @@ function scoresFor(date) { const d = S.days[date] || {}, ds = day(date); return 
 // Saving sends the whole day, so first fold in whatever Apple Health wrote since this phone last loaded it.
 // Without this, logging a prayer right after a sync erased that sync's workouts, steps and sleep.
 const MEASURED = ["steps", "activeKcal", "basalKcal", "dietaryKcal", "exerciseMin", "standHours", "restingHR", "daylightMin", "hrv", "vo2max",
-  "workouts", "workoutsDetail", "walkMin", "exByHour", "kcalByHour", "sleepStart", "sleepEnd", "deficit", "source"];
+  "workouts", "workoutsDetail", "walkMin", "exByHour", "kcalByHour", "sleepStart", "sleepEnd", "deficit", "source",
+  // WHOOP
+  "totalKcal", "strain", "recovery", "spo2", "skinTemp", "respRate", "sleepPerf", "sleepCons", "sleepEff", "sleepNeedH", "napMin", "avgHR"];
+const srcTime = (s) => Date.parse(String(s || "").replace(/^\D+/, "")) || 0; // "WHOOP 2026-11-01T…" → time
 const FILL_ONLY = ["sleepH", "weight", "bed", "wake", "train", "diet", "watch"]; // can be typed by hand: only filled when blank
 export function mergeHealth(local, server) {
   if (!server) return local;
-  const out = { ...local }, src = String(server.source || "");
-  const newer = src.startsWith("Apple Health") && src > String(local.source || "");
+  const out = { ...local };
+  const newer = /^(Apple Health|WHOOP)/.test(String(server.source || "")) && srcTime(server.source) > srcTime(local.source);
   for (const k of MEASURED) if (k in server && (!(k in out) || newer)) out[k] = server[k];
   for (const k of FILL_ONLY) if (k in server && !(k in out)) out[k] = server[k];
   return out;
@@ -135,7 +138,7 @@ export async function load() {
 }
 
 // Health history for statistics, the vitals and the biological-age estimate: daily rollups in one call.
-export const CHART_METRICS = ["steps", "activeKcal", "restingHR", "hrv", "weight", "sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "exerciseMin", "vo2max",
+export const CHART_METRICS = ["recovery", "strain", "totalKcal", "sleepConsistency", "sleepPerformance", "skinTemp", "steps", "activeKcal", "restingHR", "hrv", "weight", "sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "exerciseMin", "vo2max",
   "standHours", "daylightMin", "bmi", "height", "bodyFat", "leanMass", "walking_speed", "respRate", "spo2"];
 const rpc = (fn, args) => rest("rpc/" + fn, { method: "POST", body: JSON.stringify(args || {}) });
 export async function loadHealth(days = 1500) {
@@ -178,6 +181,23 @@ export async function newShortcutKey() {
 
 /* ---------- push notifications ---------- */
 export const PALACE_URL = SB_URL + "/functions/v1/palace";
+export const WHOOP_URL = SB_URL + "/functions/v1/whoop";
+
+/* ---------- WHOOP ---------- */
+async function whoopCall(path, body) {
+  const res = await fetch(WHOOP_URL + "/" + path, { method: "POST", headers: { apikey: SB_KEY, Authorization: "Bearer " + await token(), "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.ok === false) throw new Error(j.error || "HTTP " + res.status);
+  return j;
+}
+export async function loadWhoop() {
+  const rows = await rest("whoop_status?select=connected_at,last_sync_at,last_error,whoop_user_id").catch(() => null);
+  S.whoop = rows && rows[0] ? rows[0] : { connected_at: null };
+  return S.whoop;
+}
+export async function whoopConnect() { const { url } = await whoopCall("start"); location.href = url; }
+export async function whoopSync(days = 7) { const r = await whoopCall("sync", { days }); await load(); await loadWhoop(); return r; }
+export async function whoopDisconnect() { await whoopCall("disconnect"); await load(); await loadWhoop(); }
 const b64ToBytes = (b64) => { const s = atob((b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(s, (c) => c.charCodeAt(0)); };
 export const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 export async function pushState() {

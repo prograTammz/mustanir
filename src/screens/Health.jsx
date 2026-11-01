@@ -1,7 +1,8 @@
-// Health: the year's body plan, biological age, the vitals, and every measure Apple Health keeps.
+// Health: the year's body plan, the vitals, and every measure WHOOP (and, before it, Apple Health) keeps.
+// Biological age is read in the WHOOP app: WHOOP Age is not in its API, so the app no longer estimates it.
 import { useEffect, useState } from "react";
 import { ChevronRight, Sun, Check } from "lucide-react";
-import { S, today, addDays, range, ageOn, bioAge, bioInputs, lastWithin, windowAvg, BODY_PLAN, TERMS, termIndex, termInfo, planTargets, vitalityFor, VITALS, DEFAULTS } from "@/lib/logic.js";
+import { S, today, addDays, range, lastWithin, windowAvg, BODY_PLAN, TERMS, termIndex, termInfo, planTargets, vitalityFor, vitalsFor, DEFAULTS } from "@/lib/logic.js";
 import { SESSION, loadHealthSummary, saveSettings } from "@/lib/store.js";
 import { bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const CATS = [["activity", "Activity"], ["heart", "Heart"], ["sleep", "Sleep"], ["body", "Body"], ["mobility", "Mobility"], ["vitals", "Vitals"], ["environment", "Environment"], ["nutrition", "Nutrition"], ["sport", "Sport"], ["mind", "Mind"]];
+const CATS = [["recovery", "Recovery"], ["activity", "Activity"], ["heart", "Heart"], ["sleep", "Sleep"], ["body", "Body"], ["mobility", "Mobility"], ["vitals", "Vitals"], ["environment", "Environment"], ["nutrition", "Nutrition"], ["sport", "Sport"], ["mind", "Mind"]];
 export function fmtVal(v, unit, key) {
   if (v == null || !isFinite(v)) return "—";
   if (unit === "min" && /^sleep/.test(key || "")) return fmtMin(Math.round(v));
@@ -33,7 +34,6 @@ export default function Health({ hs }) {
   return (
     <>
       <PlanCard />
-      <BioCard hs={hs} />
       <VitalityHistory />
       <Explorer />
     </>
@@ -41,11 +41,11 @@ export default function Health({ hs }) {
 }
 
 function current() {
-  const H = S.health?.byMetric || {}, t = today(), age = ageOn(S.settings.birthDate, t);
+  const H = S.health?.byMetric || {}, t = today();
   return {
     weight: lastWithin(H.weight, t, 30), bodyFat: lastWithin(H.bodyFat, t, 120), vo2max: lastWithin(H.vo2max, t, 120),
     restingHR: windowAvg(H.restingHR, addDays(t, -13), t),
-    bioAge: age != null && S.health ? bioAge(age, bioInputs(H, t), S.settings.sex)?.bio : null,
+    bioAge: null, // read in the WHOOP app (WHOOP Age isn't in its API)
   };
 }
 
@@ -67,7 +67,7 @@ function PlanCard() {
 
       <div className="mt-3 overflow-hidden rounded-2xl border">
         <div className="grid grid-cols-[1.7fr_.8fr_.8fr_.8fr] gap-2 bg-muted/60 px-3.5 py-2 text-[11px] font-semibold text-muted-foreground"><span>By {short(P.checkpoints[ti])}</span><span className="text-right">Now</span><span className="text-right">Likely</span><span className="text-right">Strong</span></div>
-        {P.rows.map((r) => {
+        {P.rows.filter((r) => r.k !== "bioAge").map((r) => {
           const v = cur[r.k], lk = r.likely[ti], st = r.strong[ti];
           const hit = v == null ? "" : (r.down ? v <= st : v >= st) ? "strong" : (r.down ? v <= lk : v >= lk) ? "likely" : "";
           return (
@@ -89,52 +89,6 @@ function PlanCard() {
   );
 }
 
-function BioCard({ hs }) {
-  const H = S.health?.byMetric;
-  const [birth, setBirth] = useState("");
-  if (!S.settings.birthDate) return (
-    <Section title="Biological age" ar="العمر البيولوجي">
-      <p className="text-[15px]">Your watch data can estimate how old your body behaves. Add your birth date to see it.</p>
-      <div className="mt-3 flex gap-2"><Input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} /><Button onClick={() => { if (birth) { S.settings.birthDate = birth; saveSettings(); bump(); } }}>Save</Button></div>
-    </Section>
-  );
-  if (!H) return <Section title="Biological age" ar="العمر البيولوجي"><Hint>{hs.loading ? "Reading three years of Apple Health…" : "No Apple Health data yet."}</Hint></Section>;
-  const t = today(), age = ageOn(S.settings.birthDate, t), b = bioAge(age, bioInputs(H, t), S.settings.sex);
-  if (!b || !b.factors.length) return <Section title="Biological age" ar="العمر البيولوجي"><Hint>Not enough recent watch data for an estimate yet.</Hint></Section>;
-  const younger = b.delta < 0, max = Math.max(3, ...b.factors.map((x) => Math.abs(x.years)));
-  const first = (H.steps || [])[0]?.[0] || t, trend = [];
-  for (let d = new Date(first + "T12:00:00"); ; d.setMonth(d.getMonth() + 1)) {
-    let k = d.toISOString().slice(0, 10); if (k > t) k = t;
-    const x = bioAge(ageOn(S.settings.birthDate, k), bioInputs(H, k), S.settings.sex);
-    if (x && x.factors.length >= 3) trend.push([k, Math.round(x.delta * 10) / 10]);
-    if (k === t) break;
-  }
-  return (
-    <Section title="Biological age" ar="العمر البيولوجي">
-      <div className="flex flex-wrap items-end gap-6">
-        <div><div className="text-[52px] leading-none font-bold tracking-tight tnum">{b.bio.toFixed(1)}</div><div className="mt-1 text-sm text-muted-foreground">body age</div></div>
-        <div><div className="text-[32px] leading-none font-semibold text-muted-foreground tnum">{age.toFixed(1)}</div><div className="mt-1 text-sm text-muted-foreground">calendar age</div></div>
-        <Badge variant={younger ? "ok" : "bad"} className="mb-1 px-3 py-1 text-[13px]">{younger ? "▼" : "▲"} {Math.abs(b.delta).toFixed(1)} years {younger ? "younger" : "older"}</Badge>
-      </div>
-      {b.fitnessAge && <Hint className="mt-2">Fitness age from VO₂ max: {b.fitnessAge.toFixed(0)}.</Hint>}
-      <Subhead>What moves it</Subhead>
-      {b.factors.map((x) => (
-        <div key={x.k} className="flex flex-col gap-1.5 border-t py-2.5 first:border-t-0">
-          <div className="flex justify-between text-[15px]"><span className="font-medium">{x.en}</span><span className="font-semibold tnum">{x.years === 0 ? "±0" : `${x.years > 0 ? "+" : "−"}${Math.abs(x.years).toFixed(1)} y`}</span></div>
-          <DivergingBar years={x.years} max={max} />
-          <span className="text-xs text-muted-foreground">{x.note}</span>
-        </div>
-      ))}
-      <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-knowledge" />makes you younger</span>
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-body" />makes you older</span>
-      </div>
-      {trend.length > 2 && <><Subhead>Years older than your age, month by month</Subhead><TrendChart id="bio" points={trend} unit="y" digits={1} color="var(--m-purity)" goal={0} smooth={1} /></>}
-      <Hint className="mt-3">Estimate from your last 60 days: each measure’s link to long-term health in large studies, converted to years and scaled down because the measures overlap. Apps like StressWatch weigh mainly heart-rate data, so numbers differ; watch the trend, not the digit.</Hint>
-    </Section>
-  );
-}
-
 function VitalityHistory() {
   const t = today(), days = range(addDays(t, -29), addDays(t, 1));
   const pts = days.map((k) => [k, vitalityFor(k)]).filter(([, v]) => v.seen).map(([k, v]) => [k, v.hits]);
@@ -144,7 +98,7 @@ function VitalityHistory() {
     <Section title="Vitality" ar="الحيوية" right={<span className="text-sm text-muted-foreground">last 30 days</span>}>
       <TrendChart id="vit" points={pts} unit="of 5" digits={0} color="var(--m-body)" goal={4} smooth={7} min={0} max={5} />
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {VITALS.map((x) => { const a = avg(x.k); return <Stat key={x.k} value={a == null ? "—" : x.fmt(a)} label={`${x.en} avg`} tone={a != null && a >= goals[x.k] ? "ok" : undefined} />; })}
+        {vitalsFor(today()).map((x) => { const a = avg(x.k); return <Stat key={x.k} value={a == null ? "—" : x.fmt(a)} label={`${x.en} avg`} tone={a != null && a >= goals[x.k] ? "ok" : undefined} />; })}
       </div>
     </Section>
   );

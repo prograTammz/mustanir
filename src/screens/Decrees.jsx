@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Plane, Plus, X, Watch, TriangleAlert, Info } from "lucide-react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termLength, termInfo, day, dayMinisters, dayXP, MAX_DAY_XP, matchDay, hasSchedule,
-  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, VITALS, VITALITY_XP, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
+  slotName, lastMastBefore, intervalFor, violation, streak, T, abstained, ABSTAIN_XP, checklistFor, vitalityFor, vitalsFor, VITALITY_XP, usesWhoop, isMeasured, awayRun, FLOOR, range, termStartFor } from "@/lib/logic.js";
 import { SESSION, LS, loadMeals, addMeal, deleteMeal, saveDay } from "@/lib/store.js";
 import { useApp, set, setQuiet, rec, bump } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
@@ -142,7 +142,9 @@ function BodyDecree({ s, r, dn }) {
   const dot = { done: "bg-ok", partial: "bg-warn", live: "bg-warn animate-pulse", missed: "bg-bad", upcoming: "bg-muted-foreground/40", skipped: "bg-muted-foreground/40" };
   const meals = (S.meals || {})[s] || [];
   const pending = meals.filter((m) => !m.exported_at).reduce((a, m) => a + Number(m.kcal), 0);
-  const eaten = (r.dietaryKcal || 0) + pending, burned = (r.activeKcal || 0) + (r.basalKcal || 0), deficit = burned && eaten ? burned - eaten : null;
+  // With WHOOP every meal logged here counts; before, Apple Health held the meals already written to it.
+  const eaten = usesWhoop() ? meals.reduce((a, m) => a + Number(m.kcal), 0) : (r.dietaryKcal || 0) + pending;
+  const burned = r.totalKcal || (r.activeKcal || 0) + (r.basalKcal || 0), deficit = burned && eaten ? burned - eaten : null;
   const protein = meals.reduce((a, m) => a + (Number(m.protein) || 0), 0);
   const addFood = async () => {
     const kcal = parseFloat(food.kcal), protein = parseFloat(food.protein);
@@ -159,7 +161,7 @@ function BodyDecree({ s, r, dn }) {
           <span className={cn("size-2.5 shrink-0 rounded-full", dot[m.status])} />
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold">{slotName(m.slot)} <span className="font-normal text-muted-foreground">{m.slot.start}–{m.slot.end}</span></div>
-            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">{status(m)}{m.source && !marked(m) && <Badge variant="muted" className="gap-1"><Watch />Watch</Badge>}</div>
+            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">{status(m)}{m.source && !marked(m) && <Badge variant="muted" className="gap-1"><Watch />{String(r.source || "").startsWith("WHOOP") ? "WHOOP" : "Watch"}</Badge>}</div>
           </div>
           {marked(m) ? <Button size="sm" variant="secondary" onClick={() => mark(m.slot.id, null)}>Undo</Button> : (
             <div className="flex gap-1.5">
@@ -172,7 +174,7 @@ function BodyDecree({ s, r, dn }) {
       <Button variant="outline" className="mt-2 w-full" onClick={() => openSheet({ type: "slot", date: s })}><Plus />Add a session today</Button>
 
       <Subhead>Walking pad</Subhead>
-      <Row label="Minutes walked" sub={r.walkMin && String(r.source || "").startsWith("Apple Health") ? "Logged by the watch or the Walking Pad shortcut" : "Logs itself with the Walking Pad shortcut"}><Stepper label="walking minutes" value={r.walkMin} step={10} onChange={(v) => set("walkMin", v)} /></Row>
+      <Row label="Minutes walked" sub={r.walkMin && isMeasured(r) ? "Logged by your tracker or the Walking Pad shortcut" : "Logs itself with the Walking Pad shortcut"}><Stepper label="walking minutes" value={r.walkMin} step={10} onChange={(v) => set("walkMin", v)} /></Row>
 
       <Subhead>Food</Subhead>
       {meals.map((m) => (
@@ -219,12 +221,13 @@ function HabitsDecree({ r }) {
   return (
     <Decree k="habits" side={`Window ${S.settings.bedtime} to ${S.settings.wake} · aim ${S.settings.sleepTarget} h`}>
       <Row label="Sleep">{tg("bed", "In bed by " + S.settings.bedtime)}{tg("wake", "Up for Fajr")}</Row>
-      <Row label="Hours slept" sub={(r.sleepH || 0) >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h${String(r.source || "").startsWith("Apple Health") && r.sleepH != null ? " · from the watch" : ""}`}>
+      <Row label="Hours slept" sub={(r.sleepH || 0) >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h${isMeasured(r) && r.sleepH != null ? (String(r.source).startsWith("WHOOP") ? " · from WHOOP" : " · from the watch") : ""}`}>
         <Input className="w-24 text-right" type="number" inputMode="decimal" step="0.25" placeholder="h" key={"sl" + S.selected} defaultValue={r.sleepH != null ? Math.round(r.sleepH * 100) / 100 : ""} onBlur={(e) => { const n = parseFloat(e.target.value); set("sleepH", isNaN(n) ? null : n); }} />
       </Row>
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>
-      <Row label="Tracking">{tg("watch", "Watch worn and charged")}</Row>
+      <Row label="Tracking">{tg("watch", usesWhoop() ? "WHOOP worn and charged" : "Watch worn and charged")}</Row>
+      {(r.recovery != null || r.sleepPerf != null) && <Hint className="mt-1">WHOOP: {[r.recovery != null && `recovery ${r.recovery}%`, r.sleepPerf != null && `sleep performance ${Math.round(r.sleepPerf)}%`, r.sleepCons != null && `consistency ${Math.round(r.sleepCons)}%`, r.sleepNeedH != null && `needed ${r.sleepNeedH} h`, r.strain != null && `strain ${r.strain}`].filter(Boolean).join(" · ")}.</Hint>}
     </Decree>
   );
 }
@@ -261,7 +264,7 @@ function VitalityCard({ s }) {
     <Card>
       <div className="flex items-center gap-3 px-5">
         <Emblem k="body" size={42} />
-        <div className="min-w-0 flex-1"><Ar className="block text-[19px] leading-tight">الحيوية</Ar><div className="text-[13px] text-muted-foreground">{v.seen ? `Vitality · ${v.hits} of ${v.total}${away ? " · floor goals" : ""}` : "Vitality · waiting for the watch"}</div></div>
+        <div className="min-w-0 flex-1"><Ar className="block text-[19px] leading-tight">الحيوية</Ar><div className="text-[13px] text-muted-foreground">{v.seen ? `Vitality · ${v.hits} of ${v.total}${away ? " · floor goals" : ""}` : (usesWhoop() ? "Vitality · waiting for WHOOP" : "Vitality · waiting for the watch")}</div></div>
         <Ring value={v.frac || 0} color="var(--m-body)" size={46} label="Vitality today" />
       </div>
       <CardContent>
@@ -274,7 +277,7 @@ function VitalityCard({ s }) {
             </div>
           ))}
         </div>
-        <Hint className="mt-3">Filled by the watch. Each vital kept is worth {VITALITY_XP / VITALS.length} XP on days you log; 4 of 5 for 7 days wins the Vitality medal.</Hint>
+        <Hint className="mt-3">Filled by {usesWhoop() ? "WHOOP" : "the watch"}. Each vital kept is worth {VITALITY_XP / vitalsFor(s).length} XP on days you log; 4 of 5 for 7 days wins the Vitality medal.</Hint>
       </CardContent>
     </Card>
   );
