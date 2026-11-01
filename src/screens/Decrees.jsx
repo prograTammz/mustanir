@@ -194,12 +194,24 @@ function BodyDecree({ s, r, dn }) {
         <Chip size="sm" on={r.diet === true} tone="ok" onClick={() => set("diet", r.diet === true ? null : true)}>Yes</Chip>
         <Chip size="sm" on={r.diet === false} tone="bad" onClick={() => set("diet", r.diet === false ? null : false)}>No</Chip>
       </Row>
-      <Row label="Weight" sub={r.steps ? `${r.steps.toLocaleString("en")} steps today` : undefined}>
-        <Input className="w-28 text-right" type="number" inputMode="decimal" step="0.1" placeholder="kg" defaultValue={r.weight ?? ""} key={"w" + s}
-          onBlur={(e) => { const n = parseFloat(e.target.value); set("weight", isNaN(n) ? null : n); }} />
+      <Row label="Weight" sub={weightSub(s, r)}>
+        <span className="text-[15px] font-semibold tnum">{latestWeight(s, r) != null ? `${latestWeight(s, r).toFixed(1)} kg` : "—"}</span>
       </Row>
     </Decree>
   );
+}
+
+// Weight comes from WHOOP (which reads it from Apple Health): the day's own reading, else the latest within 30 days.
+function latestWeight(s, r) {
+  if (r.weight != null) return +r.weight;
+  let w = null;
+  for (const [d, x] of (S.health?.byMetric?.weight || [])) if (d <= s && d >= addDays(s, -30)) w = +x;
+  if (w == null) for (let i = 1; i <= 30; i++) { const x = S.days[addDays(s, -i)]?.weight; if (x != null) { w = +x; break; } }
+  return w;
+}
+function weightSub(s, r) {
+  const w = latestWeight(s, r), steps = r.steps ? `${r.steps.toLocaleString("en")} steps · ` : "";
+  return w == null ? steps + "Weigh in on your scale; Apple Health passes it to WHOOP" : steps + (r.weight != null ? "From WHOOP" : "Last reading, from WHOOP");
 }
 
 function PurityDecree({ s, r }) {
@@ -221,8 +233,8 @@ function HabitsDecree({ r }) {
   return (
     <Decree k="habits" side={`Window ${S.settings.bedtime} to ${S.settings.wake} · aim ${S.settings.sleepTarget} h`}>
       <Row label="Sleep">{tg("bed", "In bed by " + S.settings.bedtime)}{tg("wake", "Up for Fajr")}</Row>
-      <Row label="Hours slept" sub={(r.sleepH || 0) >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h${isMeasured(r) && r.sleepH != null ? (String(r.source).startsWith("WHOOP") ? " · from WHOOP" : " · from the watch") : ""}`}>
-        <Input className="w-24 text-right" type="number" inputMode="decimal" step="0.25" placeholder="h" key={"sl" + S.selected} defaultValue={r.sleepH != null ? Math.round(r.sleepH * 100) / 100 : ""} onBlur={(e) => { const n = parseFloat(e.target.value); set("sleepH", isNaN(n) ? null : n); }} />
+      <Row label="Hours slept" sub={r.sleepH == null ? "Fills in when WHOOP scores your sleep" : `${r.sleepH >= S.settings.sleepTarget ? "Target met" : `Target ${S.settings.sleepTarget} h`} · from ${String(r.source || "").startsWith("Apple") ? "the watch" : "WHOOP"}`}>
+        <span className="text-[15px] font-semibold tnum">{r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : "—"}</span>
       </Row>
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>

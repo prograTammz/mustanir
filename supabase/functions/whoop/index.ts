@@ -167,6 +167,8 @@ const trainOf = (names: string) =>
   /weight|strength|functional|cross|hiit|power|gym|core|pilates|boxing/i.test(names) ? "gym" : /tennis|padel|squash/i.test(names) ? "tennis" : /walk/i.test(names) ? "walk" : null;
 
 async function rebuild(uid: string, dayList: string[], body: Rec = null) {
+  const todayKey = cairoDay(new Date());
+  if (body && typeof body.weight_kilogram === "number") dayList = [...dayList, todayKey];
   if (!dayList.length) return 0;
   const days = [...new Set(dayList)].sort();
   const [{ data: st }, { data: recs }, { data: existing }, { data: meals }] = await Promise.all([
@@ -279,7 +281,9 @@ async function rebuild(uid: string, dayList: string[], body: Rec = null) {
       if (d.deficit != null && d.diet == null && day < cairoDay(new Date())) d.diet = d.deficit >= (s.deficitMin || 500);
       if (d.watch == null && (sleeps.length || cycle?.score?.strain != null)) d.watch = true; // WHOOP worn
     }
-    if (!sleeps.length && !cycle && !wks.length && !rec) continue;
+    // Weight: WHOOP reads it from Apple Health; it lands on today's record (the app no longer takes it by hand).
+    if (day === todayKey && body && typeof body.weight_kilogram === "number") d.weight = r1(body.weight_kilogram);
+    if (!sleeps.length && !cycle && !wks.length && !rec && d.weight == null) continue;
     d.source = "WHOOP " + stamp;
     dayRows.push({ user_id: uid, date: day, data: d, scores: scores(d, s) });
     for (const [metric, value] of Object.entries(M)) if (isFinite(value)) metricRows.push({ user_id: uid, day, metric, value, min_value: value, max_value: value, samples: 1 });
