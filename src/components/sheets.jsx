@@ -1,8 +1,8 @@
 // Every bottom sheet in the app: one controlled drawer, its content picked by S.sheet.type.
 import { useEffect, useState } from "react";
-import { S, MINISTERS, SPORTS, today, totals, rankFor, streak, bestStreak, T, verdict, currentApproval, hmMin } from "@/lib/logic.js";
+import { S, MINISTERS, SPORTS, today, rankFor, streak, bestStreak, T, verdict, currentApproval, hmMin } from "@/lib/logic.js";
 import { saveSettings, loadMetricSeries } from "@/lib/store.js";
-import { bump, go } from "@/lib/app-state.js";
+import { bump, go, allTotals } from "@/lib/app-state.js";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ const M = Object.fromEntries(MINISTERS.map((m) => [m.key, m]));
 function MinisterSheet({ k }) {
   const { r, period } = currentApproval();
   if (k === "president") {
-    const t = totals(), rank = rankFor(t.level);
+    const t = allTotals(), rank = rankFor(t.level);
     return (
       <>
         <DrawerHeader className="flex-row items-center gap-3"><Emblem k="president" size={48} /><div><Ar className="block text-left text-2xl leading-tight text-gold">الرئيس المُستنير</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">The President</DrawerTitle></div></DrawerHeader>
@@ -119,7 +119,7 @@ function MetricSheet({ m, r, fmtVal }) {
     <>
       <DrawerHeader><DrawerTitle>{m.label}</DrawerTitle><DrawerDescription>{r.days.toLocaleString("en")} days recorded since {fd(r.first_day)}</DrawerDescription></DrawerHeader>
       {err ? <Hint>Couldn’t load this measure.</Hint> : !p ? <Hint>Loading…</Hint> :
-        <TrendChart id="metric" points={p} unit={hours ? "h" : m.unit} digits={Math.abs(p.at(-1)?.[1] || 0) >= 100 ? 0 : 1} color="var(--m-knowledge)" smooth={p.length > 60 ? 7 : 1} height={200} />}
+        <TrendChart points={p} unit={hours ? "h" : m.unit} digits={Math.abs(p.at(-1)?.[1] || 0) >= 100 ? 0 : 1} color="var(--m-knowledge)" smooth={p.length > 60 ? 7 : 1} height={200} />}
       <div className="mt-4 mb-6 grid grid-cols-2 gap-2">
         <Stat value={fmtVal(r.latest, m.unit, m.key)} label={`latest · ${fd(r.latest_day)}`} />
         <Stat value={fmtVal(r.avg30, m.unit, m.key)} label="30-day average" />

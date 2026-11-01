@@ -1,21 +1,22 @@
 // Al-Mustanir: the app shell. Three rooms (Today, Palace, Settings), an iOS 26 top row (glass buttons, the scroll edge
 // effect, the inline title once the large one scrolls away) and a floating glass tab bar.
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CircleCheck, Landmark, Settings as SettingsIcon } from "lucide-react";
 import { S, today, PRAYERS } from "@/lib/logic.js";
-import { SESSION, load, flushOutbox } from "@/lib/store.js";
+import { SESSION, load, flushOutbox, wake } from "@/lib/store.js";
 import { useApp, go, bump, TABS, tabOf, isDark } from "@/lib/app-state.js";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { Sheets } from "@/components/sheets.jsx";
 import { cn } from "@/lib/utils";
-import Today, { DayNav, BackToToday } from "@/screens/Today.jsx";
-import Palace from "@/screens/Palace.jsx";
-import Diwan from "@/screens/Diwan.jsx";
+import Today, { DayNav, TopLeft } from "@/screens/Today.jsx";
 import SignIn from "@/screens/SignIn.jsx";
+// Today is the critical path; the other rooms load on first visit (and are prefetched once Today has painted).
+const loadPalace = () => import("@/screens/Palace.jsx"), loadDiwan = () => import("@/screens/Diwan.jsx");
+const Palace = lazy(loadPalace), Diwan = lazy(loadDiwan);
 
 const ROOMS = {
-  today: { en: "Today", icon: CircleCheck, view: Today, left: BackToToday, right: DayNav },
+  today: { en: "Today", icon: CircleCheck, view: Today, left: TopLeft, right: DayNav },
   palace: { en: "Palace", icon: Landmark, view: Palace },
   settings: { en: "Settings", icon: SettingsIcon, view: Diwan },
 };
@@ -48,7 +49,10 @@ export default function App() {
     const onScroll = () => setY(scrollY);
     const onHash = () => { fromHash(); bump(); };
     const onOnline = () => flushOutbox().then(load);
-    const onVis = () => { if (!document.hidden && !S.dirty.size) load(); };
+    const onVis = () => { if (!document.hidden) wake(); };
+    // Warm the other rooms while the phone is idle, so the first tap on Palace or Settings is instant.
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
+    idle(() => { loadPalace(); loadDiwan(); });
     const onUpdate = (e) => toast("A new version is ready", { duration: Infinity, action: { label: "Update", onClick: () => e.detail() } });
     const noZoom = (e) => e.preventDefault();
     const noPinch = (e) => { if (e.touches.length > 1) e.preventDefault(); };
@@ -83,7 +87,11 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-lg px-4 pb-32">
-        {signin ? <SignIn /> : <div key={S.tab} className="flex flex-col gap-3 animate-in fade-in-0 duration-300"><View /></div>}
+        {signin ? <SignIn /> : (
+          <Suspense fallback={<div className="flex flex-col gap-3 pt-14"><div className="skeleton h-44" /><div className="skeleton h-64" /><div className="skeleton h-40" /></div>}>
+            <div key={S.tab} className="flex flex-col gap-3"><View /></div>
+          </Suspense>
+        )}
       </main>
 
       {!signin && (

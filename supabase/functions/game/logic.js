@@ -1,0 +1,605 @@
+// Al-Mustanir game logic: dates, ministers, scoring, XP, ranks and medals. No DOM here.
+// One engine, two runtimes (ADR-0001): the app imports this file, and the `game` Edge Function deploys an identical copy
+// (supabase/functions/game/logic.js; a test fails if they differ). Keep it pure: no DOM, no network, no storage.
+
+export const DEFAULTS = {
+  termStart: "2026-11-01", sessionsPerWeek: 4, pagesPerDay: 20, bedtime: "21:00", wake: "05:00",
+  windowHours: 8, sleepTarget: 7, deficitMin: 700, threshold: 70, book: "", revNotes: {},
+  trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
+  windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
+  // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
+  birthDate: "", sex: "male",
+  vitality: { steps: 8000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
+  proteinTarget: 160,
+  // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
+  training: [
+    { id: "tennis-mw", sport: "tennis", days: ["MON", "WED"], start: "19:00", end: "21:00" },
+    { id: "tennis-th", sport: "tennis", days: ["THU"], start: "09:30", end: "11:00" },
+  ],
+  trainingOnce: [],
+  // The productivity checklist: standing items for every day.
+  checklist: [
+    { id: "plan", text: "Plan the day before 9:00" },
+    { id: "deep", text: "Two hours of deep work" },
+    { id: "ship", text: "Ship one meaningful thing" },
+    { id: "inbox", text: "Inbox and messages cleared" },
+    { id: "tomorrow", text: "Tomorrow’s top three written" },
+  ],
+  notify: { morning: true, reading: true, training: true, evening: true, windDown: true, advisor: true },
+};
+
+export const S = {
+  settings: { ...DEFAULTS }, days: {}, health: null, tab: "today", selected: null, period: null,
+  mode: "local", loaded: false, dirty: new Set(), timers: {}, range: 90, err: "",
+};
+
+export const PRAYERS = [["fajr", "Fajr", "الفجر"], ["dhuhr", "Dhuhr", "الظهر"], ["asr", "Asr", "العصر"], ["maghrib", "Maghrib", "المغرب"], ["isha", "Isha", "العشاء"]];
+
+// Fixed order and colors (validated for colorblind separation in light and dark mode).
+export const MINISTERS = [
+  { key: "body", ar: "وزير البدن", en: "Minister of Body", agenda: "Training and diet", color: "body" },
+  { key: "knowledge", ar: "وزير المعرفة", en: "Minister of Knowledge", agenda: "Daily reading", color: "knowledge" },
+  { key: "faith", ar: "وزير الإيمان", en: "Minister of Faith", agenda: "The five prayers", color: "faith", immune: true },
+  { key: "habits", ar: "وزير النظام", en: "Minister of Order", agenda: "Sleep and routines", color: "habits" },
+  { key: "purity", ar: "وزير الطهارة", en: "Minister of Purity", agenda: "No porn, keep the schedule", color: "purity" },
+];
+// The order ministers appear on the decrees page (the agenda's own order).
+export const DECREE_ORDER = ["faith", "body", "knowledge", "purity", "habits"];
+
+export const RANKS = [
+  { from: 1, ar: "مُرشَّح", en: "Candidate" },
+  { from: 3, ar: "مُنتخَب", en: "Elected" },
+  { from: 5, ar: "نائب", en: "Deputy" },
+  { from: 7, ar: "وزير", en: "Minister" },
+  { from: 10, ar: "رجل دولة", en: "Statesman" },
+  { from: 13, ar: "مُصلِح", en: "Reformer" },
+  { from: 16, ar: "الصدر الأعظم", en: "Grand Vizier" },
+  { from: 20, ar: "الحكيم", en: "The Sage" },
+  { from: 25, ar: "العادل", en: "The Just" },
+  { from: 30, ar: "المُستنير", en: "The Enlightened" },
+];
+
+/* ---------- dates (local calendar days as yyyy-mm-dd) ---------- */
+export const pad = (n) => String(n).padStart(2, "0");
+export const ymd = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+export const parse = (s) => { const [a, b, c] = s.split("-").map(Number); return new Date(a, b - 1, c); };
+export const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); };
+export const addMonths = (s, n) => { const d = parse(s); d.setMonth(d.getMonth() + n); return ymd(d); };
+export const diff = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+// The clock. The phone uses its own; the server runs in UTC, so it sets the player's zone with setTimeZone().
+let ZONE = null;
+export const setTimeZone = (tz) => { ZONE = tz || null; };
+function zoned(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return { day: `${p.year}-${p.month}-${p.day}`, min: +p.hour * 60 + +p.minute };
+}
+export const today = () => (ZONE ? zoned().day : ymd(new Date()));
+export const minutesNow = () => { if (ZONE) return zoned().min; const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+export const fmt = (s, o) => parse(s).toLocaleDateString("en-GB", o || { weekday: "long", day: "numeric", month: "long" });
+export function hijri(s) {
+  try { return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" }).format(parse(s)); }
+  catch { return ""; }
+}
+export function range(a, b) { const out = []; for (let s = a; s < b; s = addDays(s, 1)) out.push(s); return out; }
+
+// Fajr in New Cairo (Egyptian General Authority of Survey: the sun 19.5° below the horizon), as a UTC timestamp.
+// The WHOOP sync uses the same formula to decide "up for Fajr" from your sleeps.
+export function fajrAt(s) {
+  const rad = Math.PI / 180, t0 = Date.parse(s + "T12:00:00Z"), d = (t0 - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const g = (357.529 + 0.98560028 * d) * rad, q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, e = (23.439 - 0.00000036 * d) * rad;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)) / rad / 15, dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const eq = (((q / 15 - (((ra % 24) + 24) % 24)) + 12) % 24 + 24) % 24 - 12, noon = 12 - 31.47 / 15 - eq;
+  const h = Math.acos((-Math.sin(19.5 * rad) - Math.sin(dec) * Math.sin(30.03 * rad)) / (Math.cos(dec) * Math.cos(30.03 * rad))) / rad / 15;
+  return t0 - 12 * 3600000 + (noon - h) * 3600000;
+}
+export const fajrTime = (s) => new Date(fajrAt(s)).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Cairo" });
+
+// The first day in office. Everything before it was the transition: it never earns XP, streaks or medals.
+export const inOffice = (s) => s >= (S.settings.termStart || "2026-11-01");
+export const officeDays = () => Object.keys(S.days).filter(inOffice).map((k) => S.days[k]);
+
+export function syncBed() {
+  const m = String(S.settings.wake || "05:00").match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return;
+  let t = (Number(m[1]) * 60 + Number(m[2]) - Math.round(Number(S.settings.windowHours || 8) * 60)) % 1440;
+  if (t < 0) t += 1440;
+  S.settings.bedtime = pad(Math.floor(t / 60)) + ":" + pad(t % 60);
+}
+// Terms run back to back, three months each, from the first term's start (settings.termStart).
+export const TERMS = [
+  { n: "I", name: "The cut", ar: "الحسم", focus: "Lose fat fast while keeping muscle: the strong plan." },
+  { n: "II", name: "The second cut", ar: "الاستمرار", focus: "Keep cutting at a slightly smaller deficit. Ramadan falls here: protect protein and sleep." },
+  { n: "III", name: "Summer · hold the line", ar: "الثبات", focus: "Maintenance with slow progress. Heat, travel and interruptions: keep the floor, never miss twice." },
+  { n: "IV", name: "Summer’s end · slow progress", ar: "التقدم الهادئ", focus: "August holds, September and October push again gently. Build the habit that outlasts the plan." },
+];
+export const termIndex = (s = today()) => Math.max(0, Math.floor(monthsBetween(S.settings.termStart, s) / 3));
+function monthsBetween(a, b) { const A = parse(a), B = parse(b); let m = (B.getFullYear() - A.getFullYear()) * 12 + B.getMonth() - A.getMonth(); if (B.getDate() < A.getDate()) m--; return m; }
+export const termStartFor = (s = today()) => addMonths(S.settings.termStart, termIndex(s) * 3);
+export const termInfo = (s = today()) => ({ i: termIndex(s), ...(TERMS[termIndex(s)] || { n: String(termIndex(s) + 1), name: "Term", ar: "", focus: "" }), start: termStartFor(s), end: addMonths(termStartFor(s), 3) });
+export const termEnd = (s = today()) => addMonths(termStartFor(s), 3); // exclusive
+export const termLength = (s = today()) => diff(termStartFor(s), termEnd(s));
+export const termDay = (s) => diff(termStartFor(s), s) + 1;
+export const periods = (s = today()) => { const st = termStartFor(s); return [0, 1, 2].map((i) => ({ i, start: addMonths(st, i), end: addMonths(st, i + 1), label: "Month " + (i + 1) })); };
+export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.settings.termStart, s)) / 7) + 1; return w <= 3 ? 3 : w <= 6 ? 7 : w <= 9 ? 14 : 30; }
+
+/* ---------- training slots and the watch ---------- */
+// Every sport a slot can be. `match` reads a WHOOP workout name, so a slot is only met by its own sport
+// (or by a workout WHOOP couldn't name). Add a sport here and it shows up in the slot sheet, Settings and the checks.
+export const SPORTS = {
+  gym: { en: "Gym", ar: "الحديد", match: /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic/i },
+  tennis: { en: "Tennis", ar: "التنس", match: /tennis|padel|squash|pickleball|badminton/i },
+  mma: { en: "MMA", ar: "الفنون القتالية", match: /martial|mma|box|kick|jiu|jitsu|muay|wrestl|judo|karate|taekwondo|grappl|fight/i },
+  swim: { en: "Swimming", ar: "السباحة", match: /swim|water polo/i },
+  run: { en: "Running", ar: "الجري", match: /run|jog|track/i },
+  walk: { en: "Walk", ar: "المشي", match: /walk|hik/i },
+  other: { en: "Training", chip: "Other", ar: "التدريب" },
+};
+export const sportOf = (name) => Object.keys(SPORTS).find((k) => SPORTS[k].match?.test(name || "")) || null;
+export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+export const hmMin = (t) => { const m = String(t || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+export const minHM = (m) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return pad(Math.floor(x / 60)) + ":" + pad(x % 60); };
+export const slotName = (x) => x.label || (SPORTS[x.sport] || SPORTS.other).en;
+export const hasSchedule = () => (S.settings.training || []).length + (S.settings.trainingOnce || []).length > 0;
+export function slotsOn(date) {
+  const dow = DOW[parse(date).getDay()];
+  return [
+    ...(S.settings.training || []).filter((x) => (x.days || []).includes(dow)),
+    ...(S.settings.trainingOnce || []).filter((x) => x.date === date),
+  ].filter((x) => hmMin(x.start) != null && hmMin(x.end) != null).sort((a, b) => hmMin(a.start) - hmMin(b.start));
+}
+const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+// How much of a slot the watch saw. Workouts (exact times) win; otherwise hourly exercise minutes are
+// spread across the hour and counted where they overlap the slot. 30 minutes of slack either side
+// covers starting late or staying on court.
+export function matchSlot(date, slot, nowMin = null) {
+  const d = S.days[date] || {}, a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440;
+  const planned = b - a, A = a - 30, B = b + 30;
+  let done = 0, kcal = 0, source = null;
+  // A slot is met by a workout of its own sport, or one WHOOP couldn't name ("Activity"). A walk never counts for anything but a walk slot.
+  const wks = (d.workoutsDetail || []).filter((w) => { const k = sportOf(w.a); return slot.sport === "other" ? k !== "walk" : k === slot.sport || (k == null && slot.sport !== "walk"); });
+  for (const w of wks) {
+    const s0 = hmMin(w.s), e0 = hmMin(w.e); if (s0 == null || e0 == null) continue;
+    const e1 = e0 >= s0 ? e0 : e0 + 1440, ov = overlap(s0, e1, A, B);
+    if (ov > 0) { done += ov; if (w.kcal) kcal += w.kcal * (ov / Math.max(1, e1 - s0)); source = "workout"; }
+  }
+  if (!source && d.exByHour) {
+    for (const [h, v] of Object.entries(d.exByHour)) {
+      const h0 = +h * 60, ov = overlap(h0, h0 + 60, A, B);
+      if (ov > 0 && v > 0) { done += v * (ov / 60); const kc = (d.kcalByHour || {})[h]; if (kc) kcal += kc * (ov / 60); source = "hourly"; }
+    }
+  }
+  done = Math.round(Math.min(done, planned + 60)); kcal = Math.round(kcal);
+  const t = today(), past = date < t || (date === t && (nowMin ?? minutesNow()) > b);
+  // Judged by WHOOP alone: half the planned time or more is done.
+  let status = done >= planned * 0.5 ? "done" : done > 0 ? (past ? "partial" : "live") : past ? "missed" : "upcoming";
+  const frac = Math.min(1, done / planned);
+  return { slot, planned, done, kcal, source, status, frac };
+}
+// An away day (travel, illness, a family day) pauses the schedule: slots aren't judged, the floor goals apply.
+export const matchDay = (date) => ((S.days[date] || {}).away ? [] : slotsOn(date).map((x) => matchSlot(date, x)));
+export function awayRun(s) { let n = 0; for (let k = s; (S.days[k] || {}).away; k = addDays(k, -1)) n++; return n; }
+
+/* ---------- productivity checklist ---------- */
+export function checklistFor(date) {
+  const d = S.days[date] || {};
+  const items = [...(S.settings.checklist || []), ...(d.extraTasks || [])];
+  const checks = d.checks || {};
+  const done = items.filter((x) => checks[x.id]).length;
+  return { items, checks, done, total: items.length, frac: items.length ? done / items.length : null };
+}
+
+/* ---------- scoring ---------- */
+export const TRAINED = Object.keys(SPORTS); // gym, tennis, MMA, swimming, running, walk, other
+
+// A day counts as logged only when something was entered by hand. Health data alone
+// (two years of backfill) must not count as days in office.
+export function manual(d) {
+  if (!d) return false;
+  return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
+    d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || d.away ||
+    (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
+}
+// Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
+export const isMeasured = (d) => /^(Apple Health|WHOOP)/.test(String((d || {}).source || ""));
+export const usesWhoop = () => S.settings.healthSource === "whoop";
+// The deficit: WHOOP's energy burned minus what you ate (FatSecret and anything typed in). Null until both are known.
+export function deficitOf(d) {
+  if (!d) return null;
+  if (d.totalKcal && d.dietaryKcal) return d.totalKcal - d.dietaryKcal;
+  return d.deficit ?? null;
+}
+// On target is decided by the numbers, never ticked: deficit ≥ the daily target. Days without both numbers fall back to a hand verdict.
+export function dietMet(d) {
+  const x = deficitOf(d);
+  return x != null ? x >= (S.settings.deficitMin || 700) : d?.diet === true;
+}
+export const sleptEnough = (d) => (d?.sleepH || 0) >= (S.settings.sleepTarget || 7);
+export const consistent = (d) => d?.sleepCons != null && d.sleepCons >= ((S.settings.vitality || {}).sleepCons ?? DEFAULTS.vitality.sleepCons);
+export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
+export function violation(s) { const d = S.days[s]; if (!d || !d.mast) return false; const last = lastMastBefore(s); return !!last && diff(last, s) < intervalFor(s); }
+
+export function day(s) {
+  const d = S.days[s];
+  if (!manual(d)) return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: 0, plan: 0, habits: 0, rest: 0 };
+  const pr = d.prayers || {};
+  const faith = PRAYERS.reduce((a, [k]) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
+  const slept = sleptEnough(d), regular = consistent(d);
+  // Sleep is judged by WHOOP alone: up for Fajr, hours slept and consistency (2 each); routines 1 each.
+  const habits = (2 * +!!d.wake + 2 * +slept + 2 * +regular + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
+  return {
+    logged: true, faith, habits,
+    knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
+    diet: dietMet(d) ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
+    // Purity starts every day at full marks and only a slip takes them away (porn, or masturbation).
+    porn: d.pornFree === false ? 0 : 1, plan: d.mast === true ? 0 : 1,
+  };
+}
+
+// Each minister's verdict on one day, 0 to 1. Used for XP and the decrees rings.
+export function dayMinisters(s) {
+  const x = day(s);
+  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: 0 };
+  const ms = matchDay(s);
+  const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() ? 1 : (x.trained || x.rest)); // no slot today = rest day
+  return {
+    body: 0.6 * x.diet + 0.4 * training,
+    knowledge: x.knowledge >= 1 ? 1 : x.knowledge,
+    faith: x.faith,
+    habits: x.habits,
+    purity: x.porn * x.plan,
+  };
+}
+
+// Approval over a period, the measure impeachment is judged on.
+export function score(dates) {
+  const n = dates.length; if (!n) return null;
+  const ds = dates.map(day); const sum = (f) => ds.reduce((a, x) => a + x[f], 0);
+  let sessions = sum("trained"), planned = S.settings.sessionsPerWeek * n / 7, trainMin = 0, plannedMin = 0;
+  if (hasSchedule()) {
+    sessions = 0; planned = 0;
+    for (const k of dates) for (const m of matchDay(k)) {
+      if (m.status === "upcoming" || m.status === "live") continue; // not judged yet
+      planned++; plannedMin += m.planned; trainMin += m.status === "skipped" ? 0 : Math.min(m.done, m.planned) + (m.status === "done" && !m.done ? m.planned : 0);
+      if (m.status === "done") sessions++;
+    }
+  }
+  const training = Math.min(1, planned ? sessions / planned : 1), diet = sum("diet") / n;
+  const porn = sum("porn") / n, plan = ds.reduce((a, x) => a + (x.logged ? x.plan : 0), 0) / n;
+  const defs = dates.map((k) => (S.days[k] || {}).deficit).filter((v) => v > 0);
+  const walk = dates.reduce((a, k) => a + ((S.days[k] || {}).walkMin || 0), 0);
+  const r = {
+    n, sessions, planned, training, diet, porn, plan, walk, trainMin, plannedMin,
+    avgDeficit: defs.length ? Math.round(defs.reduce((a, b) => a + b, 0) / defs.length) : null,
+    logged: ds.filter((x) => x.logged).length,
+    body: (training + diet) / 2, faith: sum("faith") / n, knowledge: ds.reduce((a, x) => a + (x.knowledge >= 1 ? 1 : 0), 0) / n,
+    purity: (porn + plan) / 2, habits: sum("habits") / n,
+  };
+  r.overall = (r.body + r.faith + r.knowledge + r.purity + r.habits) / 5;
+  return r;
+}
+
+export function verdict(x, immune) {
+  const t = S.settings.threshold / 100;
+  if (x == null) return ["", "No days yet"];
+  if (immune) return [x >= t ? "ok" : "warn", x >= t ? "Strong · cannot be impeached" : "Below the line · cannot be impeached, needs attention"];
+  if (x >= t + 0.15) return ["ok", "Strong"];
+  if (x >= t) return ["warn", "Holding, close to the line"];
+  return ["bad", "Impeachment risk"];
+}
+
+// Approval for the council period containing `s` (or the first one before the term).
+export function currentApproval(s = today()) {
+  const ps = periods();
+  const p = ps.find((x) => s >= x.start && s < x.end) || (s < ps[0].start ? null : ps[2]);
+  const start = p ? p.start : addDays(s, -29);
+  const end = s < (p ? p.end : addDays(s, 1)) ? addDays(s, 1) : p.end;
+  return { period: p, r: start < end ? score(range(start, end)) : null };
+}
+
+/* ---------- XP, levels, ranks ---------- */
+export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, ABSTAIN_XP = 10, WEIGH_IN_XP = 40, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20 + 10;
+
+/* ---------- the Sunday weigh-in ----------
+   Every Sunday morning this week's weight is set against last Sunday's (each the latest reading in the
+   seven days up to that Sunday). Any drop of 0.1 kg or more earns WEIGH_IN_XP on that Sunday. */
+export const isSunday = (s) => parse(s).getDay() === 0;
+export function weightOn(s, lookback = 7) {
+  for (let i = 0; i < lookback; i++) { const w = (S.days[addDays(s, -i)] || {}).weight; if (w != null) return +w; }
+  return null;
+}
+export function weighIn(s) {
+  if (!isSunday(s)) return null;
+  const now = weightOn(s), before = weightOn(addDays(s, -7));
+  if (now == null || before == null) return { now, before, drop: null, won: false };
+  const drop = Math.round((before - now) * 10) / 10;
+  return { now, before, drop, won: drop >= 0.1 };
+}
+const weighInXP = (s) => (inOffice(s) && weighIn(s)?.won ? WEIGH_IN_XP : 0);
+// A day with no masturbation and no porn, both confirmed by hand, earns a bonus on top of Purity's verdict.
+// Purity's approval is still judged on the spacing schedule; abstaining is rewarded, never required.
+export const abstained = (d) => !!d && d.mast !== true && d.pornFree !== false; // clean unless a slip is logged
+export function dayXP(s) {
+  const m = dayMinisters(s);
+  const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
+  const perfect = Object.values(m).every((v) => v >= 0.9);
+  const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
+  const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
+  const a = manual(S.days[s]) && abstained(S.days[s]) ? ABSTAIN_XP : 0; // like every bonus, only on a day you logged
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s);
+}
+
+/* ---------- vitality: the five things WHOOP keeps every day ----------
+   Steps, exercise (WHOOP workouts) and sleep hours are measured on every day; sleep consistency and
+   day strain only exist on WHOOP days (from settings.whoopFrom, or any day WHOOP filled), so earlier days are judged on the first three. */
+export const VITALS = [
+  { k: "steps", en: "Steps", ar: "خطوات", unit: "", fmt: (v) => Math.round(v).toLocaleString("en") },
+  { k: "exerciseMin", en: "Exercise", ar: "تمرين", unit: "min", fmt: (v) => Math.round(v) },
+  { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
+  { k: "sleepCons", en: "Sleep consistency", ar: "انتظام النوم", unit: "%", fmt: (v) => Math.round(v) },
+  { k: "strain", en: "Day strain", ar: "الجهد", unit: "", fmt: (v) => (+v).toFixed(1) },
+];
+const WHOOP_ONLY = ["sleepCons", "strain"];
+const onWhoop = (s) => (S.settings.whoopFrom && s >= S.settings.whoopFrom) || /^WHOOP/.test((S.days[s] || {}).source || "");
+export const vitalsFor = (s) => (onWhoop(s) ? VITALS : VITALS.filter((x) => !WHOOP_ONLY.includes(x.k)));
+// The Vitality medal: 4 of 5 kept (or all 3 on a pre-WHOOP day).
+export const vitalNeed = (total) => Math.ceil(total * 0.8);
+
+export const FLOOR = { steps: 6000, exerciseMin: 20, sleepH: 6.5, sleepCons: 65, strain: 6 }; // the away-day minimum
+export function vitalityFor(s) {
+  const d = S.days[s] || {}, goals = d.away ? FLOOR : { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
+  const items = vitalsFor(s).map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
+  const seen = items.some((i) => i.val != null);
+  const hits = items.filter((i) => i.hit).length;
+  return { items, hits, total: items.length, frac: seen ? hits / items.length : null, seen };
+}
+
+/* ---------- biological age ----------
+   Each measure's effect on all-cause mortality, from large cohort studies and meta-analyses, turned into
+   years with the Gompertz law (risk roughly doubles every 8 years of age): years = 8 × log2(hazard ratio).
+   An estimate for direction and motivation, not a medical test. */
+const YRS = (hr) => 8 * Math.log2(hr);
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+export const vo2Norm = (age) => 48 - 0.49 * (age - 25); // FRIEND registry, men, 50th percentile
+export function ageOn(birth, date = today()) {
+  if (!birth) return null;
+  const b = new Date(birth + "T12:00:00"), d = new Date(date + "T12:00:00");
+  return (d - b) / (365.2425 * 86400000);
+}
+// inputs: averages over the window { vo2max, restingHR, steps, sleepH, bmi, hrv, walking_speed }
+export function bioAge(age, m, sex = "male") {
+  if (age == null) return null;
+  const f = [];
+  const add = (k, en, ar, value, years, note) => { if (value != null && isFinite(value)) f.push({ k, en, ar, value, years: Math.round(years * 10) / 10, note }); };
+  const norm = sex === "female" ? vo2Norm(age) - 6.5 : vo2Norm(age);
+  if (m.vo2max != null) add("vo2max", "Cardio fitness", "اللياقة", m.vo2max, clamp(YRS(0.87) * (m.vo2max - norm) / 3.5, -8, 8), `VO₂ max ${m.vo2max.toFixed(1)} vs ${norm.toFixed(1)} typical for your age · each extra MET (3.5) ≈ 13% lower risk`);
+  if (m.restingHR != null) add("restingHR", "Resting heart rate", "نبض الراحة", m.restingHR, clamp(YRS(1.09) * (m.restingHR - 60) / 10, -2, 4), `${Math.round(m.restingHR)} bpm · each 10 bpm above 60 ≈ 9% higher risk`);
+  if (m.steps != null) {
+    const st = m.steps, base = 7000;
+    const y = st < base ? YRS(1 / 0.88) * (base - st) / 1000 : -YRS(1 / 0.88) * 0.5 * (Math.min(st, 12000) - base) / 1000;
+    add("steps", "Daily steps", "الخطوات", st, clamp(y, -4, 6), `${Math.round(st).toLocaleString("en")} a day · each 1,000 steps up to ~10k ≈ 12% lower risk`);
+  }
+  if (m.sleepH != null) {
+    const h = m.sleepH, y = h < 7 ? YRS(1.06) * (7 - h) : h > 9 ? YRS(1.13) * (h - 9) : 0;
+    add("sleepH", "Sleep", "النوم", h, clamp(y, 0, 4), `${h.toFixed(1)} h a night · 7–9 h is the lowest-risk band`);
+  }
+  // Body fat says more than BMI for someone who carries muscle; BMI only when there's no recent body-fat reading.
+  const fatTop = sex === "female" ? 30 : 20;
+  if (m.bodyFat != null) {
+    const bf = m.bodyFat, y = bf > fatTop ? YRS(1.12) * (bf - fatTop) / 5 : 0;
+    add("bodyFat", "Body fat", "الدهون", bf, clamp(y, 0, 6), `${bf.toFixed(0)}% · under ${fatTop}% is the healthy range; each 5 points above ≈ 12% higher risk`);
+  } else if (m.bmi != null) {
+    const b = m.bmi, y = b > 25 ? YRS(1.31) * (b - 25) / 5 : b < 18.5 ? YRS(1.5) * (18.5 - b) / 2 : 0;
+    add("bmi", "Body mass index", "كتلة الجسم", b, clamp(y, 0, 8), `BMI ${b.toFixed(1)} · each 5 points above 25 ≈ 31% higher risk (overstates for muscular builds)`);
+  }
+  if (m.hrv != null) { const hn = 70 - 0.7 * age; add("hrv", "Heart rate variability", "تقلب النبض", m.hrv, clamp(-0.08 * (m.hrv - hn), -2, 2), `${Math.round(m.hrv)} ms vs ~${Math.round(hn)} typical for your age`); }
+  if (m.walking_speed != null && age >= 50) add("walking_speed", "Walking speed", "سرعة المشي", m.walking_speed, clamp(-1.5 * (m.walking_speed - 4.6), -1.5, 2), `${m.walking_speed.toFixed(1)} km/h · brisk walkers live longer`);
+  // The measures overlap (fitness, weight and resting pulse travel together), so their single-factor effects
+  // can't simply be added: mutually adjusted studies find roughly 40% smaller effects. Scale the sum to match.
+  const OVERLAP = 0.6;
+  f.forEach((x) => { x.years = Math.round(x.years * OVERLAP * 10) / 10; });
+  const delta = f.reduce((a, x) => a + x.years, 0);
+  const fitnessAge = m.vo2max != null ? Math.max(18, 25 + (48 - (sex === "female" ? m.vo2max + 6.5 : m.vo2max)) / 0.49) : null;
+  return { age, bio: age + delta, delta, factors: f.sort((a, b) => b.years - a.years), fitnessAge };
+}
+// Average a daily series over [from, to]; "last" takes the latest reading within `lookback` days.
+export function windowAvg(series, from, to) {
+  const v = (series || []).filter(([d]) => d >= from && d <= to).map(([, x]) => x);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+export function lastWithin(series, to, lookback) {
+  const from = addDays(to, -lookback); let out = null;
+  for (const [d, x] of series || []) if (d >= from && d <= to) out = x;
+  return out;
+}
+export function bioInputs(H, to, days = 60) {
+  const from = addDays(to, -days + 1);
+  return {
+    vo2max: lastWithin(H.vo2max, to, 240), restingHR: windowAvg(H.restingHR, from, to), steps: windowAvg(H.steps, from, to),
+    sleepH: windowAvg(H.sleepH, from, to), hrv: windowAvg(H.hrv, from, to), walking_speed: windowAvg(H.walking_speed, from, to),
+    bodyFat: lastWithin(H.bodyFat, to, 180),
+    // BMI from the latest weight and height when they're fresher than the last BMI reading
+    bmi: (() => { const w = lastWithin(H.weight, to, 120), ht = lastWithin(H.height, to, 1500); return w && ht ? w / (ht * ht) : lastWithin(H.bmi, to, 400); })(),
+  };
+}
+// XP needed to reach level L: steeper than before (about level 10 after a strong term, 20 after a strong year).
+export const levelStart = (L) => (L <= 1 ? 0 : Math.round((60 * Math.pow(L - 1, 2.2)) / 10) * 10);
+export function levelFor(xp) {
+  let L = 1; while (levelStart(L + 1) <= xp) L++;
+  const from = levelStart(L), to = levelStart(L + 1);
+  return { level: L, from, to, into: xp - from, need: to - from, frac: (xp - from) / (to - from) };
+}
+export const rankFor = (L) => RANKS.filter((r) => L >= r.from).pop();
+export function totals() {
+  let xp = 0, logged = 0, perfect = 0;
+  let drops = 0;
+  for (const k of Object.keys(S.days)) {
+    if (!inOffice(k)) continue;
+    if (weighIn(k)?.won) drops++;
+    if (!manual(S.days[k])) { xp += weighInXP(k); continue; } // a Sunday drop counts even on an unlogged day
+    logged++; const x = dayXP(k); xp += x;
+    if (Object.values(dayMinisters(k)).every((v) => v >= 0.9)) perfect++;
+  }
+  return { xp, logged, perfect, drops, ...levelFor(xp) };
+}
+
+// Consecutive days ending today (or yesterday, if today isn't logged yet) that satisfy `test`.
+export function streak(test, from = today()) {
+  let n = 0, s = from;
+  if (!S.days[s] || !test(S.days[s], s)) s = addDays(s, -1);
+  while (inOffice(s) && S.days[s] && test(S.days[s], s)) { n++; s = addDays(s, -1); }
+  return n;
+}
+export function bestStreak(test) {
+  const keys = Object.keys(S.days).filter(inOffice).sort(); let best = 0, cur = 0, prev = null;
+  for (const k of keys) {
+    if (test(S.days[k], k)) { cur = prev && diff(prev, k) === 1 ? cur + 1 : 1; best = Math.max(best, cur); prev = k; }
+    else { cur = 0; prev = null; }
+  }
+  return best;
+}
+export const T = {
+  productive: (d, s) => (checklistFor(s).frac || 0) >= 0.8,
+  vital: (d, s) => { if (!manual(d)) return false; const v = vitalityFor(s); return v.hits >= vitalNeed(v.total); },
+  office: (d) => manual(d),
+  prayers: (d, s) => day(s).faith === 1,
+  pure: (d) => d.pornFree !== false,
+  abstain: (d) => abstained(d),
+  read: (d) => (d.pages || 0) >= S.settings.pagesPerDay,
+  fajr: (d) => d.wake === true,
+  slept: (d) => sleptEnough(d),
+  regular: (d) => consistent(d),
+  green: (d) => (d.recovery ?? 0) >= 67,
+  steps15: (d) => (d.steps || 0) >= 15000,
+  trained: (d) => TRAINED.includes(d.train),
+};
+// Consecutive Sundays (up to the latest one) with a weight drop.
+export function sundayRun(best = false) {
+  const sundays = Object.keys(S.days).filter((k) => inOffice(k) && isSunday(k)).sort();
+  let run = 0, top = 0, prev = null;
+  for (const k of sundays) {
+    if (weighIn(k)?.won) { run = prev && diff(prev, k) === 7 ? run + 1 : 1; prev = k; } else { run = 0; prev = null; }
+    top = Math.max(top, run);
+  }
+  return best ? top : run;
+}
+const lowestWeight = () => Math.min(...officeDays().map((d) => d.weight).filter((w) => w != null), Infinity);
+const sumOf = (k) => officeDays().reduce((a, d) => a + (d[k] || 0), 0);
+
+/* ---------- medals ---------- */
+export const MEDALS = [
+  // Office
+  { id: "first", ar: "أول مرسوم", en: "First decree", how: "Log your first day in office", cur: (t) => t.logged, goal: 1, test: (t) => t.logged >= 1 },
+  { id: "office7", ar: "الأسبوع الأول", en: "First week", how: "Log 7 days in a row", cur: () => bestStreak(T.office), goal: 7, test: () => bestStreak(T.office) >= 7 },
+  { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", cur: () => bestStreak(T.office), goal: 30, test: () => bestStreak(T.office) >= 30 },
+  { id: "office90", ar: "ولاية بلا انقطاع", en: "Unbroken term", how: "Log 90 days in a row", cur: () => bestStreak(T.office), goal: 90, test: () => bestStreak(T.office) >= 90 },
+  { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", cur: () => Math.max(0, Math.min(termLength(), termDay(today()) - 1)), goal: () => termLength(), test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
+  { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "Every minister at 90% or more in one day", cur: (t) => t.perfect, goal: 1, test: (t) => t.perfect >= 1 },
+  { id: "perfect7", ar: "أسبوع ذهبي", en: "Golden week", how: "7 perfect days", cur: (t) => t.perfect, goal: 7, test: (t) => t.perfect >= 7 },
+  { id: "perfect30", ar: "العصر الذهبي", en: "Golden age", how: "30 perfect days", cur: (t) => t.perfect, goal: 30, test: (t) => t.perfect >= 30 },
+  { id: "lvl5", ar: "النائب", en: "Deputy", how: "Reach level 5", cur: (t) => t.level, goal: 5, test: (t) => t.level >= 5 },
+  { id: "lvl10", ar: "رجل الدولة", en: "Statesman", how: "Reach level 10", cur: (t) => t.level, goal: 10, test: (t) => t.level >= 10 },
+  { id: "lvl20", ar: "الحكيم", en: "The Sage", how: "Reach level 20", cur: (t) => t.level, goal: 20, test: (t) => t.level >= 20 },
+  // Faith
+  { id: "pray7", ar: "المحافظ", en: "The Steadfast", how: "All five prayers 7 days in a row", cur: () => bestStreak(T.prayers), goal: 7, test: () => bestStreak(T.prayers) >= 7 },
+  { id: "pray40", ar: "الأربعين", en: "The Forty", how: "All five prayers 40 days in a row", cur: () => bestStreak(T.prayers), goal: 40, test: () => bestStreak(T.prayers) >= 40 },
+  { id: "pray100", ar: "المئة", en: "The Hundred", how: "All five prayers 100 days in a row", cur: () => bestStreak(T.prayers), goal: 100, test: () => bestStreak(T.prayers) >= 100 },
+  // Sleep (all from WHOOP)
+  { id: "fajr7", ar: "وسام الفجر", en: "Order of Fajr", how: "Up for Fajr 7 days in a row", cur: () => bestStreak(T.fajr), goal: 7, test: () => bestStreak(T.fajr) >= 7 },
+  { id: "fajr30", ar: "أهل الفجر", en: "People of Fajr", how: "Up for Fajr 30 days in a row", cur: () => bestStreak(T.fajr), goal: 30, test: () => bestStreak(T.fajr) >= 30 },
+  { id: "fajr90", ar: "حارس الفجر", en: "Guardian of Fajr", how: "Up for Fajr 90 days in a row", cur: () => bestStreak(T.fajr), goal: 90, test: () => bestStreak(T.fajr) >= 90 },
+  { id: "regular7", ar: "المنتظم", en: "The Regular", how: "Sleep consistency on target 7 nights in a row", cur: () => bestStreak(T.regular), goal: 7, test: () => bestStreak(T.regular) >= 7 },
+  { id: "regular30", ar: "ساعة الجسد", en: "Body clock", how: "Sleep consistency on target 30 nights in a row", cur: () => bestStreak(T.regular), goal: 30, test: () => bestStreak(T.regular) >= 30 },
+  { id: "slept7", ar: "الراحة", en: "Well rested", how: "Your sleep target 7 nights in a row", cur: () => bestStreak(T.slept), goal: 7, test: () => bestStreak(T.slept) >= 7 },
+  { id: "green7", ar: "الأخضر", en: "In the green", how: "WHOOP recovery 67% or more 7 days in a row", cur: () => bestStreak(T.green), goal: 7, test: () => bestStreak(T.green) >= 7 },
+  // Body
+  { id: "weigh1", ar: "أول نزول", en: "First drop", how: "A lower weight at the Sunday weigh-in", cur: (t) => t.drops, goal: 1, test: (t) => t.drops >= 1 },
+  { id: "weigh4run", ar: "المنحدر", en: "The descent", how: "4 Sundays in a row, each lower than the last", cur: () => sundayRun(true), goal: 4, test: () => sundayRun(true) >= 4 },
+  { id: "weigh12", ar: "اثنا عشر نزولًا", en: "Twelve drops", how: "12 Sunday weigh-ins lower than the week before", cur: (t) => t.drops, goal: 12, test: (t) => t.drops >= 12 },
+  { id: "under90", ar: "تحت التسعين", en: "Under 90", how: "Weigh under 90 kg", cur: () => lowestWeight(), goal: 90, down: true, test: () => lowestWeight() < 90 },
+  { id: "under85", ar: "تحت الخمسة والثمانين", en: "Under 85", how: "Weigh under 85 kg", cur: () => lowestWeight(), goal: 85, down: true, test: () => lowestWeight() < 85 },
+  { id: "under80", ar: "تحت الثمانين", en: "Under 80", how: "Weigh under 80 kg", cur: () => lowestWeight(), goal: 80, down: true, test: () => lowestWeight() < 80 },
+  { id: "iron10", ar: "البداية", en: "Ten sessions", how: "Train 10 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 10, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 10 },
+  { id: "iron", ar: "الحديد", en: "Iron", how: "Train 30 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 30, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 30 },
+  { id: "iron100", ar: "الفولاذ", en: "Steel", how: "Train 100 sessions", cur: () => officeDays().filter((d) => TRAINED.includes(d.train)).length, goal: 100, test: () => officeDays().filter((d) => TRAINED.includes(d.train)).length >= 100 },
+  { id: "deficit", ar: "الصائم عن الزيادة", en: "Master of the deficit", how: "30 days on your deficit target", cur: () => officeDays().filter(dietMet).length, goal: 30, test: () => officeDays().filter(dietMet).length >= 30 },
+  { id: "steps15", ar: "المشّاء", en: "The walker", how: "15,000 steps in a day", cur: () => Math.max(0, ...officeDays().map((d) => d.steps || 0)), goal: 15000, test: () => officeDays().some((d) => (d.steps || 0) >= 15000) },
+  { id: "steps1m", ar: "مليون خطوة", en: "A million steps", how: "1,000,000 steps since taking office", cur: () => sumOf("steps"), goal: 1000000, test: () => sumOf("steps") >= 1000000 },
+  { id: "vital7", ar: "الحيوية", en: "Vitality · 7", how: "4 of the 5 vitals 7 days in a row", cur: () => bestStreak(T.vital), goal: 7, test: () => bestStreak(T.vital) >= 7 },
+  { id: "vital30", ar: "الجسد الحي", en: "Vitality · 30", how: "4 of the 5 vitals 30 days in a row", cur: () => bestStreak(T.vital), goal: 30, test: () => bestStreak(T.vital) >= 30 },
+  // Purity
+  { id: "pure7", ar: "العفيف", en: "The Chaste · 7", how: "7 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 7, test: () => bestStreak(T.pure) >= 7 },
+  { id: "pure30", ar: "الطاهر", en: "The Pure · 30", how: "30 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 30, test: () => bestStreak(T.pure) >= 30 },
+  { id: "pure90", ar: "المنتصر", en: "The Victor · 90", how: "90 porn-free days in a row", cur: () => bestStreak(T.pure), goal: 90, test: () => bestStreak(T.pure) >= 90 },
+  { id: "abstain7", ar: "ضبط النفس", en: "Self-mastery · 7", how: "7 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 7, test: () => bestStreak(T.abstain) >= 7 },
+  { id: "abstain30", ar: "المالك لنفسه", en: "Master of himself · 30", how: "30 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 30, test: () => bestStreak(T.abstain) >= 30 },
+  { id: "abstain90", ar: "الحر", en: "The Free · 90", how: "90 days in a row with no masturbation and no porn", cur: () => bestStreak(T.abstain), goal: 90, test: () => bestStreak(T.abstain) >= 90 },
+  // Knowledge and work
+  { id: "read7", ar: "طالب العلم", en: "Seeker of knowledge", how: "Hit your pages 7 days in a row", cur: () => bestStreak(T.read), goal: 7, test: () => bestStreak(T.read) >= 7 },
+  { id: "read30", ar: "القارئ", en: "The Reader", how: "Hit your pages 30 days in a row", cur: () => bestStreak(T.read), goal: 30, test: () => bestStreak(T.read) >= 30 },
+  { id: "pages1000", ar: "ألف صفحة", en: "A thousand pages", how: "Read 1,000 pages in office", cur: () => sumOf("pages"), goal: 1000, test: () => sumOf("pages") >= 1000 },
+  { id: "pages5000", ar: "خمسة آلاف صفحة", en: "Five thousand pages", how: "Read 5,000 pages in office", cur: () => sumOf("pages"), goal: 5000, test: () => sumOf("pages") >= 5000 },
+  { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", cur: () => bestStreak(T.productive), goal: 7, test: () => bestStreak(T.productive) >= 7 },
+  { id: "chancellor30", ar: "آلة الإنجاز", en: "The Engine", how: "80% of the checklist 30 days in a row", cur: () => bestStreak(T.productive), goal: 30, test: () => bestStreak(T.productive) >= 30 },
+];
+// Every medal with how close you are: cur of goal (for weight medals, how far from your first weight in office to the goal).
+export function medals() {
+  const t = totals(), w0 = officeDays().map((d) => d.weight).find((w) => w != null);
+  return MEDALS.map((m) => {
+    const won = !!m.test(t), cur = m.cur ? m.cur(t) : won ? 1 : 0, goal = typeof m.goal === "function" ? m.goal() : m.goal || 1;
+    let frac = won ? 1 : m.down ? (w0 == null || !isFinite(cur) ? 0 : (w0 - cur) / Math.max(0.1, w0 - goal)) : cur / goal;
+    frac = Math.max(0, Math.min(1, frac || 0));
+    return { ...m, won, cur: isFinite(cur) ? cur : null, goal, frac };
+  });
+}
+
+/* ---------- what each part of the day pays (the quest board) ---------- */
+// The same arithmetic as dayXP, split so the app can show "+4 XP" on a prayer and "16 of 20" on a minister.
+export function xpParts(s) {
+  const d = S.days[s], m = dayMinisters(s), on = manual(d);
+  const ministers = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { earned: Math.round(v * XP_PER_MINISTER), max: XP_PER_MINISTER, frac: v }]));
+  const perfect = Object.values(m).every((v) => v >= 0.9), near = Object.values(m).filter((v) => v >= 0.9).length;
+  const c = checklistFor(s), v = vitalityFor(s), w = weighIn(s);
+  return {
+    ministers, near,
+    perfect: { earned: perfect ? PERFECT_BONUS : 0, max: PERFECT_BONUS },
+    checklist: { earned: on ? Math.round((c.frac || 0) * CHECKLIST_XP) : 0, max: CHECKLIST_XP },
+    vitality: { earned: on ? Math.round((v.frac || 0) * VITALITY_XP) : 0, max: VITALITY_XP },
+    abstain: { earned: abstained(d) && on ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
+    weighIn: isSunday(s) ? { earned: inOffice(s) && w?.won ? WEIGH_IN_XP : 0, max: WEIGH_IN_XP } : null,
+    logged: on,
+  };
+}
+
+export const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
+
+// One verse for the palace: the term's whole idea, change begins within.
+export const AYAH = { ar: "إِنَّ ٱللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا۟ مَا بِأَنفُسِهِمْ", en: "Allah does not change the condition of a people until they change what is within themselves.", ref: "Ar-Ra'd 13:11" };
+
+/* ---------- the body plan: aim for strong, accept likely ----------
+   Checkpoints at the end of each term, set on 18 Oct 2026 from the data at the time.
+   Terms III and IV fall in summer: maintenance with slow progress, built to survive heat, travel and interruptions. */
+export const BODY_PLAN = {
+  checkpoints: ["2027-02-01", "2027-05-01", "2027-08-01", "2027-11-01"],
+  rows: [
+    { k: "weight", en: "Weight", unit: "kg", now: 92.2, likely: [84.5, 79, 78.5, 76], strong: [82, 76.5, 75.5, 73], down: true },
+    { k: "bodyFat", en: "Body fat", unit: "%", now: 27, likely: [21.5, 17.5, 17, 16], strong: [19, 15, 14.5, 13], down: true },
+    { k: "vo2max", en: "VO₂ max", unit: "", now: 42, likely: [46.5, 50.5, 51, 52], strong: [49, 53, 54, 55], down: false },
+    { k: "restingHR", en: "Resting heart rate", unit: "bpm", now: 61, likely: [57, 56, 56, 55], strong: [56, 53, 53, 52], down: true },
+    { k: "bioAge", en: "Biological age", unit: "y", now: 31.2, likely: [27.2, 25.9, 25.6, 25], strong: [25.1, 23.9, 23.6, 23.3], down: true },
+  ],
+  // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
+  terms: [
+    { deficitMin: 700, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
+      rules: ["700 kcal deficit a day (WHOOP burned − FatSecret eaten), 160 g protein", "4 training sessions a week across gym, tennis and MMA", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
+    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepH: 7, sleepCons: 75, strain: 11 },
+      rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
+    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
+      rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 sessions minimum: gym, MMA or swimming, indoors or in the water", "Tennis early morning; swim in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
+    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, sleepH: 7, sleepCons: 80, strain: 12 },
+      rules: ["August: maintenance and routine rebuild after summer", "September–October: 400 kcal deficit, 4 sessions", "1–2 interval sessions a week to push VO₂ max past 52", "Plan the next year at the November council"] },
+  ],
+};
+export function planTargets(i = termIndex()) { return BODY_PLAN.terms[Math.min(i, BODY_PLAN.terms.length - 1)]; }

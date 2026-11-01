@@ -1,4 +1,6 @@
 // Al-Mustanir game logic: dates, ministers, scoring, XP, ranks and medals. No DOM here.
+// One engine, two runtimes (ADR-0001): the app imports this file, and the `game` Edge Function deploys an identical copy
+// (supabase/functions/game/logic.js; a test fails if they differ). Keep it pure: no DOM, no network, no storage.
 
 export const DEFAULTS = {
   termStart: "2026-11-01", sessionsPerWeek: 4, pagesPerDay: 20, bedtime: "21:00", wake: "05:00",
@@ -64,7 +66,16 @@ export const parse = (s) => { const [a, b, c] = s.split("-").map(Number); return
 export const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); };
 export const addMonths = (s, n) => { const d = parse(s); d.setMonth(d.getMonth() + n); return ymd(d); };
 export const diff = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
-export const today = () => ymd(new Date());
+// The clock. The phone uses its own; the server runs in UTC, so it sets the player's zone with setTimeZone().
+let ZONE = null;
+export const setTimeZone = (tz) => { ZONE = tz || null; };
+function zoned(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return { day: `${p.year}-${p.month}-${p.day}`, min: +p.hour * 60 + +p.minute };
+}
+export const today = () => (ZONE ? zoned().day : ymd(new Date()));
+export const minutesNow = () => { if (ZONE) return zoned().min; const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 export const fmt = (s, o) => parse(s).toLocaleDateString("en-GB", o || { weekday: "long", day: "numeric", month: "long" });
 export function hijri(s) {
   try { return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" }).format(parse(s)); }
@@ -160,7 +171,7 @@ export function matchSlot(date, slot, nowMin = null) {
     }
   }
   done = Math.round(Math.min(done, planned + 60)); kcal = Math.round(kcal);
-  const t = today(), past = date < t || (date === t && (nowMin ?? new Date().getHours() * 60 + new Date().getMinutes()) > b);
+  const t = today(), past = date < t || (date === t && (nowMin ?? minutesNow()) > b);
   // Judged by WHOOP alone: half the planned time or more is done.
   let status = done >= planned * 0.5 ? "done" : done > 0 ? (past ? "partial" : "live") : past ? "missed" : "upcoming";
   const frac = Math.min(1, done / planned);
@@ -316,7 +327,7 @@ export function dayXP(s) {
   const perfect = Object.values(m).every((v) => v >= 0.9);
   const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
   const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
-  const a = abstained(S.days[s]) ? ABSTAIN_XP : 0;
+  const a = manual(S.days[s]) && abstained(S.days[s]) ? ABSTAIN_XP : 0; // like every bonus, only on a day you logged
   return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s);
 }
 

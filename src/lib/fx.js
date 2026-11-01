@@ -45,20 +45,19 @@ export function xpFloat(x, y, amount) {
   if (amount > 0) burst(x, y, Math.min(30, 8 + amount));
 }
 
-export function levelUp(level, rank) {
-  const el = document.createElement("div"); el.className = "levelup"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Level up");
-  el.innerHTML = `<div class="seal"><svg viewBox="0 0 100 100" aria-hidden="true"><path d=""/></svg><span class="lv"></span></div><p class="ar"></p><p class="en"></p><button class="btn">Continue</button>`;
-  const path = [];
-  for (let i = 0; i < 16; i++) { const a = (i * Math.PI) / 8 - Math.PI / 2, r = i % 2 ? 38 : 48; path.push((i ? "L" : "M") + (50 + Math.cos(a) * r).toFixed(1) + "," + (50 + Math.sin(a) * r).toFixed(1)); }
-  el.querySelector("path").setAttribute("d", path.join("") + "Z");
+// The level-up moment (Claude Design: "Level up"): deep emerald, sixteen rays, the gold seal, the new rank in both languages.
+export function levelUp(level, rank, line = "A new rank in office.") {
+  const el = document.createElement("div"); el.className = "levelup"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", `Level ${level}, ${rank.en}`);
+  const rays = Array.from({ length: 16 }, (_, i) => `<i style="transform:rotate(${i * 22.5}deg);opacity:${i % 2 ? 0.5 : 1}"></i>`).join("");
+  el.innerHTML = `<div class="rays" aria-hidden="true">${rays}</div><p class="kicker">Level up</p><div class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 4.2 4.7-1-1 4.7L22 12l-4.2 2.4 1 4.7-4.7-1L12 22l-2.4-4.2-4.7 1 1-4.7L2 12l4.2-2.4-1-4.7 4.7 1z"/></svg><span class="lv"></span></div><p class="ar"></p><p class="en"></p><p class="line"></p><button class="btn">Continue</button>`;
   el.querySelector(".lv").textContent = level;
   el.querySelector(".ar").textContent = rank.ar;
-  el.querySelector(".en").textContent = `Level ${level} · ${rank.en}`;
-  const close = () => el.remove();
+  el.querySelector(".en").textContent = rank.en;
+  el.querySelector(".line").textContent = line;
+  const close = () => { el.classList.add("out"); setTimeout(() => el.remove(), 250); };
   el.querySelector("button").addEventListener("click", close);
-  el.addEventListener("click", (e) => { if (e.target === el) close(); });
   document.body.append(el);
   el.querySelector("button").focus();
   const r = el.querySelector(".seal").getBoundingClientRect();
-  setTimeout(() => burst(r.left + r.width / 2, r.top + r.height / 2, 40), reduced() ? 0 : 450);
+  setTimeout(() => { burst(r.left + r.width / 2, r.top + r.height / 2, 50, ["#F1D896", "#D6AF5F", "#5CCB9F", "#FFFFFF"]); }, reduced() ? 0 : 450);
 }

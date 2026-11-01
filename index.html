@@ -34,7 +34,9 @@
 <link rel="preconnect" href="https://qanzhisoxueaizscdial.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<!-- The Arabic fonts never block the first paint: loaded as a stylesheet once ready, system Arabic until then. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet"></noscript>
 <script>
   // Paint the right theme before React loads, so there's no flash.
   try { var p = JSON.parse(localStorage.getItem("a2-theme") || '"system"'); if (p === "dark" || (p === "system" && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark"); } catch (e) {}
@@ -47,6 +49,7 @@
   #boot svg { width: 104px; height: 104px; animation: boot-in .7s cubic-bezier(.2,.8,.2,1) both, boot-breathe 2.4s ease-in-out .7s infinite; }
   #boot .name { font: 600 26px/1.2 "Geeza Pro", "Reem Kufi", system-ui, sans-serif; direction: rtl; animation: boot-up .7s .12s cubic-bezier(.2,.8,.2,1) both; }
   #boot .bar { width: 72px; height: 2px; border-radius: 2px; overflow: hidden; background: rgb(214 175 95 / .22); animation: boot-up .7s .2s both; }
+  #boot .who { position: absolute; bottom: max(env(safe-area-inset-bottom), 24px); margin-bottom: 40px; font: 500 13px/1.2 -apple-system, system-ui, sans-serif; letter-spacing: .04em; color: rgb(214 175 95 / .7); animation: boot-up .7s .3s both; }
   #boot .bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: #D6AF5F; animation: boot-load 1.1s ease-in-out infinite; }
   @keyframes boot-in { from { opacity: 0; transform: scale(.82) rotate(-12deg); } }
   @keyframes boot-up { from { opacity: 0; transform: translateY(6px); } }
@@ -65,7 +68,12 @@
   </svg>
   <div class="name">المُستنير</div>
   <div class="bar"><i></i></div>
+  <div class="who" id="boot-who"></div>
 </div>
+<script>
+  // Your rank on the boot screen, from the last time the app saw it (a few bytes in localStorage).
+  try { var p = JSON.parse(localStorage.getItem("a2-player") || "null"); if (p && p.level) document.getElementById("boot-who").textContent = "Level " + p.level + " · " + p.rank_en; } catch (e) {}
+</script>
 <script>
   // Shown for at least 600 ms so the brand moment reads; never longer than 8 s, whatever happens.
   (function () {

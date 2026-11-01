@@ -4,7 +4,7 @@ import { Crown, ChevronRight, Flame, Lock, Trophy } from "lucide-react";
 import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart, termDay, termLength,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
-import { useApp, bump } from "@/lib/app-state.js";
+import { useApp, bump, allTotals, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { AdvisorCard } from "@/components/advisor.jsx";
 import { Ar, LargeTitle, Section, Hint, Fold, Bar, pctTxt } from "@/components/kit";
@@ -50,7 +50,7 @@ export default function Palace() {
 function Ladder() {
   const strip = useRef(null);
   useEffect(() => { const el = strip.current?.querySelector("[data-cur]"); if (el) strip.current.scrollLeft = el.offsetLeft - 16; }, []);
-  const t = totals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
+  const t = allTotals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
   const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
   const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
   const best = days.reduce((a, k) => Math.max(a, dayXP(k)), 0);
@@ -159,7 +159,7 @@ function Council() {
 /* ---------- medals, with how close each one is ---------- */
 function Medals() {
   const [all, setAll] = useState(false);
-  const ms = medals(), won = ms.filter((m) => m.won), rest = ms.filter((m) => !m.won).sort((a, b) => b.frac - a.frac);
+  const ms = allMedals(), won = ms.filter((m) => m.won), rest = ms.filter((m) => !m.won).sort((a, b) => b.frac - a.frac);
   const list = [...won, ...rest], shown = all ? list : list.slice(0, Math.max(9, won.length + 3));
   return (
     <Section title="Medals" right={<span className="text-[13px] text-muted-foreground tnum">{won.length} of {ms.length}</span>}>
@@ -218,7 +218,7 @@ function Trends() {
           <button key={k} onClick={() => { S.trend = k; bump(); }} className={cn("press h-8 shrink-0 rounded-full px-3 text-[13px] font-medium", k === key ? "bg-foreground text-background" : "bg-muted text-muted-foreground")}>{l}</button>
         ))}
       </div>
-      {pts.length ? <TrendChart id={"t-" + key} points={pts} unit={unit} digits={digits} color={color} goal={goal || null} smooth={days > 60 ? 7 : 1} min={key === "weight" ? null : 0} />
+      {pts.length ? <TrendChart points={pts} unit={unit} digits={digits} color={color} goal={goal || null} smooth={days > 60 ? 7 : 1} min={key === "weight" ? null : 0} />
         : <Hint className="py-8 text-center">No {title.toLowerCase()} data in the last {days} days yet.</Hint>}
     </Section>
   );

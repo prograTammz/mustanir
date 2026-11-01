@@ -18,6 +18,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: oven-sh/setup-bun@v2
+      # The game engine's rules (and the server's copy of them) must pass before anything ships.
+      - run: bun test
+        env:
+          TZ: Africa/Cairo
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - uses: actions/upload-artifact@v4

@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
-import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
+import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
+import { widgetScript } from "@/lib/widget.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin } from "@/components/kit";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export default function Diwan() {
       </Section>
       <Notifications />
       <Calendar />
+      <Widget />
       <Whoop />
       <FatSecret />
       <Section title="Account" ar="الحساب">
@@ -236,6 +238,36 @@ function Calendar() {
           <CopyField value={link} />
         </div>
       ) : <Button className="w-full" onClick={make}>Create calendar link</Button>}
+      {msg && <Hint className="mt-2">{msg}</Hint>}
+    </Section>
+  );
+}
+
+// The widget: iOS gives web apps none, so the free Scriptable app draws one from the game function's data.
+function Widget() {
+  const [script, setScript] = useState(""), [msg, setMsg] = useState(""), [copied, setCopied] = useState(false);
+  const make = async () => {
+    setMsg("Creating…");
+    try {
+      const s = widgetScript(await newShortcutKey("Widget"));
+      setScript(s); setMsg("");
+      try { await navigator.clipboard.writeText(s); setCopied(true); } catch { /* the button below copies it */ }
+    } catch (e) { setMsg("Couldn’t create the widget key: " + e.message); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(script); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { setMsg("Copy didn’t work here. Try again from the home-screen app."); } };
+  return (
+    <Section title="Home-screen widget" ar="الأداة" desc="Your level, today’s XP, streak and what’s still open, on the home screen or the lock screen. Refreshes about every 15 minutes.">
+      {script ? (
+        <div className="flex flex-col gap-3">
+          <Button className="w-full" onClick={copy}>{copied ? <><Check />Script copied</> : <><Copy />Copy the widget script</>}</Button>
+          <ol className="ml-5 list-decimal space-y-1.5 text-[14px] leading-relaxed">
+            <li>Install <a className="underline" href="https://apps.apple.com/app/scriptable/id1405459188">Scriptable</a> (free).</li>
+            <li>In Scriptable, tap <b>+</b>, paste, and name the script <b>Mustanir</b>.</li>
+            <li>Long-press the home screen → <b>Edit</b> → <b>Add Widget</b> → Scriptable. Tap the new widget and choose <b>Mustanir</b>. On the lock screen, pick the rectangular size.</li>
+          </ol>
+          <Hint>The script holds a private key that can only read your game. Making a new one doesn’t turn this one off.</Hint>
+        </div>
+      ) : <Button className="w-full" onClick={make}>Create the widget</Button>}
       {msg && <Hint className="mt-2">{msg}</Hint>}
     </Section>
   );

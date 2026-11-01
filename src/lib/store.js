@@ -1,9 +1,15 @@
-// Supabase over plain REST (no SDK), with an on-device copy and an outbox so logging works offline.
+// The data layer (ADR-0001): Supabase over plain REST, local-first in IndexedDB, live over one Realtime socket.
+//   BASE[date]   the server's copy of a day (what IndexedDB keeps)
+//   OUTBOX[date] the keys you changed and the server hasn't confirmed yet (a patch; null removes a key)
+//   S.days[date] what the screen shows: BASE with the OUTBOX patch on top
+// Saves send only the patch to the save_day RPC, which merges in Postgres, so a WHOOP write landing at the same moment is never lost.
+// Loads ask only for rows changed since the last cursor. Realtime delivers WHOOP and FatSecret rows seconds after they land.
 import { S, DEFAULTS, syncBed, day, violation, termIndex, planTargets } from "./logic.js";
+import { idb } from "./idb.js";
+import { connectRealtime } from "./realtime.js";
 
 export const SB_URL = "https://qanzhisoxueaizscdial.supabase.co";
 const SB_KEY = "sb_publishable_L6srdujqlW0FgMinucAqaw_qMOEMhqJ"; // publishable: safe in the page; row-level security protects the data
-export const HEALTH_URL = SB_URL + "/functions/v1/health";
 export const APP_URL = location.origin + location.pathname.replace(/index\.html$/, "");
 
 export const LS = {
@@ -12,11 +18,14 @@ export const LS = {
   del(k) { try { localStorage.removeItem(k); } catch { /* blocked */ } },
 };
 export let SESSION = LS.get("a2-session", null);
-const OUTBOX = LS.get("a2-outbox", {});
 let onChange = () => {};
 export const setRenderer = (fn) => { onChange = fn; };
 export function setStatus(t) { S.status = t; onChange(); }
+// app-state wraps changes that arrive from the server, to celebrate XP the watch earned. Default: just apply.
+let onRemote = (apply) => apply();
+export const setRemoteHandler = (fn) => { onRemote = fn; };
 
+/* ---------- session ---------- */
 async function authCall(path, body) {
   const res = await fetch(SB_URL + "/auth/v1/" + path, { method: "POST", headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const out = await res.json().catch(() => ({}));
@@ -26,6 +35,7 @@ async function authCall(path, body) {
 function keepSession(out) {
   SESSION = { access_token: out.access_token, refresh_token: out.refresh_token, expires_at: Date.now() + (out.expires_in || 3600) * 1000, email: out.user && out.user.email };
   LS.set("a2-session", SESSION);
+  live?.setToken(SESSION.access_token);
 }
 export async function signIn(email, password) { keepSession(await authCall("token?grant_type=password", { email, password })); }
 export async function signUp(email, password) {
@@ -33,22 +43,31 @@ export async function signUp(email, password) {
   if (!out.access_token) return false; // email confirmation required
   keepSession(out); return true;
 }
-export function signOut() { SESSION = null; LS.del("a2-session"); LS.del("a2-cache"); S.days = {}; S.health = null; S.mode = "signin"; }
-
+export function signOut() {
+  SESSION = null; LS.del("a2-session"); live?.close(); live = null;
+  for (const k of Object.keys(BASE)) delete BASE[k];
+  for (const k of Object.keys(OUTBOX)) delete OUTBOX[k];
+  CURSOR = null; idb.clear();
+  S.days = {}; S.health = null; S.player = null; S.mode = "signin";
+}
+let refreshing = null;
 async function token() {
   if (!SESSION) throw new Error("Signed out");
   if (Date.now() > SESSION.expires_at - 60000) {
-    try { keepSession(await authCall("token?grant_type=refresh_token", { refresh_token: SESSION.refresh_token })); }
-    catch (e) { if (navigator.onLine !== false) { signOut(); onChange(); } throw e; }
+    refreshing ||= authCall("token?grant_type=refresh_token", { refresh_token: SESSION.refresh_token }).then(keepSession).finally(() => { refreshing = null; });
+    try { await refreshing; } catch (e) { if (navigator.onLine !== false) { signOut(); onChange(); } throw e; }
   }
   return SESSION.access_token;
 }
+const userId = () => { try { return JSON.parse(atob(SESSION.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub; } catch { return null; } };
+
 async function rest(path, opts = {}) {
   const res = await fetch(SB_URL + "/rest/v1/" + path, { ...opts, headers: { apikey: SB_KEY, Authorization: "Bearer " + await token(), "Content-Type": "application/json", ...(opts.headers || {}) } });
   if (!res.ok) { const t = await res.text(); throw new Error(t || "HTTP " + res.status); }
   return res.status === 204 ? null : res.json().catch(() => null);
 }
 const upsert = (table, conflict, row) => rest(table + "?on_conflict=" + conflict, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row) });
+const rpc = (fn, args) => rest("rpc/" + fn, { method: "POST", body: JSON.stringify(args || {}) });
 
 // Page through a table past PostgREST's row cap.
 async function all(path, page = 1000) {
@@ -61,86 +80,151 @@ async function all(path, page = 1000) {
   return out;
 }
 
-function scoresFor(date) { const d = S.days[date] || {}, ds = day(date); return { faith: ds.faith, knowledge: ds.knowledge, habits: ds.habits, withinSchedule: d.mast ? !violation(date) : null }; }
-// Saving sends the whole day, so first fold in whatever Apple Health wrote since this phone last loaded it.
-// Without this, logging a prayer right after a sync erased that sync's workouts, steps and sleep.
-const MEASURED = ["steps", "activeKcal", "basalKcal", "dietaryKcal", "exerciseMin", "standHours", "restingHR", "daylightMin", "hrv", "vo2max",
-  "workouts", "workoutsDetail", "walkMin", "exByHour", "kcalByHour", "sleepStart", "sleepEnd", "deficit", "source",
-  // WHOOP
-  "sleepH", "weight", "wake", "watch", "totalKcal", "strain", "recovery", "spo2", "skinTemp", "respRate", "sleepPerf", "sleepCons", "sleepEff", "sleepNeedH", "napMin", "avgHR"];
-const srcTime = (s) => Date.parse(String(s || "").replace(/^\D+/, "")) || 0; // "WHOOP 2026-11-01T…" → time
-const FILL_ONLY = ["train", "diet"]; // can be typed by hand: only filled when blank
-export function mergeHealth(local, server) {
-  if (!server) return local;
-  const out = { ...local };
-  const newer = /^(Apple Health|WHOOP)/.test(String(server.source || "")) && srcTime(server.source) > srcTime(local.source);
-  for (const k of MEASURED) if (k in server && (!(k in out) || newer)) out[k] = server[k];
-  for (const k of FILL_ONLY) if (k in server && !(k in out)) out[k] = server[k];
+/* ---------- days: the server's copy, your pending changes, and what the screen shows ---------- */
+const BASE = {};
+const OUTBOX = {};
+let CURSOR = null; // the newest updated_at this phone has seen
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+export function applyPatch(base, patch) {
+  const out = { ...(base || {}) };
+  for (const [k, v] of Object.entries(patch || {})) { if (v === null || v === undefined) delete out[k]; else out[k] = v; }
   return out;
 }
-async function pushDay(date, entry) {
-  try {
-    const rows = await rest("days?select=data&date=eq." + date);
-    const server = rows && rows[0] ? rows[0].data : null;
-    if (server) {
-      entry.d = mergeHealth(entry.d, server);
-      if (S.days[date]) { S.days[date] = mergeHealth(S.days[date], server); entry.scores = scoresFor(date); onChange(); }
-    }
-  } catch { /* offline: the save below fails too and the outbox retries */ }
-  return upsert("days", "user_id,date", { date, data: entry.d, scores: entry.scores });
+export function diffDay(base, cur) {
+  const patch = {};
+  for (const k of new Set([...Object.keys(base || {}), ...Object.keys(cur || {})])) {
+    const a = (base || {})[k], b = (cur || {})[k];
+    if (!same(a, b)) patch[k] = b === undefined ? null : b;
+  }
+  return patch;
+}
+// Always a deep copy: the screen mutates its day in place (nested objects too), and the base must stay the server's.
+const clone = (x) => (typeof structuredClone === "function" ? structuredClone(x) : JSON.parse(JSON.stringify(x)));
+const shown = (date) => clone(applyPatch(BASE[date], OUTBOX[date]?.patch));
+function scoresFor(date) { const d = S.days[date] || {}, ds = day(date); return { faith: ds.faith, knowledge: ds.knowledge, habits: ds.habits, withinSchedule: d.mast ? !violation(date) : null }; }
+
+let baseQueue = new Set(), baseTimer = 0;
+function persistBase(date) {
+  baseQueue.add(date); clearTimeout(baseTimer);
+  baseTimer = setTimeout(() => { const ds = [...baseQueue]; baseQueue = new Set(); idb.put("days", ds.map((d) => [d, BASE[d]])); }, 300);
+}
+const persistOutbox = () => idb.set("meta", "outbox", OUTBOX);
+const persistSettings = () => idb.set("meta", "settings", S.settings);
+
+/** A row from the server (a load or a live change): it becomes the base, your pending patch stays on top. */
+function applyRow(date, data, updatedAt) {
+  BASE[date] = data || {};
+  S.days[date] = shown(date);
+  persistBase(date);
+  if (updatedAt && (!CURSOR || updatedAt > CURSOR)) { CURSOR = updatedAt; idb.set("meta", "cursor", CURSOR); }
 }
 
+async function send(date) {
+  const entry = OUTBOX[date]; if (!entry) return;
+  await rpc("save_day", { p_date: date, p_patch: entry.patch, p_scores: entry.scores });
+  BASE[date] = applyPatch(BASE[date], entry.patch); persistBase(date);
+  if (OUTBOX[date] === entry) { delete OUTBOX[date]; persistOutbox(); } // unchanged while it was in flight
+}
 export async function flushOutbox() {
   const dates = Object.keys(OUTBOX); if (!dates.length || !SESSION) return;
   for (const date of dates) {
-    try { await pushDay(date, OUTBOX[date]); delete OUTBOX[date]; LS.set("a2-outbox", OUTBOX); }
-    catch { setStatus("Saved on this phone · syncs when you’re back online"); return; }
+    try { await send(date); } catch { setStatus("Saved on this phone · syncs when you’re back online"); return; }
   }
   setStatus("Synced");
 }
+/** Every change to a day comes here: the patch is kept on the phone at once and sent a moment later. */
 export function saveDay(date) {
   S.dirty.add(date); setStatus("Saving…");
-  LS.set("a2-cache", { settings: S.settings, days: S.days });
+  const patch = diffDay(BASE[date], S.days[date]);
+  if (Object.keys(patch).length) OUTBOX[date] = { patch, scores: scoresFor(date) }; else delete OUTBOX[date];
+  persistOutbox();
   clearTimeout(S.timers[date]);
   S.timers[date] = setTimeout(async () => {
-    const entry = { d: S.days[date] || {}, scores: scoresFor(date) };
-    OUTBOX[date] = entry; LS.set("a2-outbox", OUTBOX);
-    try { await pushDay(date, entry); delete OUTBOX[date]; LS.set("a2-outbox", OUTBOX); setStatus("Sealed"); }
+    try { await send(date); setStatus("Sealed"); }
     catch { setStatus(navigator.onLine === false ? "Saved on this phone · syncs when you’re back online" : "Saved on this phone · will retry"); }
     finally { S.dirty.delete(date); }
-  }, 700);
+  }, 600);
 }
 let settingsTimer;
 export function saveSettings() {
-  LS.set("a2-cache", { settings: S.settings, days: S.days });
+  persistSettings();
   clearTimeout(settingsTimer);
   settingsTimer = setTimeout(() => { upsert("settings", "user_id", { data: { ...S.settings, appUrl: APP_URL } }).catch(() => setStatus("Settings saved on this phone · will retry")); }, 400);
 }
-function applyData(settings, days) {
+function applySettings(settings) {
   S.settings = { ...DEFAULTS, ...(settings || {}) }; S.settings.notify = { ...DEFAULTS.notify, ...((settings || {}).notify || {}) }; syncBed();
-  const next = { ...(days || {}) };
-  Object.keys(OUTBOX).forEach((k) => { next[k] = OUTBOX[k].d; });
-  S.dirty.forEach((k) => { if (S.days[k]) next[k] = S.days[k]; });
-  S.days = next;
 }
-export async function load() {
-  if (!SESSION) { S.mode = "signin"; onChange(); return; }
-  try {
-    await flushOutbox();
-    const [st, rows] = await Promise.all([rest("settings?select=data"), all("days?select=date,data&order=date")]);
-    const days = {}; rows.forEach((r) => { days[r.date] = r.data || {}; });
-    applyData(st && st[0] ? st[0].data : {}, days); S.mode = "cloud"; S.loaded = true;
-    // When a new term begins, adopt that term's body-plan targets once (aim strong, accept likely).
-    const ti = termIndex();
-    if (S.settings.bodyPlanTerm !== ti) { const { rules, ...t } = planTargets(ti); Object.assign(S.settings, t, { bodyPlanTerm: ti }); saveSettings(); }
-    LS.set("a2-cache", { settings: S.settings, days: S.days }); onChange();
-  } catch (e) { if (S.mode !== "signin") { S.mode = "error"; S.err = e.message; onChange(); } }
+
+/** Before the first frame: everything this phone already knows, from IndexedDB (or the old localStorage cache, once). */
+export async function hydrate() {
+  const [days, outbox, cursor, settings] = await Promise.all([idb.entries("days"), idb.get("meta", "outbox"), idb.get("meta", "cursor"), idb.get("meta", "settings")]);
+  if (days.length) {
+    for (const [k, v] of days) BASE[k] = v;
+    Object.assign(OUTBOX, outbox || {}); CURSOR = cursor || null;
+    applySettings(settings);
+  } else {
+    // First run on this version: bring over the localStorage cache, then drop it (it was rewritten whole on every tap).
+    const old = LS.get("a2-cache", null), oldOut = LS.get("a2-outbox", {});
+    if (old) { Object.assign(BASE, old.days || {}); applySettings(old.settings); idb.put("days", Object.entries(BASE)); persistSettings(); }
+    for (const [k, e] of Object.entries(oldOut || {})) OUTBOX[k] = { patch: e.d || {}, scores: e.scores };
+    persistOutbox(); LS.del("a2-cache"); LS.del("a2-outbox");
+  }
+  S.days = {}; for (const k of new Set([...Object.keys(BASE), ...Object.keys(OUTBOX)])) S.days[k] = shown(k);
+  S.player = LS.get("a2-player", null);
+  S.loaded = Object.keys(S.days).length > 0;
 }
+
+let loading = null;
+/** Sync with the server: send what's pending, then fetch only what changed since the cursor. */
+export function load() {
+  if (!SESSION) { S.mode = "signin"; onChange(); return Promise.resolve(); }
+  return (loading ||= (async () => {
+    try {
+      await flushOutbox();
+      const since = CURSOR ? "&updated_at=gt." + encodeURIComponent(CURSOR) : "";
+      const [st, rows, player] = await Promise.all([
+        rest("settings?select=data"),
+        all("days?select=date,data,updated_at&order=updated_at" + since),
+        rest("player_state?select=*").catch(() => null),
+      ]);
+      applySettings(st && st[0] ? st[0].data : {}); persistSettings();
+      if (rows.length) onRemote(() => { for (const r of rows) applyRow(r.date, r.data, r.updated_at); }, { initial: !CURSOR });
+      if (player && player[0]) setPlayer(player[0]);
+      S.mode = "cloud"; S.loaded = true;
+      // When a new term begins, adopt that term's body-plan targets once (aim strong, accept likely).
+      const ti = termIndex();
+      if (S.settings.bodyPlanTerm !== ti) { const { rules, ...t } = planTargets(ti); Object.assign(S.settings, t, { bodyPlanTerm: ti }); saveSettings(); }
+      onChange();
+      startLive();
+    } catch (e) { if (S.mode !== "signin") { S.mode = "error"; S.err = e.message; onChange(); } }
+    finally { loading = null; }
+  })());
+}
+function setPlayer(p) { S.player = p; LS.set("a2-player", { level: p.level, xp: p.xp, rank_en: p.rank_en, rank_ar: p.rank_ar, day: p.day }); }
+
+/* ---------- live ---------- */
+let live = null;
+S.live = "offline";
+function startLive() {
+  if (live || !SESSION) return;
+  const uid = userId(); if (!uid) return;
+  live = connectRealtime({
+    url: SB_URL, apikey: SB_KEY, token,
+    tables: [{ table: "days", filter: "user_id=eq." + uid }, { table: "player_state", filter: "user_id=eq." + uid }],
+    onStatus: (s) => { S.live = s; onChange(); },
+    onChange: (c) => {
+      const r = c.record || {};
+      if (c.table === "days" && r.date && c.type !== "DELETE") { onRemote(() => applyRow(r.date, r.data, r.updated_at), { date: r.date, data: r.data }); onChange(); }
+      if (c.table === "player_state" && r.user_id) { setPlayer(r); onChange(); }
+    },
+  });
+}
+/** Back from the background: reconnect the socket and catch up on anything missed while asleep. */
+export function wake() { live?.wake(); return load(); }
 
 // Health history for statistics, the vitals and the biological-age estimate: daily rollups in one call.
 export const CHART_METRICS = ["recovery", "strain", "totalKcal", "sleepConsistency", "sleepPerformance", "skinTemp", "steps", "activeKcal", "restingHR", "hrv", "weight", "sleepCore", "sleepDeep", "sleepREM", "sleepAsleep", "exerciseMin", "vo2max",
   "standHours", "daylightMin", "bmi", "height", "bodyFat", "leanMass", "walking_speed", "respRate", "spo2"];
-const rpc = (fn, args) => rest("rpc/" + fn, { method: "POST", body: JSON.stringify(args || {}) });
 export async function loadHealth(days = 1500) {
   if (!SESSION) return null;
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
@@ -171,11 +255,12 @@ export async function loadMetricSeries(metric, days = 1500) {
   return ((out || {})[metric] || []).map(([d, v]) => [d, Number(v)]);
 }
 
-export async function newShortcutKey() {
+// A private key for something outside the app (the widget). Only its hash is stored; the key itself is shown once.
+export async function newShortcutKey(label = "Widget") {
   const raw = crypto.getRandomValues(new Uint8Array(24));
   const key = "mk_" + [...raw].map((b) => b.toString(16).padStart(2, "0")).join("");
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)))].map((b) => b.toString(16).padStart(2, "0")).join("");
-  await rest("ingest_tokens", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ token_hash: hash }) });
+  await rest("ingest_tokens", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ token_hash: hash, label }) });
   return key;
 }
 
@@ -256,26 +341,13 @@ export async function newCalendarLink() {
   return PALACE_URL.replace(/^https:/, "webcal:") + "/calendar?t=" + t;
 }
 
-/* ---------- food (written to Apple Health by the nightly Shortcut) ---------- */
+/* ---------- meals (from FatSecret) ---------- */
 export async function loadMeals(date) {
   if (!SESSION) return [];
   const rows = (await rest(`meals?select=id,eaten_at,name,kcal,protein,exported_at,source&day=eq.${date}&order=eaten_at`)) || [];
   (S.meals ||= {})[date] = rows;
   return rows;
 }
-export async function addMeal(date, meal) {
-  const now = new Date(), isToday = date === new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const at = isToday ? now : new Date(date + "T13:00:00"); // a past day's meal lands at lunchtime
-  const row = { day: date, eaten_at: at.toISOString(), name: meal.name || null, kcal: meal.kcal, protein: meal.protein ?? null };
-  const out = await rest("meals", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(row) });
-  ((S.meals ||= {})[date] ||= []).push(out[0]);
-  return out[0];
-}
-export async function deleteMeal(date, id) {
-  await rest("meals?id=eq." + id, { method: "DELETE" });
-  if (S.meals?.[date]) S.meals[date] = S.meals[date].filter((m) => m.id !== id);
-}
-
 /* ---------- the advisor's weekly reports ---------- */
 export async function loadReviews() {
   if (!SESSION) return [];
@@ -283,5 +355,3 @@ export async function loadReviews() {
   return S.reviews;
 }
 
-const cached = LS.get("a2-cache", null);
-if (cached) { applyData(cached.settings, cached.days); S.loaded = true; }

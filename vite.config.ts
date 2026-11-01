@@ -27,6 +27,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), precache()],
   base: "./",
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
-  build: { outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 900,
-    rollupOptions: { output: { manualChunks: { charts: ["recharts"] } } } },
+  // Modern targets only (iOS 16.4+ is the floor for web push anyway): smaller output, no legacy transforms.
+  build: { outDir: "dist", sourcemap: false, target: "es2022", cssMinify: "lightningcss", chunkSizeWarningLimit: 300,
+    // React in its own long-lived chunk: an app update doesn't make the phone re-download React.
+    rollupOptions: { output: { manualChunks: { react: ["react", "react-dom", "react/jsx-runtime"] } } } },
 });

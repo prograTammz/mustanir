@@ -184,19 +184,40 @@
 [data-sonner-toast].toast-glass [data-button] { height: 32px !important; padding: 0 14px !important; border-radius: 999px !important; font-size: 13px !important; font-weight: 600 !important;
   background: var(--primary) !important; color: var(--primary-foreground) !important; }
 
+/* Live: the Realtime socket is open. */
+.live-dot { animation: live 2.4s ease-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgb(52 194 122 / .45); } 70%, 100% { box-shadow: 0 0 0 7px rgb(52 194 122 / 0); } }
+[data-sonner-toast].toast-live [data-title] { color: var(--gold); font-weight: 700; }
+
+/* Room changes (View Transitions, iOS 18+): a short cross-fade; the tab bar stays put. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+nav[aria-label="Rooms"] { view-transition-name: tabbar; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+
+/* Loading a room for the first time. */
+.skeleton { border-radius: 24px; background: linear-gradient(90deg, var(--muted) 0%, color-mix(in oklch, var(--muted) 55%, var(--card)) 50%, var(--muted) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
 /* reward moments (src/lib/fx.js) */
 canvas.fx { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 85; }
 .xpfloat { position: fixed; z-index: 86; pointer-events: none; transform: translate(-50%, -50%); font: 700 16px var(--font-display); color: var(--gold); text-shadow: 0 1px 8px color-mix(in oklch, var(--background) 60%, transparent); animation: xp-up 1.2s cubic-bezier(.2, .8, .3, 1) forwards; }
 .xpfloat.neg { color: var(--bad); }
 @keyframes xp-up { from { opacity: 0; transform: translate(-50%, -30%) scale(.8); } 15% { opacity: 1; transform: translate(-50%, -80%) scale(1.06); } to { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
-.levelup { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: color-mix(in oklch, var(--background) 72%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: fade .3s ease-out; padding: 24px; text-align: center; }
-.levelup .seal { position: relative; width: 150px; height: 150px; animation: pop .7s cubic-bezier(.3, 1.4, .5, 1); }
-.levelup .seal svg { width: 100%; height: 100%; fill: var(--gold); filter: drop-shadow(0 10px 30px color-mix(in oklch, var(--gold) 45%, transparent)); }
-.levelup .lv { position: absolute; inset: 0; display: grid; place-items: center; font: 800 46px var(--font-display); color: var(--primary-foreground); }
-.dark .levelup .lv { color: oklch(0.2 0.03 70); }
-.levelup .ar { font-family: var(--font-arabic); font-size: 30px; color: var(--gold); direction: rtl; }
-.levelup .en { color: var(--muted-foreground); }
-.levelup .btn { margin-top: 8px; height: 44px; padding: 0 28px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+.levelup { position: fixed; inset: 0; z-index: 90; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #fff;
+  background: radial-gradient(120% 70% at 50% 38%, #1C6B57 0%, #0F4A3C 42%, #07231D 100%); animation: fade .3s ease-out; }
+.levelup.out { opacity: 0; transition: opacity .25s; }
+.levelup .rays { position: absolute; left: 50%; top: 38%; width: 0; height: 0; animation: spin 40s linear infinite; }
+.levelup .rays i { position: absolute; left: -36px; top: -900px; width: 72px; height: 900px; transform-origin: 50% 100%; background: linear-gradient(to top, rgb(241 216 150 / .14), transparent 80%); clip-path: polygon(50% 100%, 0 0, 100% 0); }
+.levelup .kicker { position: relative; font: 700 13px var(--font-sans, system-ui); letter-spacing: .18em; text-transform: uppercase; color: #F1D896; }
+.levelup .seal { position: relative; width: 168px; height: 168px; margin-top: 22px; animation: pop .7s cubic-bezier(.3, 1.4, .5, 1); }
+.levelup .seal svg { width: 100%; height: 100%; fill: #D6AF5F; filter: drop-shadow(0 18px 40px rgb(214 175 95 / .55)); }
+.levelup .lv { position: absolute; inset: 0; display: grid; place-items: center; font: 800 56px var(--font-display, system-ui); color: #0F3A30; font-variant-numeric: tabular-nums; }
+.levelup .ar { position: relative; margin-top: 24px; font-family: var(--font-arabic); font-size: 44px; line-height: 1.1; color: #F1D896; direction: rtl; }
+.levelup .en { position: relative; margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.levelup .line { position: relative; margin: 10px 24px 0; max-width: 320px; font-size: 15px; line-height: 1.45; color: rgb(255 255 255 / .75); }
+.levelup .btn { position: absolute; left: 24px; right: 24px; bottom: max(env(safe-area-inset-bottom), 24px); height: 54px; border-radius: 999px; background: linear-gradient(90deg, #D6AF5F, #F1D896); color: #0F3A30; font-size: 17px; font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .levelup .rays, .levelup .seal { animation: none; } }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { transform: scale(.55) rotate(-20deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .xpfloat, .levelup, .levelup .seal { animation: none; } }

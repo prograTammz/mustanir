@@ -2,12 +2,12 @@
 // the medals within reach, then what WHOOP and FatSecret measured for you (read-only).
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Flame, Plus, X, Dumbbell, WifiOff, Crown, Sparkles, Trophy } from "lucide-react";
-import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, totals, rankFor, RANKS, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, medals, xpParts, PERFECT_BONUS } from "@/lib/logic.js";
-import { SESSION, loadMeals, saveDay } from "@/lib/store.js";
-import { useApp, set, rec, bump, go } from "@/lib/app-state.js";
+import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, rankFor, RANKS, streak, T, matchDay, hasSchedule,
+  slotName, ABSTAIN_XP, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS } from "@/lib/logic.js";
+import { SESSION, loadMeals, saveDay, wake } from "@/lib/store.js";
+import { useApp, set, rec, bump, go, allTotals, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
-import { Ar, LargeTitle, Ring, Stepper, Chip, Hint, Fold, Tile, Bar, Tick, fmtMin } from "@/components/kit";
+import { Ar, LargeTitle, Stepper, Chip, Hint, Fold, Tile, Bar, Tick, fmtMin } from "@/components/kit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,9 +51,28 @@ export function DayNav() {
   );
 }
 export function BackToToday() {
-  useApp();
-  if (S.selected === today()) return null;
   return <button onClick={() => { S.selected = today(); bump(); }} className="glass press h-10 rounded-full px-4 text-[15px] font-semibold text-primary">Today</button>;
+}
+// Top left: on today, the live pill; on a past day, the way back.
+export function TopLeft() { useApp(); return S.selected === today() ? <LivePill /> : <BackToToday />; }
+
+// Live: the Realtime socket is open, so WHOOP and FatSecret rows land here seconds after they reach the database.
+const ago = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+function lastWhoop() {
+  for (const k of [today(), addDays(today(), -1)]) { const src = String((S.days[k] || {}).source || ""), t = Date.parse(src.replace(/^\D+/, "")); if (/^WHOOP/.test(src) && t) return t; }
+  return null;
+}
+function LivePill() {
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(id); }, []);
+  const st = S.live, t = lastWhoop(), label = st === "live" ? "Live" : st === "connecting" ? "Connecting" : "Offline";
+  return (
+    <button onClick={() => wake()} aria-label={`${label}${t ? `, WHOOP data ${ago(Date.now() - t)} ago` : ""}. Tap to sync.`} className="glass press flex h-9 min-w-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold">
+      <span className={cn("size-2 shrink-0 rounded-full", st === "live" ? "live-dot bg-[#34C27A]" : st === "connecting" ? "bg-warn" : "bg-muted-foreground/50")} />
+      <span>{label}</span>
+      {t && <span className="truncate font-medium text-muted-foreground tnum">WHOOP {ago(Date.now() - t)}</span>}
+    </button>
+  );
 }
 
 /* ---------- the player card ---------- */
@@ -67,8 +86,8 @@ export function Seal({ level, size = 60, dim = false }) {
   );
 }
 function PlayerCard({ s }) {
-  const xp = dayXP(s), t = totals(), rank = rankFor(t.level), next = RANKS.find((x) => x.from > t.level), run = streak(T.office);
-  const won = medals().filter((m) => m.won).length;
+  const xp = dayXP(s), t = allTotals(), rank = rankFor(t.level), next = RANKS.find((x) => x.from > t.level), run = streak(T.office);
+  const won = allMedals().filter((m) => m.won).length;
   return (
     <button onClick={() => go("palace")} className="press relative overflow-hidden rounded-[24px] bg-[linear-gradient(140deg,#13584A_0%,#0F4A3C_45%,#0A3329_100%)] p-4 text-left text-white shadow-[0_12px_30px_-14px_rgb(15_74_60/0.7)]">
       <svg viewBox="0 0 24 24" aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-44 fill-white/[0.05]"><path d={SEAL} /></svg>
@@ -90,7 +109,7 @@ function PlayerCard({ s }) {
           <div className="text-[11px] text-white/65">{s === today() ? "XP today" : "XP that day"}</div>
         </div>
         <div className="rounded-2xl bg-white/[0.08] px-3 py-2.5">
-          <div className="flex items-center gap-1 text-[20px] font-bold tnum"><Crown className="size-[18px] text-[#E6C77E]" />{won}</div>
+          <div className="flex items-center gap-1 text-[20px] font-bold tnum"><Crown className="size-[18px] text-[#E6C77E]" />{won}<span className="text-[12px] font-medium text-white/55">/{allMedals().length}</span></div>
           <div className="text-[11px] text-white/65">medals</div>
         </div>
       </div>
@@ -98,30 +117,48 @@ function PlayerCard({ s }) {
   );
 }
 
-/* ---------- the cabinet today: five ministers, each worth 20 XP ---------- */
+/* ---------- the cabinet today: five ministers, each worth 20 XP, as concentric rings ---------- */
+function CabinetRings({ ministers }) {
+  return (
+    <svg viewBox="0 0 132 132" role="img" aria-label={"Today: " + MINISTERS.map((m) => `${m.en.replace("Minister of ", "")} ${ministers[m.key].earned} of 20`).join(", ")} className="size-[132px] shrink-0 -rotate-90">
+      {MINISTERS.map((m, i) => {
+        const r = 58 - i * 12, c = 2 * Math.PI * r, f = ministers[m.key].frac;
+        return (
+          <g key={m.key}>
+            <circle cx="66" cy="66" r={r} fill="none" stroke={`var(--m-${m.key})`} strokeOpacity="0.15" strokeWidth="10" />
+            <circle cx="66" cy="66" r={r} fill="none" stroke={`var(--m-${m.key})`} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(f * c).toFixed(1)} ${c.toFixed(1)}`}
+              style={{ opacity: f > 0 ? 1 : 0, transition: "stroke-dasharray .9s cubic-bezier(.2,.8,.2,1)" }} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 function Cabinet({ xp }) {
   const all = xp.perfect.earned > 0;
   return (
     <Card className="gap-3 px-4 py-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[17px] font-semibold tracking-tight">The cabinet today</h2>
-        <span className="text-[13px] text-muted-foreground tnum">{Object.values(xp.ministers).reduce((a, m) => a + m.earned, 0)} of 100 XP</span>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-[19px] font-bold tracking-tight">The cabinet</h2>
+        <span className="text-[14px] text-muted-foreground tnum">{Object.values(xp.ministers).reduce((a, m) => a + m.earned, 0)} / 100 XP</span>
       </div>
-      <div className="grid grid-cols-5 gap-1">
-        {MINISTERS.map((m) => {
-          const x = xp.ministers[m.key];
-          return (
-            <button key={m.key} onClick={() => openSheet({ type: "minister", key: m.key })} className="press flex flex-col items-center gap-1.5 rounded-2xl py-1">
-              <Ring value={x.frac} color={`var(--m-${m.key})`} size={52} stroke={5} label={m.en}><span className="text-[13px] font-bold tnum">{x.earned}</span></Ring>
-              <span className="text-[11px] leading-tight text-muted-foreground">{m.en.replace("Minister of ", "")}</span>
+      <div className="flex items-center gap-4">
+        <CabinetRings ministers={xp.ministers} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {MINISTERS.map((m) => (
+            <button key={m.key} onClick={() => openSheet({ type: "minister", key: m.key })} className="press -mx-2 flex min-h-[30px] items-center gap-2 rounded-xl px-2 text-left text-[14px]">
+              <span className="size-[9px] shrink-0 rounded-full" style={{ background: `var(--m-${m.key})` }} />
+              <span className="min-w-0 flex-1 truncate">{m.en.replace("Minister of ", "")}</span>
+              <span className="font-semibold tnum">{xp.ministers[m.key].earned}</span>
+              <span className="w-6 text-[12px] text-muted-foreground tnum">/20</span>
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
-      <div className={cn("flex items-center gap-2.5 rounded-2xl px-3 py-2.5", all ? "bg-gold-soft" : "bg-muted")}>
+      <div className={cn("flex items-center gap-2.5 rounded-2xl px-3.5 py-3", all ? "bg-gold-soft" : "bg-muted")}>
         <Sparkles className={cn("size-4 shrink-0", all ? "text-gold" : "text-muted-foreground")} />
-        <span className="min-w-0 flex-1 text-[13px]">{all ? "Perfect day sealed" : `Perfect day: ${xp.near} of 5 ministers at 90%`}</span>
-        <span className={cn("shrink-0 text-[13px] font-semibold tnum", all ? "text-gold" : "text-muted-foreground")}>+{PERFECT_BONUS} XP</span>
+        <span className="min-w-0 flex-1 text-[14px]">{all ? "Perfect day sealed" : `Perfect day: ${xp.near} of 5 ministers at 90%`}</span>
+        <span className="shrink-0 text-[14px] font-bold text-gold tnum">+{PERFECT_BONUS} XP</span>
       </div>
     </Card>
   );
@@ -152,7 +189,7 @@ function Decrees({ s, r, xp }) {
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center justify-between px-4 pt-4 pb-1">
-        <h2 className="text-[17px] font-semibold tracking-tight">Today’s decrees</h2>
+        <h2 className="text-[19px] font-bold tracking-tight">Today’s decrees</h2>
         <span className="text-[13px] text-muted-foreground tnum">{done} of {total} done</span>
       </div>
       <CardContent className="flex flex-col pb-1">
@@ -248,13 +285,13 @@ function Purity({ s, r, xp }) {
 /* ---------- medals within reach ---------- */
 export const fmtN = (x) => (x == null ? "—" : x >= 1000 ? Math.round(x).toLocaleString("en") : Math.round(x * 10) / 10);
 function WithinReach() {
-  const near = medals().filter((m) => !m.won && m.frac > 0).sort((a, b) => b.frac - a.frac).slice(0, 3);
+  const ms = allMedals(), near = ms.filter((m) => !m.won && m.frac > 0).sort((a, b) => b.frac - a.frac).slice(0, 3);
   if (!near.length) return null;
   return (
     <Card className="gap-1 px-4 py-4">
       <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-[17px] font-semibold tracking-tight">Within reach</h2>
-        <button onClick={() => go("palace")} className="press text-[13px] text-muted-foreground">All medals</button>
+        <h2 className="text-[19px] font-bold tracking-tight">Within reach</h2>
+        <button onClick={() => go("palace")} className="press text-[14px] text-muted-foreground tnum">{ms.filter((m) => m.won).length} of {ms.length} medals</button>
       </div>
       {near.map((m) => (
         <div key={m.id} className="flex items-center gap-3 py-2">
@@ -285,7 +322,7 @@ function Measured({ s, r, xp }) {
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <h2 className="text-[17px] font-semibold tracking-tight">Vitality</h2>
+        <h2 className="text-[19px] font-bold tracking-tight">Vitality</h2>
         <Pay {...xp.vitality} />
       </div>
       <CardContent className="flex flex-col pb-2">

@@ -2,8 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
+import { hydrate } from "./lib/store.js";
 
-createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>);
+// Paint from what this phone already knows (IndexedDB) before the first frame; the network catches up after.
+hydrate().catch(() => {}).finally(() => createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>));
 
 // Offline shell and updates: a new version installs quietly in the background and waits for you to tap "Update".
 if ("serviceWorker" in navigator) {
