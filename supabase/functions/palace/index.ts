@@ -49,7 +49,7 @@ const trainingDays = (s: Settings) => String(s.trainingDays || "").split(",").ma
 
 // Training slots: weekly { id, sport, label?, days[], start, end } and one-off { id, sport, label?, date, start, end }.
 type Slot = { id: string; sport: string; label?: string; days?: string[]; date?: string; start: string; end: string };
-const SPORT: Record<string, string> = { tennis: "Tennis", gym: "Gym", walk: "Walking pad", run: "Running", swim: "Swimming", other: "Training" };
+const SPORT: Record<string, string> = { tennis: "Tennis", gym: "Gym", walk: "Walk", run: "Running", swim: "Swimming", other: "Training" };
 const AR: Record<string, string> = { tennis: "التنس", gym: "الحديد", walk: "المشي", run: "الجري", swim: "السباحة", other: "التدريب" };
 const slotName = (x: Slot) => x.label || SPORT[x.sport] || "Training";
 function weeklySlots(s: Settings): Slot[] {
@@ -112,8 +112,7 @@ function openItems(d: any, training = true) {
   const pr = d.prayers || {}; const n = ["fajr", "dhuhr", "asr", "maghrib", "isha"].filter((k) => pr[k]).length;
   if (n < 5) out.push(`prayers (${n} of 5)`);
   if (!(d.pages > 0)) out.push("reading");
-  if (d.pornFree == null) out.push("purity");
-  if (training && !d.train) out.push("training");
+  // Purity starts clean and training comes from WHOOP: neither is ever "open".
   if (!d.good && !d.fix) out.push("journal");
   return out;
 }
@@ -140,13 +139,6 @@ async function notifyRun() {
     if (s.notify.evening) {
       const open = openItems(today?.data, slotsOn(s, now.day).length > 0);
       if (open.length) due.push({ key: "evening", at: hm(s.checkinTime) ?? 1200, title: "Evening decrees · مراسيم المساء", body: "Still open: " + open.join(", ") + ".", url: APP + "#decrees" });
-    }
-    // Apple Health hasn't arrived in over a day (the nightly Shortcut can't read Health while the phone is locked).
-    // Workout-only syncs don't count: they carry no steps, sleep or energy.
-    if ((s.notify as Record<string, boolean>).health !== false) {
-      const { data: last } = await admin.from("health_syncs").select("received_at").eq("user_id", uid).gt("samples", 0).order("received_at", { ascending: false }).limit(1).maybeSingle();
-      const hours = last ? (Date.now() - Date.parse(last.received_at)) / 3600000 : 0;
-      if (hours > 26) due.push({ key: "healthSync", at: (hm(s.checkinTime) ?? 1200) - 15, title: "Apple Health · البيانات متأخرة", body: `No steps or sleep for ${Math.floor(hours)} hours. Unlock your phone and run the Shortcut so the watch's data reaches the ministers.`, url: APP + "#diwan" });
     }
     for (const r of due) {
       const at = ((r.at % 1440) + 1440) % 1440;

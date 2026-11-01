@@ -53,7 +53,7 @@ function MinisterSheet({ k }) {
     body: `Training ${pctTxt(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions${r.plannedMin ? `, ${fmtMin(r.trainMin)} of ${fmtMin(r.plannedMin)}` : ""}), diet on target ${pctTxt(r.diet)} of days.`,
     faith: "Average share of the five prayers kept; a made-up prayer counts half.",
     knowledge: `Days at ${S.settings.pagesPerDay} pages or more.`,
-    purity: `Porn-free ${pctTxt(r.porn)} of days, within the spacing schedule ${pctTxt(r.plan)}.`,
+    purity: `Porn-free ${pctTxt(r.porn)} of days, masturbation-free ${pctTxt(r.plan)}. Every day starts clean; only a logged slip counts against it.`,
     habits: "Up for Fajr and seven hours asleep count double; bedtime, routines and the watch once each.",
   }[k] : "No days in this council period yet.";
   const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure], habits: ["Up for Fajr", T.fajr] }[k];

@@ -62,13 +62,10 @@ export default function Decrees() {
         </div>
       </Card>
 
-      <AwayCard s={s} r={r} />
-
       <FaithDecree s={s} r={r} />
       <BodyDecree s={s} r={r} dn={dn} />
       <Decree k="knowledge" side={`${r.pages || 0} of ${S.settings.pagesPerDay} pages`}>
         <Row label={"Pages read" + (S.settings.book ? ` · ${S.settings.book}` : "")}><Stepper label="pages" value={r.pages} step={5} onChange={(v) => set("pages", v)} /></Row>
-        <Row label="Margin learning" sub="minutes, not scored"><Stepper label="minutes" value={r.margin} step={15} onChange={(v) => set("margin", v)} /></Row>
       </Decree>
       <PurityDecree s={s} r={r} />
       <HabitsDecree r={r} />
@@ -82,6 +79,7 @@ export default function Decrees() {
           ))}
         </CardContent>
       </Card>
+      <AwayCard s={s} r={r} />
     </>
   );
 }
@@ -146,7 +144,7 @@ function BodyDecree({ s, r, dn }) {
   const protein = meals.reduce((a, m) => a + (Number(m.protein) || 0), 0);
   return (
     <Decree k="body" side={r.away ? "Away day · schedule paused" : wkPlanned ? `${wkDone} of ${wkPlanned} sessions this week` : "Training and diet"}>
-      <Subhead className="mt-1">Today’s sessions</Subhead>
+      <Fold title="Sessions" summary={ms.length ? `${ms.filter((m) => m.status === "done").length} of ${ms.length} done` : r.away ? "Paused" : "Rest day"}>
       {ms.length ? ms.map((m) => (
         <div key={m.slot.id} className="flex items-center gap-3 border-t py-3 first:border-t-0">
           <span className={cn("size-2.5 shrink-0 rounded-full", dot[m.status])} />
@@ -156,15 +154,16 @@ function BodyDecree({ s, r, dn }) {
           </div>
         </div>
       )) : <Hint>{r.away ? "Away today: the schedule is paused." : hasSchedule() ? "Rest day. Nothing scheduled." : "No training schedule yet. Add your slots in the Diwan."}</Hint>}
+      </Fold>
 
-      <Subhead>Food</Subhead>
+      <Fold title="Food" summary={meals.length ? `${Math.round(eaten).toLocaleString("en")} kcal · ${meals.length} ${meals.length === 1 ? "meal" : "meals"}` : "Nothing logged yet"}>
       {meals.map((m) => (
         <div key={m.id} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
-          <div className="min-w-0 flex-1"><span className="font-semibold tnum">{Math.round(m.kcal)} kcal</span> <span className="text-sm text-muted-foreground">{m.name || "Meal"}{m.source === "fatsecret" ? "" : ` · ${new Date(m.eaten_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`}{m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}</span></div>
-          <Badge variant="muted">{m.source === "fatsecret" ? "FatSecret" : "Logged"}</Badge>
+          <div className="min-w-0 flex-1"><span className="font-semibold tnum">{Math.round(m.kcal)} kcal</span> <span className="text-sm text-muted-foreground">{m.name || "Meal"}{m.protein ? ` · ${Math.round(m.protein)} g protein` : ""}</span></div>
         </div>
       ))}
       <Hint className="mt-2">{(eaten || burned ? `Eaten ${Math.round(eaten).toLocaleString("en")} · burned ${Math.round(burned).toLocaleString("en")} kcal${deficit != null ? ` · deficit ${Math.round(deficit).toLocaleString("en")} of ${S.settings.deficitMin}` : ""}${protein ? ` · ${Math.round(protein)} of ${S.settings.proteinTarget || 160} g protein` : ""}` : "Meals you log in FatSecret arrive here every 10 minutes.")}</Hint>
+      </Fold>
       <Row label="On my deficit target" className="mt-2 border-t"
         sub={deficit == null ? `Target ${target} kcal · needs WHOOP's burn and at least one meal` : `${Math.round(deficit).toLocaleString("en")} of ${target} kcal${s === today() ? " so far today" : ""} · WHOOP burned − eaten`}>
         <Verdict v={deficit == null ? null : deficit >= target} />
@@ -198,17 +197,31 @@ function WeighIn({ s }) {
   return <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", w?.won ? "bg-ok/10 text-ok" : "bg-muted/70 text-muted-foreground")}>{txt}</div>;
 }
 
+// Purity is the one decree that runs the other way: every day starts at full marks, and only a slip takes them away.
 function PurityDecree({ s, r }) {
-  const last = lastMastBefore(s), iv = intervalFor(s), viol = violation(s);
-  const next = last ? addDays(last, iv) : null;
-  const allow = !last || next <= s ? `Allowed today. Current spacing: every ${iv} days.` : `Next allowed ${fmt(next, { weekday: "short", day: "numeric", month: "short" })}. Current spacing: every ${iv} days.`;
+  const slipped = r.pornFree === false || r.mast === true;
+  const toggle = (k, slipVal) => set(k, r[k] === slipVal ? null : slipVal);
   return (
-    <Decree k="purity" side={abstained(r) ? `Abstained · ${streak(T.abstain)}-day streak · +${ABSTAIN_XP} XP` : r.pornFree === true ? (viol ? "Outside the schedule" : `Clean · ${streak(T.pure)}-day streak`) : r.pornFree === false ? "Slip logged" : "Not confirmed"}>
-      <Row label="No porn today"><Chip size="sm" tone="ok" on={r.pornFree === true} onClick={() => set("pornFree", r.pornFree === true ? null : true)}>Confirmed</Chip><Chip size="sm" tone="bad" on={r.pornFree === false} onClick={() => set("pornFree", r.pornFree === false ? null : false)}>Slipped</Chip></Row>
-      <Row label="Masturbation today"><Chip size="sm" on={r.mast === false} onClick={() => set("mast", r.mast === false ? null : false)}>No</Chip><Chip size="sm" tone={viol ? "bad" : "primary"} on={r.mast === true} onClick={() => set("mast", r.mast === true ? null : true)}>Yes</Chip></Row>
-      <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", viol ? "bg-bad/10 text-bad" : "bg-muted/70 text-muted-foreground")}>{viol ? "This was inside the spacing window. Log the trigger and carry on: a slip is data, not defeat." : allow}{!viol && <> A day with no masturbation and no porn earns +{ABSTAIN_XP} XP.</>}</div>
-      {(r.pornFree === false || viol) && <Input className="mt-3" key={"n" + s} defaultValue={r.note || ""} placeholder="What triggered it? e.g. 1am, bored, phone in bed" onBlur={(e) => set("note", e.target.value.trim())} />}
+    <Decree k="purity" side={slipped ? "Slip logged · today’s points lost" : `Clean · full marks · ${streak(T.abstain)}-day streak · +${ABSTAIN_XP} XP`}>
+      <Row label="Porn"><Chip size="sm" tone="bad" on={r.pornFree === false} onClick={() => toggle("pornFree", false)}>I slipped</Chip></Row>
+      <Row label="Masturbation"><Chip size="sm" tone="bad" on={r.mast === true} onClick={() => toggle("mast", true)}>I slipped</Chip></Row>
+      <div className={cn("mt-2 rounded-xl px-3.5 py-2.5 text-[13px]", slipped ? "bg-bad/10 text-bad" : "bg-ok/10 text-ok")}>{slipped ? "A slip is data, not defeat. Note the trigger and start clean tomorrow." : "Every day starts clean with full marks. Tap only if you slip."}</div>
+      {slipped && <Input className="mt-3" key={"n" + s} defaultValue={r.note || ""} placeholder="What triggered it? e.g. 1am, bored, phone in bed" onBlur={(e) => set("note", e.target.value.trim())} />}
     </Decree>
+  );
+}
+
+// A section that opens on tap: title and a one-line summary when closed.
+function Fold({ title, summary, children }) {
+  return (
+    <details className="group mt-3 border-t pt-3 first:mt-0 first:border-t-0 first:pt-0">
+      <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <span className="text-[13px] font-semibold tracking-wide text-muted-foreground uppercase">{title}</span>
+        <span className="ml-auto text-[13px] text-muted-foreground tnum">{summary}</span>
+        <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
   );
 }
 
@@ -226,7 +239,6 @@ function HabitsDecree({ r }) {
       <Row label="Morning">{tg("hair", "Hair")}{tg("skinAm", "Skin")}{tg("teethAm", "Teeth")}</Row>
       <Row label="Night">{tg("skinPm", "Skin")}{tg("teethPm", "Teeth")}</Row>
       <Row label="WHOOP worn and charged" sub="From WHOOP: it recorded your sleep or the day's strain"><Verdict v={r.watch} /></Row>
-      {(r.recovery != null || r.sleepPerf != null) && <Hint className="mt-1">WHOOP: {[r.recovery != null && `recovery ${r.recovery}%`, r.sleepPerf != null && `sleep performance ${Math.round(r.sleepPerf)}%`, r.sleepCons != null && `consistency ${Math.round(r.sleepCons)}%`, r.sleepNeedH != null && `needed ${r.sleepNeedH} h`, r.strain != null && `strain ${r.strain}`].filter(Boolean).join(" · ")}.</Hint>}
     </Decree>
   );
 }

@@ -178,7 +178,7 @@ export const TRAINED = ["gym", "tennis", "walk"];
 export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
-    d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix || d.margin > 0 ||
+    d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix ||
     (d.checks && Object.values(d.checks).some(Boolean)) || d.away ||
     (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
@@ -213,7 +213,8 @@ export function day(s) {
     logged: true, faith, habits,
     knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
     diet: dietMet(d) ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
-    porn: d.pornFree === true ? 1 : 0, plan: violation(s) ? 0 : 1,
+    // Purity starts every day at full marks and only a slip takes them away (porn, or masturbation).
+    porn: d.pornFree === false ? 0 : 1, plan: d.mast === true ? 0 : 1,
   };
 }
 
@@ -299,7 +300,7 @@ export function weighIn(s) {
 const weighInXP = (s) => (inOffice(s) && weighIn(s)?.won ? WEIGH_IN_XP : 0);
 // A day with no masturbation and no porn, both confirmed by hand, earns a bonus on top of Purity's verdict.
 // Purity's approval is still judged on the spacing schedule; abstaining is rewarded, never required.
-export const abstained = (d) => !!d && d.mast === false && d.pornFree === true;
+export const abstained = (d) => !!d && d.mast !== true && d.pornFree !== false; // clean unless a slip is logged
 export function dayXP(s) {
   const m = dayMinisters(s);
   const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
@@ -444,7 +445,7 @@ export const T = {
   vital: (d, s) => { if (!manual(d)) return false; const v = vitalityFor(s); return v.hits >= vitalNeed(v.total); },
   office: (d) => manual(d),
   prayers: (d, s) => day(s).faith === 1,
-  pure: (d) => d.pornFree === true,
+  pure: (d) => d.pornFree !== false,
   abstain: (d) => abstained(d),
   read: (d) => (d.pages || 0) >= S.settings.pagesPerDay,
   fajr: (d) => d.wake === true,
