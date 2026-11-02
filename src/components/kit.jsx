@@ -31,16 +31,38 @@ export function Ar({ children, className, ...p }) {
   return <span lang="ar" dir="rtl" className={cn("ar", className)} {...p}>{children}</span>;
 }
 
+// The top of the screen, dressed for the palace: an astrolabe from the House of Wisdom, ring and star turning against each
+// other, and embers rising past the clock.
+export function Astrolabe({ className }) {
+  return (
+    <span aria-hidden="true" className={cn("m3-astrolabe", className)}>
+      <svg viewBox="0 0 200 200" className="dial"><g fill="none" stroke="currentColor"><circle cx="100" cy="100" r="98" strokeWidth="1.5" /><circle cx="100" cy="100" r="90" strokeWidth="8" strokeDasharray="1.5 7.925" /><circle cx="100" cy="100" r="82" /></g></svg>
+      <svg viewBox="0 0 200 200" className="rete"><g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><rect x="46" y="46" width="108" height="108" rx="4" /><rect x="46" y="46" width="108" height="108" rx="4" transform="rotate(45 100 100)" /><circle cx="100" cy="100" r="40" /></g><circle cx="100" cy="100" r="5" fill="currentColor" /></svg>
+    </span>
+  );
+}
+// [left %, seconds, delay, drift px]
+const EMBERS = [[14, 5.2, 0, 8], [62, 6.4, 1.1, -10], [38, 4.6, 2.3, 6], [84, 5.8, 0.6, -6], [26, 6.8, 3.2, 12], [72, 4.9, 1.9, 10], [50, 5.5, 4.1, -8], [92, 6.1, 2.8, -12]];
+export function Embers({ count = EMBERS.length }) {
+  return EMBERS.slice(0, count).map(([x, d, w, dx]) => <i key={x} aria-hidden="true" className="m3-ember" style={{ left: `${x}%`, animationDuration: `${d}s`, animationDelay: `${w}s`, "--dx": `${dx}px` }} />);
+}
+// A screen's opening: full width on the banner's emerald, dissolving into the page. Dark roles in both themes, since it stays dark.
+export function Hero({ oath = false, className, children }) {
+  return <div className={cn("m3-hero dark text-on-surface", oath && "oath", className)}>{children}</div>;
+}
+
 // A screen's headline: the M3 Expressive "headline large emphasized", the Arabic name across from it.
 export function LargeTitle({ title, ar, caption }) {
   return (
-    <div className="rise px-1 pt-2 pb-1">
-      {caption && <p className="type-label-l truncate text-on-surface-variant">{caption}</p>}
-      <div className="flex items-baseline justify-between gap-3">
-        <h1 className="type-headline-l em min-w-0 truncate">{title}</h1>
-        {ar && <Ar className="shrink-0 text-[20px] text-tertiary">{ar}</Ar>}
+    <Hero>
+      <div className="rise px-1 pt-2 pb-1">
+        {caption && <p className="type-label-l truncate text-on-surface-variant">{caption}</p>}
+        <div className="flex items-baseline justify-between gap-3">
+          <h1 className="type-headline-l em min-w-0 truncate">{title}</h1>
+          {ar && <Ar className="shrink-0 text-[20px] text-tertiary">{ar}</Ar>}
+        </div>
       </div>
-    </div>
+    </Hero>
   );
 }
 

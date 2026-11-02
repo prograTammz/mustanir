@@ -6,7 +6,7 @@ import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, d
 import { SESSION, loadMeals, saveDay } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
-import { Ar, Fold, Tile, Hint, Stepper, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
+import { Ar, Fold, Hero, Tile, Hint, Stepper, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
 import { Icon, Shape, Button, IconButton, Chip, Checkbox, Switch, Card, SectionTitle, Progress, Ring, XP, haptic } from "@/components/m3/index.jsx";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +20,7 @@ export default function Today() {
   const quests = [PRAYERS.every(([k]) => pr[k]), (r.pages || 0) >= S.settings.pagesPerDay, xp.ministers.habits.earned >= 20, c.total > 0 && c.done === c.total, r.pornFree !== false && r.mast !== true];
   return (
     <>
-      <DayBar s={s} isToday={isToday} />
+      <Hero><DayBar s={s} isToday={isToday} /></Hero>
       {S.mode === "error" && <div className="flex items-center gap-3 rounded-2xl bg-error-container px-4 py-3 type-body-m text-on-error-container"><Icon name="cloud_off" size={20} />Offline. Keep checking in; it syncs when you’re back.</div>}
       <RunCard s={s} xp={xp} />
       <SectionTitle trailing={<span className="type-label-l text-on-surface-variant tnum">{quests.filter(Boolean).length} of {quests.length} complete</span>}>Quests</SectionTitle>

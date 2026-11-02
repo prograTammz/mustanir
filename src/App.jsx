@@ -6,7 +6,7 @@ import { SESSION, load, flushOutbox, wake } from "@/lib/store.js";
 import { useApp, go, bump, TABS, tabOf, isDark, allTotals } from "@/lib/app-state.js";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Seal } from "@/components/kit";
+import { Seal, Astrolabe, Embers } from "@/components/kit";
 import { Icon, Progress, Loading, Badge, haptic } from "@/components/m3/index.jsx";
 import { cn } from "@/lib/utils";
 import Today from "@/screens/Today.jsx";
@@ -79,9 +79,9 @@ export default function App() {
   const room = ROOMS[S.tab] || ROOMS.today, View = room.view;
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh overflow-x-clip">
       {!signin && <Hud />}
-      <main className={cn("mx-auto flex max-w-lg flex-col gap-3 px-4 pb-32", !signin && "pt-5")}>
+      <main className="mx-auto flex max-w-lg flex-col gap-3 px-4 pb-32">
         {signin ? <SignIn /> : (
           <Suspense fallback={<div className="grid place-items-center pt-24"><Loading size={64} contained /></div>}>
             <div key={S.tab} className="flex flex-col gap-3"><View /></div>
@@ -96,16 +96,15 @@ export default function App() {
 }
 
 /* ---------- the HUD: who you are in the game, always in sight ---------- */
-// The embers that rise past the clock: [left %, seconds, delay, drift px]. Your streak feeds them.
-const EMBERS = [[14, 5.2, 0, 8], [62, 6.4, 1.1, -10], [38, 4.6, 2.3, 6], [84, 5.8, 0.6, -6], [26, 6.8, 3.2, 12], [72, 4.9, 1.9, 10], [50, 5.5, 4.1, -8], [92, 6.1, 2.8, -12]];
 function Hud() {
   const t = allTotals(), rank = rankFor(t.level), run = streak(T.office);
   return (
     <>
     <div aria-hidden="true" className="m3-banner">
-      {EMBERS.slice(0, Math.min(3 + run, EMBERS.length)).map(([x, d, w, dx]) => <i key={x} style={{ left: `${x}%`, animationDuration: `${d}s`, animationDelay: `${w}s`, "--dx": `${dx}px` }} />)}
+      <Astrolabe />
+      <Embers count={3 + run} /> {/* your streak feeds them */}
     </div>
-    <header className="m3-hud pt-safe sticky top-0 z-40">
+    <header className="m3-hud sticky top-0 z-40">
       <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
         <button type="button" onClick={() => { haptic(); go("palace"); }} className="state -ml-1 flex min-w-0 flex-1 items-center gap-3 rounded-full py-1 pr-3 pl-1" aria-label={`Level ${t.level}, ${rank.en}. ${t.to - t.xp} XP to level ${t.level + 1}. Open the palace.`}>
           <Seal level={t.level} size={44} className="m3-hud-seal" />

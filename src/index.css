@@ -143,14 +143,18 @@
 @layer base {
   * { @apply border-outline-variant; }
   *, ::before, ::after { font-variation-settings: "ROND" var(--rond); }
-  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; background: var(--md-sys-color-surface); }
+  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; background: var(--md-sys-color-surface); overscroll-behavior: none; }
   body {
     @apply bg-surface text-on-surface antialiased;
     font: 400 14px/20px var(--font-sans); letter-spacing: .015em;
-    overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; /* an app, not a page: no text selection, no long-press menu */
   }
+  a, svg { -webkit-user-drag: none; }
   button { cursor: pointer; }
   input, textarea, select { font-size: 16px; } /* no zoom on focus in iOS */
+  input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+  @media (pointer: coarse) { * { scrollbar-width: none; } *::-webkit-scrollbar { display: none; } }
   input[type="time"], input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; }
   input[type="time"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { text-align: inherit; min-height: 1.4em; }
   :focus-visible { outline: 3px solid var(--md-sys-color-secondary); outline-offset: 2px; }
@@ -183,12 +187,17 @@
   .ar { font-family: var(--font-arabic); direction: rtl; }
   .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
   .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
-  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar { scrollbar-width: none; overscroll-behavior-x: contain; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .elev-1 { box-shadow: var(--md-sys-elevation-1); }
   .elev-2 { box-shadow: var(--md-sys-elevation-2); }
   .elev-3 { box-shadow: var(--md-sys-elevation-3); }
 }
+
+/* The invisible layer under a finger that makes iOS tick (installTapHaptics in src/components/m3). The switch stays out of the
+   touch itself, or WebKit would treat the touch as handled and the page couldn't scroll from a control. */
+.m3-tap { position: absolute; inset: 0; z-index: 1; border-radius: inherit; opacity: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.m3-tap input { position: absolute; width: 1px; height: 1px; margin: 0; visibility: hidden; }
 
 /* ---------- state layers: hover 8%, focus 10%, pressed 10% of the content color ---------- */
 .state { position: relative; isolation: isolate; -webkit-tap-highlight-color: transparent; }
@@ -259,19 +268,33 @@
 @keyframes vt-out { to { opacity: 0; } }
 @keyframes vt-in { from { opacity: 0; transform: scale(.98); } }
 .m3-navbar { view-transition-name: navbar; }
-.m3-hud { view-transition-name: hud; }
+/* iOS blurs the top of the screen, measured at about 28pt past the status bar on iOS 26, and no web control for it turned up.
+   Colour and motion can live up there, but anything meant to be read starts below it. */
+:root { --m3-top: env(safe-area-inset-top, 0px); }
+@supports (-webkit-touch-callout: none) { :root { --m3-top: calc(env(safe-area-inset-top, 0px) + 28px); } }
+.m3-hud { view-transition-name: hud; padding-top: var(--m3-top); }
 /* The banner: the game's HUD runs up behind the status bar, the same deep emerald in both themes, and dissolves into the
    page. The star lattice is the logo's mark; the embers rise past the clock. */
-.m3-banner { position: fixed; inset: 0 0 auto; z-index: 39; height: calc(env(safe-area-inset-top, 0px) + 92px); overflow: hidden; pointer-events: none; view-transition-name: hud-banner; background: linear-gradient(to bottom, var(--md-sys-color-on-primary-fixed), var(--md-sys-color-on-primary-fixed-variant) calc(100% - 28px), transparent); }
+.m3-banner { position: fixed; inset: 0 0 auto; z-index: 39; height: calc(var(--m3-top) + 92px); overflow: hidden; pointer-events: none; view-transition-name: hud-banner; background: linear-gradient(to bottom, var(--md-sys-color-on-primary-fixed), var(--md-sys-color-on-primary-fixed-variant) calc(100% - 28px), transparent); }
 .m3-banner::before { content: ""; position: absolute; inset: 0 0 28px; opacity: .1; background: var(--md-sys-color-tertiary-fixed-dim); --star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23000' stroke-width='5'%3E%3Crect x='21' y='21' width='58' height='58'/%3E%3Crect x='21' y='21' width='58' height='58' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/svg%3E"); -webkit-mask: var(--star) 0 0/44px 44px, linear-gradient(#000, transparent); -webkit-mask-composite: source-in; mask: var(--star) 0 0/44px 44px, linear-gradient(#000, transparent); mask-composite: intersect; }
-.m3-banner::after { content: ""; position: absolute; inset: 0; background: radial-gradient(130px 90px at max(44px, calc(50% - 212px)) calc(env(safe-area-inset-top, 0px) + 32px), color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 34%, transparent), transparent); animation: banner-glow 4s ease-in-out infinite alternate; }
-.m3-banner i { position: absolute; z-index: 1; bottom: 28px; width: 3px; height: 3px; border-radius: 50%; opacity: 0; background: var(--md-sys-color-tertiary-fixed-dim); box-shadow: 0 0 6px var(--md-sys-color-tertiary-fixed-dim); animation: ember linear infinite; }
+.m3-banner::after { content: ""; position: absolute; inset: 0; background: radial-gradient(130px 58px at max(44px, calc(50% - 212px)) calc(var(--m3-top) + 32px), color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 34%, transparent), transparent); animation: banner-glow 4s ease-in-out infinite alternate; }
+.m3-ember { position: absolute; z-index: 1; bottom: var(--from, 28px); width: 3px; height: 3px; border-radius: 50%; opacity: 0; background: var(--md-sys-color-tertiary-fixed-dim); box-shadow: 0 0 6px var(--md-sys-color-tertiary-fixed-dim); animation: ember linear infinite; }
 @keyframes banner-glow { from { opacity: .55; } to { opacity: 1; } }
-@keyframes ember { 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -120px); } }
+@keyframes ember { 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), var(--rise, -120px)); } }
+/* Each part of the astrolabe is its own layer, so turning it costs the phone nothing but a transform. */
+.m3-astrolabe { position: absolute; display: block; pointer-events: none; opacity: .3; color: var(--md-sys-color-tertiary-fixed-dim); }
+.m3-astrolabe svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.m3-astrolabe .dial { animation: spin 120s linear infinite; }
+.m3-astrolabe .rete { animation: spin 60s linear infinite reverse; }
+.m3-banner .m3-astrolabe { top: -60px; right: -14px; height: calc(var(--m3-top) + 134px); aspect-ratio: 1; }
+/* The opening of a screen carries the banner's emerald down behind the title, and the first card rides over its fade. */
+.m3-hero { width: 100vw; margin-inline: calc(50% - 50vw); margin-bottom: -44px; padding: 20px max(16px, calc(50vw - 240px)) 68px; background: linear-gradient(to bottom, var(--md-sys-color-on-primary-fixed-variant), var(--md-sys-color-on-primary-fixed-variant) calc(100% - 68px), transparent); }
+.m3-hero.oath { position: relative; overflow: hidden; --from: 35%; --rise: -300px; margin-bottom: 0; padding-top: calc(var(--m3-top) + 44px); padding-bottom: 72px; background: linear-gradient(to bottom, var(--md-sys-color-on-primary-fixed), var(--md-sys-color-on-primary-fixed-variant) 45%, var(--md-sys-color-on-primary-fixed-variant) 72%, transparent); }
+.m3-hero.oath .m3-astrolabe { opacity: .55; }
 .m3-hud-seal { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 60%, transparent)); }
 .m3-hud-xp > :first-child { box-shadow: 0 0 9px color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 55%, transparent); }
 .m3-hud-xp::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to right, transparent 0 calc(10% - 2px), var(--md-sys-color-on-primary-fixed-variant) calc(10% - 2px) 10%); }
-@media (prefers-reduced-motion: reduce) { .m3-banner i { display: none; } .m3-banner::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .m3-ember { display: none; } .m3-banner::after, .m3-astrolabe svg { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
 
 /* Loading a room for the first time. */

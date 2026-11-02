@@ -7,17 +7,35 @@ import { shapePath } from "./shapes.js";
 
 const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ---------- haptics: Android vibrates; iOS 18+ taps when a native switch toggles, so a hidden one stands in ---------- */
-let hapticLabel = null;
+/* ---------- haptics: Android vibrates. iOS has no API: it only taps when a real touch flips a native switch, and it ignores
+   a scripted click (tested on the phone). So when a finger lands on a control, an invisible label holding a hidden switch goes
+   over it and the touch lands on that. One touch makes one tick, so on iOS a reward can't buzz on its own. ---------- */
+let lastTick = 0;
 export function haptic(ms = 8) {
-  try {
-    if (navigator.vibrate) { navigator.vibrate(ms); return; }
-    if (!hapticLabel) {
-      hapticLabel = document.createElement("label"); hapticLabel.setAttribute("aria-hidden", "true"); hapticLabel.style.display = "none";
-      const input = document.createElement("input"); input.type = "checkbox"; input.setAttribute("switch", ""); hapticLabel.append(input); document.body.append(hapticLabel);
-    }
-    hapticLabel.click();
-  } catch { /* no haptics here */ }
+  const now = Date.now();
+  if (ms < 12 && now - lastTick < 40) return; // the app-wide tap and a control's own call land together: one tick
+  lastTick = now;
+  try { navigator.vibrate?.(ms); } catch { /* no haptics here */ }
+}
+const TAP_CONTROL = 'button, [role="button"], [role="switch"], [role="checkbox"], [role="radio"]';
+export function installTapHaptics() {
+  if (!CSS.supports("-webkit-touch-callout", "none")) return; // iOS only
+  const label = document.createElement("label"), input = document.createElement("input");
+  label.className = "m3-tap"; label.setAttribute("aria-hidden", "true");
+  input.type = "checkbox"; input.setAttribute("switch", ""); input.tabIndex = -1; label.append(input);
+  input.addEventListener("click", (e) => e.stopPropagation()); // the label's own click already reached the control
+  let timer = 0;
+  document.addEventListener("touchstart", (e) => {
+    clearTimeout(timer);
+    const c = e.target.closest?.(TAP_CONTROL);
+    // A label would take over a submit button's default action, so the form wouldn't send.
+    if (!c || c.disabled || (c.form && c.type === "submit")) return label.remove();
+    if (getComputedStyle(c).position === "static") c.style.position = "relative";
+    c.append(label);
+  }, { passive: true, capture: true });
+  const clear = () => { clearTimeout(timer); timer = setTimeout(() => label.remove(), 350); }; // after the click that follows the touch
+  document.addEventListener("touchend", clear, { passive: true, capture: true });
+  document.addEventListener("touchcancel", clear, { passive: true, capture: true });
 }
 
 /* ---------- Material Symbols Rounded ---------- */

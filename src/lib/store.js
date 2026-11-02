@@ -175,7 +175,14 @@ function applySettings(settings) {
 
 /** Before the first frame: everything this phone already knows, from IndexedDB (or the old localStorage cache, once). */
 export async function hydrate() {
-  const [days, outbox, cursor, settings, settingsUnsent] = await Promise.all([idb.entries("days"), idb.get("meta", "outbox"), idb.get("meta", "cursor"), idb.get("meta", "settings"), idb.get("meta", "settingsPending")]);
+  // IndexedDB can hang on iOS. Don't wait long for it: start from the network and run in memory this time. A late answer
+  // is dropped, so it can't overwrite what the server has sent since, and giving up keeps this run from writing over the unsent log.
+  let timer;
+  const stored = Promise.all([idb.entries("days"), idb.get("meta", "outbox"), idb.get("meta", "cursor"), idb.get("meta", "settings"), idb.get("meta", "settingsPending")]);
+  const got = await Promise.race([stored, new Promise((r) => { timer = setTimeout(r, 2000); })]);
+  clearTimeout(timer);
+  if (!got) { idb.giveUp(); S.player = LS.get("a2-player", null); return; }
+  const [days, outbox, cursor, settings, settingsUnsent] = got;
   if (days.length) {
     for (const [k, v] of days) BASE[k] = v;
     Object.assign(OUTBOX, outbox || {}); CURSOR = cursor || null;

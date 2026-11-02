@@ -1,6 +1,7 @@
 // Reward moments: the +XP chip that rises from your finger with a burst of M3 shapes, and the level-up screen.
 import { shapePath } from "@/components/m3/shapes.js";
 import { haptic } from "@/components/m3/index.jsx";
+import { play } from "./sound.js";
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const token = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -50,6 +51,7 @@ export function xpFloat(x, y, amount) {
   el.style.left = Math.max(48, Math.min(innerWidth - 48, x)) + "px"; el.style.top = y + "px";
   document.body.append(el);
   setTimeout(() => el.remove(), reduced() ? 900 : 1300);
+  play(amount > 0 ? "xp" : "loss");
   if (amount > 0) { burst(x, y, Math.min(28, 8 + amount)); haptic(12); }
 }
 
@@ -69,7 +71,7 @@ export function levelUp(level, rank, line = "A new rank in office.") {
   el.querySelector("button").addEventListener("click", close);
   document.body.append(el);
   el.querySelector("button").focus();
-  haptic(30);
+  haptic(30); play("level");
   const r = el.querySelector(".seal").getBoundingClientRect();
   setTimeout(() => { burst(r.left + r.width / 2, r.top + r.height / 2, 60); }, reduced() ? 0 : 450);
 }

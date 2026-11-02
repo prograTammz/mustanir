@@ -4,6 +4,8 @@ import { flushSync } from "react-dom";
 import { S, dayXP, totals, rankFor, today, medals, dayMinisters, checklistFor, MINISTERS } from "./logic.js";
 import { saveDay, setRenderer, setRemoteHandler, LS } from "./store.js";
 import { xpFloat, levelUp, burst } from "./fx.js";
+import { play } from "./sound.js";
+import { haptic } from "@/components/m3/index.jsx";
 import { toast } from "sonner";
 
 let version = 0;
@@ -44,11 +46,11 @@ export function set(k, v) {
   // Quest complete: a minister reaches full marks, or the last task is ticked.
   const done = Object.keys(QUESTS).filter((m) => mBefore[m] < 1 && mAfter[m] >= 1).map((m) => QUESTS[m]);
   if (cAfter.total && cAfter.done === cAfter.total && cBefore.done < cBefore.total) done.push("The day’s work");
-  done.forEach((q, i) => setTimeout(() => toast(`Quest complete · ${q}`, { className: REWARD, description: `${Object.values(mAfter).filter((x) => x >= 0.9).length} of 5 ministers at 90% today.` }), 250 + i * 600));
+  done.forEach((q, i) => setTimeout(() => { play("quest"); haptic(12); toast(`Quest complete · ${q}`, { className: REWARD, description: `${Object.values(mAfter).filter((x) => x >= 0.9).length} of 5 ministers at 90% today.` }); }, 250 + i * 600));
   // The moments worth a fanfare: a perfect day, a new medal, a new level.
-  if (!wasPerfect && isPerfect(s)) setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 48); toast("Perfect day · chest opened · +25 XP", { className: REWARD, description: "Every minister at 90% or more." }); }, 400);
+  if (!wasPerfect && isPerfect(s)) setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 48); play("chest"); haptic(30); toast("Perfect day · chest opened · +25 XP", { className: REWARD, description: "Every minister at 90% or more." }); }, 400);
   const fresh = medals().filter((m) => m.won && !had.has(m.id));
-  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); toast(`Medal won · ${m.en}`, { className: REWARD, description: `${m.ar} · ${m.how}` }); }, 800 + i * 900));
+  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); play("medal"); haptic(30); toast(`Medal won · ${m.en}`, { className: REWARD, description: `${m.ar} · ${m.how}` }); }, 800 + i * 900));
   if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level)), 600 + fresh.length * 900);
 }
 export function setQuiet(k, v) { rec()[k] = v; saveDay(S.selected); }
@@ -61,6 +63,7 @@ setRemoteHandler((apply, info = {}) => {
   apply();
   const after = dayXP(t0), t = totals();
   if (after > before) {
+    play("xp");
     const w = info.date === t0 ? lastWorkout(info.data) : null;
     toast(`+${after - before} XP from your watch`, {
       description: w ? `${w.a} · ${w.min} min · ${w.s}–${w.e}` : "New WHOOP data counted toward today.",
@@ -68,7 +71,7 @@ setRemoteHandler((apply, info = {}) => {
     });
   }
   const fresh = medals().filter((m) => m.won && !had.has(m.id));
-  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); toast(`Medal won · ${m.en}`, { className: "m3-snack m3-reward", description: `${m.ar} · ${m.how}` }); }, 600 + i * 900));
+  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); play("medal"); toast(`Medal won · ${m.en}`, { className: "m3-snack m3-reward", description: `${m.ar} · ${m.how}` }); }, 600 + i * 900));
   if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level), "Your watch carried you over the line."), 400 + fresh.length * 900);
 });
 
@@ -81,12 +84,14 @@ export const TABS = ["today", "palace", "settings"];
 export const ALIAS = { decrees: "today", progress: "palace", records: "palace", council: "palace", diwan: "settings" };
 export const tabOf = (h) => (TABS.includes(h) ? h : ALIAS[h] || null);
 // Rooms change with a View Transition where the browser has one (iOS 18+): a short cross-fade, the tab bar stays put.
+// Each room keeps your place, like native tabs; tapping the room you're already in goes back to its top.
+const scrollOf = {};
 export function go(tab) {
   const next = tabOf(tab) || "today";
-  const apply = () => { S.tab = next; history.replaceState(null, "", "#" + S.tab); bump(); scrollTo({ top: 0 }); };
+  const apply = () => { scrollOf[S.tab] = scrollY; S.tab = next; history.replaceState(null, "", "#" + S.tab); bump(); scrollTo({ top: scrollOf[next] || 0 }); };
   if (next === S.tab) return scrollTo({ top: 0, behavior: "smooth" });
   if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(() => flushSync(apply));
-  else apply();
+  else flushSync(apply);
 }
 
 /* ---------- appearance: system, light or dark ---------- */
@@ -96,7 +101,6 @@ export const isDark = () => (themePref() === "system" ? mq.matches : themePref()
 export function applyTheme() {
   const dark = isDark();
   document.documentElement.classList.toggle("dark", dark);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.setAttribute("content", dark ? "#0f1511" : "#f4fbf6"); m.removeAttribute("media"); });
 }
 export function setTheme(p) { LS.set("a2-theme", p); applyTheme(); bump(); }
 mq.addEventListener?.("change", () => { if (themePref() === "system") { applyTheme(); bump(); } });

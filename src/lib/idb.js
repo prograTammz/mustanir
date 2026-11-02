@@ -35,4 +35,6 @@ export const idb = {
   put: (store, pairs) => (pairs.length ? run(store, "readwrite", (s) => { for (const [k, v] of pairs) s.put(v, k); }).catch(() => {}) : Promise.resolve()),
   set: (store, key, value) => run(store, "readwrite", (s) => s.put(value, key)).catch(() => {}),
   clear: () => Promise.all(["days", "meta"].map((n) => run(n, "readwrite", (s) => s.clear()))).catch(() => {}),
+  /** IndexedDB hung: stop waiting on it. From here every call is a no-op, and what's stored stays as it was. */
+  giveUp: () => { dbp = Promise.reject(new Error("IndexedDB hung")); dbp.catch(() => {}); },
 };

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
+import { soundOn, setSound, play } from "@/lib/sound.js";
 import { widgetScript } from "@/lib/widget.js";
 import { openSheet } from "@/lib/app-state.js";
 import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin, Icon } from "@/components/kit";
@@ -87,6 +88,11 @@ function Appearance() {
   return (
     <Section title="Appearance" ar="المظهر">
       <Connected value={p} onChange={setTheme} label="Appearance" options={[{ value: "system", label: "System", icon: "brightness_auto" }, { value: "light", label: "Light", icon: "light_mode" }, { value: "dark", label: "Dark", icon: "dark_mode" }]} />
+      <div className="mt-3">
+        <Row label={<label htmlFor="a-sound">Game sounds</label>} sub="On this phone. The silent switch mutes them.">
+          <Switch id="a-sound" checked={soundOn()} onCheckedChange={(c) => { setSound(c); bump(); if (c) play("xp"); }} />
+        </Row>
+      </div>
     </Section>
   );
 }

@@ -7,7 +7,7 @@ import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
 import { useApp, bump, allTotals, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
 import { AdvisorCard } from "@/components/advisor.jsx";
-import { Ar, Fold, Hint, Seal, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
+import { Ar, Fold, Hint, LargeTitle, Seal, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
 import { Icon, Shape, Button, Chip, Card, SectionTitle, Progress, Ring, Connected } from "@/components/m3/index.jsx";
 import { TrendChart } from "@/components/charts";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,7 @@ export default function Palace() {
   const hs = useHealth();
   return (
     <>
+      <LargeTitle title="Palace" ar="القصر" caption="Rank, streaks, medals and the council" />
       <Hero />
       <RankRoad />
       <Streaks />

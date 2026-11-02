@@ -12,7 +12,7 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
       <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/40" />
       <DrawerPrimitive.Content data-slot="drawer-content" className={cn("fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-[28px] bg-surface-container-low text-on-surface outline-none", className)} {...props}>
         <div aria-hidden className="mx-auto mt-4 mb-2 h-1 w-8 shrink-0 rounded-full bg-on-surface-variant/40" />
-        <div className="overflow-y-auto px-6 pb-safe">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-6 pb-safe">{children}</div>
       </DrawerPrimitive.Content>
     </DrawerPrimitive.Portal>
   );
