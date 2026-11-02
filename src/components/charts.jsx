@@ -56,19 +56,19 @@ export function TrendChart({ points, unit = "", digits = 0, color = "var(--prima
         {goal != null && <line x1={L} x2={W - R} y1={y(goal)} y2={y(goal)} stroke="var(--muted-foreground)" strokeDasharray="4 4" strokeOpacity="0.7" />}
         <path d={`${line}L${x(data.length - 1)},${H - B}L${L},${H - B}Z`} fill={`url(#${gid})`} />
         {smooth > 1 && data.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.v)} r="1.6" fill={color} fillOpacity="0.35" />)}
-        <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke={color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
         {h && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
-            <circle cx={x(hover)} cy={y(h.avg)} r="4.5" fill={color} stroke="var(--card)" strokeWidth="2" />
+            <circle cx={x(hover)} cy={y(h.avg)} r="6" fill={color} stroke="var(--md-sys-color-surface-container)" strokeWidth="3" />
           </g>
         )}
       </svg>
       {h && (
-        <div className="pointer-events-none absolute top-0 rounded-xl border bg-popover px-3 py-2 text-xs shadow-lg" style={{ left: `clamp(0px, calc(${(x(hover) / W) * 100}% - 60px), calc(100% - 132px))` }}>
-          <div className="text-muted-foreground">{fmtDay(h.d)}</div>
-          <div className="mt-0.5 text-sm font-semibold tnum">{nice(h.v, digits)}{unit ? ` ${unit}` : ""}</div>
-          {smooth > 1 && <div className="text-muted-foreground tnum">{smooth}-day avg {nice(h.avg, digits)}</div>}
+        <div className="pointer-events-none absolute top-0 rounded-lg bg-inverse-surface px-3 py-2 type-body-s text-inverse-on-surface elev-2" style={{ left: `clamp(0px, calc(${(x(hover) / W) * 100}% - 60px), calc(100% - 132px))` }}>
+          <div className="opacity-75">{fmtDay(h.d)}</div>
+          <div className="mt-0.5 type-title-s em tnum">{nice(h.v, digits)}{unit ? ` ${unit}` : ""}</div>
+          {smooth > 1 && <div className="opacity-75 tnum">{smooth}-day avg {nice(h.avg, digits)}</div>}
         </div>
       )}
     </div>

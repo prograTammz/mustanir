@@ -1,19 +1,18 @@
-// The palace: where you stand in the game. Rank ladder, XP, streaks, medals, then the council, the advisor, trends and every measure.
-import { useEffect, useRef, useState } from "react";
-import { Crown, ChevronRight, Flame, Lock, Trophy } from "lucide-react";
-import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, totals, rankFor, RANKS, streak, bestStreak, T, medals, periods, score, verdict, levelStart, termDay, termLength,
+// The palace: where you stand in the game. Your seal and level, the road of ranks, streaks, the trophy room, then the
+// council, the advisor, trends and every measure.
+import { useEffect, useState } from "react";
+import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, rankFor, RANKS, streak, bestStreak, T, periods, score, verdict, levelStart, termDay, termLength,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
 import { useApp, bump, allTotals, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/components/sheets.jsx";
 import { AdvisorCard } from "@/components/advisor.jsx";
-import { Ar, LargeTitle, Section, Hint, Fold, Bar, pctTxt } from "@/components/kit";
+import { Ar, Fold, Hint, Seal, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
+import { Icon, Shape, Button, Chip, Card, SectionTitle, Progress, Ring, Connected } from "@/components/m3/index.jsx";
 import { TrendChart } from "@/components/charts";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import Health from "./Health.jsx";
-import { Seal, SEAL, fmtN } from "./Today.jsx";
 
 let healthLoading = false, healthFailedAt = 0;
 export function useHealth() {
@@ -30,79 +29,50 @@ export default function Palace() {
   const hs = useHealth();
   return (
     <>
-      <LargeTitle title="Palace" ar="القصر" caption={`Term ${termInfo().n} · day ${Math.max(1, termDay(today()))} of ${termLength()}`} />
-      <Ladder />
+      <Hero />
+      <RankRoad />
       <Streaks />
-      <Medals />
+      <Trophies />
       <Council />
       <AdvisorCard full />
       <Trends />
-      <Card className="py-1"><CardContent>
-        <Fold title="All health data" summary="Body plan · every measure">
-          <div className="-mx-4 flex flex-col gap-3 pt-1 pb-3 [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-x-0 [&>[data-slot=card]]:border-b-0"><Health hs={hs} /></div>
+      <Card className="rise px-4 py-2">
+        <Fold title="All health data" summary="Body plan · every measure" leading={<Icon name="monitoring" size={22} className="text-on-surface-variant" />}>
+          <div className="-mx-4 flex flex-col gap-3 pt-1 pb-3 [&>section]:rounded-none [&>section]:bg-transparent"><Health hs={hs} /></div>
         </Fold>
-      </CardContent></Card>
+      </Card>
     </>
   );
 }
 
-/* ---------- the rank ladder and XP ---------- */
-function Ladder() {
-  const strip = useRef(null);
-  // Open the ladder on your rank, measured against the strip itself (offsetLeft is relative to some other ancestor).
-  useEffect(() => {
-    const st = strip.current, el = st?.querySelector("[data-cur]");
-    if (el) st.scrollLeft += el.getBoundingClientRect().left - st.getBoundingClientRect().left - 16;
-  }, []);
+/* ---------- the hero: the seal, the rank in both languages, XP to the next level ---------- */
+function Hero() {
   const t = allTotals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
   const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
   const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
   const best = days.reduce((a, k) => Math.max(a, dayXP(k)), 0);
-  const toNext = next ? Math.max(0, levelStart(next.from) - t.xp) : 0;
   return (
-    <Card className="gap-0 overflow-hidden py-0">
-      <div className="relative overflow-hidden bg-[linear-gradient(150deg,#17604F_0%,#0F4A3C_48%,#0A3128_100%)] px-4 pt-5 pb-4 text-white">
-        <svg viewBox="0 0 24 24" aria-hidden className="pointer-events-none absolute -top-12 -right-12 size-48 fill-white/[0.05]"><path d={SEAL} /></svg>
-        <div className="relative flex items-center gap-4">
-          <Seal level={t.level} size={72} />
-          <div className="min-w-0 flex-1">
-            <Ar className="block text-left text-[28px] leading-tight text-[#EBD08E]">{rank.ar}</Ar>
-            <div className="text-[15px] text-white/80">{rank.en} · Level {t.level}</div>
-          </div>
-        </div>
-        <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[linear-gradient(90deg,#C99A3E,#F1D896)] transition-[width] duration-700" style={{ width: `${t.frac * 100}%` }} /></div>
-        <div className="relative mt-1.5 flex justify-between gap-2 text-[12.5px] text-white/70 tnum">
-          <span>{t.xp.toLocaleString("en")} XP</span>
-          <span className="truncate">{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}{next && next.from === t.level + 1 ? ` · ${next.en}` : ""}</span>
+    <Card className="rise relative overflow-hidden bg-primary-container p-5 text-on-primary-container">
+      <Shape name="flower" size={260} spin color="color-mix(in srgb, var(--md-sys-color-on-primary-container) 6%, transparent)" className="pointer-events-none absolute -top-20 -right-20" />
+      <p className="relative type-label-l opacity-80">Term {termInfo().n} · day {Math.max(1, termDay(today()))} of {termLength()}</p>
+      <div className="relative mt-3 flex items-center gap-4">
+        <Seal level={t.level} size={96} spin className="pop" />
+        <div className="min-w-0 flex-1">
+          <Ar className="block text-left text-[30px] leading-tight text-tertiary">{rank.ar}</Ar>
+          <div className="type-headline-s em">{rank.en}</div>
+          <div className="type-body-m opacity-80">Level {t.level}{next ? ` · ${next.en} at level ${next.from}` : " · the highest rank"}</div>
         </div>
       </div>
-      <div className="pt-4">
-        <div className="flex items-baseline justify-between px-4">
-          <h2 className="text-[15px] font-semibold">The ranks</h2>
-          {next && <span className="text-[13px] text-muted-foreground tnum">{next.en} in {toNext.toLocaleString("en")} XP</span>}
-        </div>
-        <div ref={strip} className="no-scrollbar mt-2.5 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-1">
-          {RANKS.map((r) => {
-            const cur = r === rank, got = t.level >= r.from;
-            return (
-              <div key={r.from} data-cur={cur || undefined} className={cn("flex w-[100px] shrink-0 snap-start flex-col items-center gap-1 rounded-2xl px-2 pt-3 pb-2.5 text-center",
-                cur ? "bg-gold-soft shadow-[inset_0_0_0_1.5px_var(--gold)]" : "bg-muted")}>
-                {got ? <Seal level={r.from} size={30} /> : <span className="grid size-[30px] place-items-center"><Lock className="size-4 text-muted-foreground" /></span>}
-                <Ar className={cn("text-[15px] leading-tight", got ? "text-gold" : "text-muted-foreground")}>{r.ar}</Ar>
-                <span className={cn("text-[12.5px] leading-tight font-semibold", !got && "text-muted-foreground")}>{r.en}</span>
-                <span className={cn("mt-0.5 text-[10.5px] leading-tight tnum", cur ? "font-semibold text-gold" : "text-muted-foreground")}>
-                  {cur ? "You’re here" : got ? "Reached" : `Level ${r.from}`}<br />{cur ? `Level ${t.level}` : `${levelStart(r.from).toLocaleString("en")} XP`}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      <div className="relative mt-5">
+        <div className="mb-1.5 flex items-baseline justify-between type-label-l tnum"><span className="em">{t.xp.toLocaleString("en")} XP</span><span className="opacity-80">{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</span></div>
+        <Progress value={t.frac} wavy thick color="var(--md-sys-color-tertiary)" track="color-mix(in srgb, var(--md-sys-color-on-primary-container) 16%, transparent)" />
       </div>
-      <div className="grid grid-cols-3 gap-2 p-4">
-        {[[week.toLocaleString("en"), "XP this week"], [best, "best day"], [days.length, "days logged"]].map(([v, l]) => (
-          <div key={l} className="rounded-2xl bg-muted px-2 py-2.5 text-center">
-            <div className="text-[19px] font-bold tracking-tight tnum">{v}</div>
-            <div className="text-[11.5px] leading-tight text-muted-foreground">{l}</div>
+      <div className="relative mt-5 grid grid-cols-3 gap-2">
+        {[[week.toLocaleString("en"), "XP this week", "bolt"], [best, "best day", "star"], [days.length, "days logged", "event_available"]].map(([v, l, ic]) => (
+          <div key={l} className="rounded-[20px] bg-[color-mix(in_srgb,var(--md-sys-color-on-primary-container)_9%,transparent)] px-3 py-2.5">
+            <Icon name={ic} size={18} fill className="text-tertiary" />
+            <div className="type-title-l em tnum">{v}</div>
+            <div className="type-label-m opacity-80">{l}</div>
           </div>
         ))}
       </div>
@@ -110,26 +80,110 @@ function Ladder() {
   );
 }
 
+/* ---------- the road of ranks: a winding path from Candidate to The Enlightened ---------- */
+const XS = [50, 80, 50, 20];
+function RankRoad() {
+  const t = allTotals(), cur = rankFor(t.level), ci = RANKS.indexOf(cur), STEP = 92, H = STEP * (RANKS.length - 1) + 64;
+  const pts = RANKS.map((_, i) => [XS[i % 4], 32 + i * STEP]);
+  const seg = (a, b) => `C${a[0]} ${a[1] + STEP / 2} ${b[0]} ${b[1] - STEP / 2} ${b[0]} ${b[1]}`;
+  const all = `M${pts[0][0]} ${pts[0][1]}` + pts.slice(1).map((p, i) => seg(pts[i], p)).join("");
+  const done = `M${pts[0][0]} ${pts[0][1]}` + pts.slice(1, ci + 1).map((p, i) => seg(pts[i], p)).join("");
+  const nextRank = RANKS[ci + 1], toNext = nextRank ? Math.max(0, levelStart(nextRank.from) - t.xp) : 0;
+  const span = nextRank ? levelStart(nextRank.from) - levelStart(cur.from) : 1, into = nextRank ? (t.xp - levelStart(cur.from)) / span : 1;
+  return (
+    <>
+      <SectionTitle sub={nextRank ? `${nextRank.en} in ${toNext.toLocaleString("en")} XP` : "Every rank is yours"}>The road of ranks</SectionTitle>
+      <Card className="rise relative overflow-hidden px-4" style={{ height: H + 16 }}>
+        <svg className="absolute inset-x-4 top-2" style={{ height: H, width: "calc(100% - 32px)" }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-hidden>
+          <path d={all} fill="none" stroke="var(--md-sys-color-outline-variant)" strokeWidth="4" strokeDasharray="2 10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {ci > 0 && <path d={done} fill="none" stroke="var(--md-sys-color-tertiary)" strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+        </svg>
+        <div className="absolute inset-x-4 top-2" style={{ height: H }}>
+          {RANKS.map((r, i) => {
+            const [x, y] = pts[i], got = i <= ci, here = i === ci, left = x > 50, size = here ? 64 : 48;
+            return (
+              <div key={r.from} className="absolute flex items-center gap-3" style={{ top: y - size / 2, ...(left ? { right: `calc(${100 - x}% - ${size / 2}px)`, flexDirection: "row-reverse" } : { left: `calc(${x}% - ${size / 2}px)` }) }}>
+                <span className="relative">
+                  {here && <span className="pulse-ring absolute inset-0 rounded-full bg-tertiary/40" />}
+                  {here ? <Ring value={into} size={size} stroke={4} color="var(--md-sys-color-tertiary)" label={`${Math.round(into * 100)}% of the way to ${nextRank?.en || "the top"}`}><Seal level={t.level} size={48} /></Ring>
+                    : got ? <Seal level={r.from} size={size} />
+                    : <Shape name="verySunny" size={size} color="var(--md-sys-color-surface-container-highest)"><Icon name="lock" size={20} className="text-on-surface-variant" /></Shape>}
+                </span>
+                <div className={cn("max-w-[150px]", left && "text-right")}>
+                  <Ar className={cn("block text-[18px] leading-tight", got ? "text-tertiary" : "text-on-surface-variant", left ? "text-right" : "text-left")}>{r.ar}</Ar>
+                  <div className={cn("type-title-s em", !got && "text-on-surface-variant")}>{r.en}</div>
+                  <div className={cn("type-label-s tnum", here ? "em text-tertiary" : "text-on-surface-variant")}>{here ? `You · level ${t.level}` : got ? "Reached" : `Level ${r.from} · ${levelStart(r.from).toLocaleString("en")} XP`}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </>
+  );
+}
+
 /* ---------- streaks ---------- */
-const STREAKS = [["office", "Days in office", "Log something every day"], ["prayers", "All five prayers", "Every prayer, every day"], ["fajr", "Up for Fajr", "Awake around Fajr, from WHOOP"],
-  ["abstain", "Purity", "Clean, no slip logged"], ["read", "Reading", "Your pages, every day"], ["regular", "Sleep rhythm", "Consistency on target"], ["vital", "Vitality", "4 of 5 vitals"]];
+const STREAKS = [["office", "Days in office", "Log something every day", "event_available"], ["prayers", "All five prayers", "Every prayer, every day", "mosque"], ["fajr", "Up for Fajr", "From WHOOP", "wb_twilight"],
+  ["abstain", "Purity", "No slip logged", "shield"], ["read", "Reading", "Your pages, daily", "menu_book"], ["regular", "Sleep rhythm", "Consistency on target", "repeat"], ["vital", "Vitality", "4 of 5 vitals", "ecg_heart"]];
 function Streaks() {
   return (
-    <Section title="Streaks" right={<span className="text-[13px] text-muted-foreground">now · best</span>}>
-      <div className="flex flex-col">
-        {STREAKS.map(([k, l, how]) => {
+    <>
+      <SectionTitle trailing={<span className="type-label-l text-on-surface-variant">now · best</span>}>Streaks</SectionTitle>
+      <div className="grid grid-cols-2 gap-2">
+        {STREAKS.map(([k, l, how, ic], i) => {
           const now = streak(T[k]), best = bestStreak(T[k]);
           return (
-            <div key={k} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
-              <Flame className={cn("size-[18px] shrink-0", now ? "fill-[#F0A23B] text-[#F0A23B]" : "text-muted-foreground/40")} />
-              <div className="min-w-0 flex-1"><div className="text-[15px]">{l}</div><div className="truncate text-[11.5px] text-muted-foreground">{how}</div></div>
-              <span className="text-[17px] font-semibold tnum">{now}</span>
-              <span className="w-10 text-right text-[13px] text-muted-foreground tnum">{best}</span>
-            </div>
+            <Card key={k} className={cn("rise flex flex-col gap-1 p-4", i === 0 && "col-span-2", now ? "bg-fire-container text-on-fire-container" : "")}>
+              <div className="flex items-center justify-between">
+                <Icon name={ic} size={20} className={now ? "" : "text-on-surface-variant"} />
+                <span className={cn("flex items-center gap-0.5 type-label-m tnum", !now && "text-on-surface-variant")}><Icon name="emoji_events" size={14} />best {best}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Icon name="local_fire_department" fill={!!now} size={i === 0 ? 34 : 26} className={now ? "text-fire" : "text-outline"} />
+                <span className={cn("em-x tnum leading-none", i === 0 ? "type-display-s" : "type-headline-m")}>{now}</span>
+                <span className={cn("type-label-l", !now && "text-on-surface-variant")}>{now === 1 ? "day" : "days"}</span>
+              </div>
+              <div className="type-title-s">{l}</div>
+              <div className={cn("type-body-s", now ? "opacity-80" : "text-on-surface-variant")}>{how}</div>
+            </Card>
           );
         })}
       </div>
-    </Section>
+    </>
+  );
+}
+
+/* ---------- the trophy room: every medal, shaped and coloured by its minister ---------- */
+function Trophies() {
+  const [filter, setFilter] = useState("all"), [all, setAll] = useState(false);
+  const ms = allMedals(), won = ms.filter((m) => m.won), rest = ms.filter((m) => !m.won).sort((a, b) => b.frac - a.frac);
+  const list = filter === "won" ? won : filter === "close" ? rest.filter((m) => m.frac > 0) : [...won, ...rest];
+  const shown = all ? list : list.slice(0, 12);
+  return (
+    <>
+      <SectionTitle trailing={<span className="type-title-m em tnum text-tertiary">{won.length}<span className="type-body-m text-on-surface-variant"> / {ms.length}</span></span>}>Trophy room</SectionTitle>
+      <Card className="rise p-4">
+        <Connected value={filter} onChange={(v) => { setFilter(v); setAll(false); }} options={[{ value: "all", label: "All" }, { value: "won", label: `Won ${won.length}` }, { value: "close", label: "Closest" }]} label="Show medals" />
+        <Progress value={won.length / ms.length} color="var(--md-sys-color-tertiary)" className="mt-4" />
+        <div className="mt-4 grid grid-cols-3 gap-x-2 gap-y-4">
+          {shown.map((m) => {
+            const k = medalKind(m.id), sh = MIN[k];
+            return (
+              <button key={m.id} type="button" onClick={() => openSheet({ type: "medal", id: m.id })} className="state flex flex-col items-center gap-1.5 rounded-[20px] px-1 py-2 text-center">
+                {m.won
+                  ? <Shape name={sh.shape} rot={sh.rot || 0} size={64} color={mColor(k)} className="pop"><Icon name={sh.icon} fill size={28} style={{ color: "var(--md-sys-color-surface)" }} /></Shape>
+                  : <Ring value={m.frac} size={64} stroke={4} color={mColor(k)}><Shape name={sh.shape} rot={sh.rot || 0} size={46} color="var(--md-sys-color-surface-container-highest)"><Icon name="lock" size={18} className="text-on-surface-variant" /></Shape></Ring>}
+                <span className={cn("line-clamp-2 type-label-l leading-tight", m.won ? "em" : "text-on-surface-variant")}>{m.en}</span>
+                {m.won ? <Ar className="text-[12px] leading-tight text-tertiary">{m.ar}</Ar> : <span className="type-label-s text-on-surface-variant tnum">{m.down ? `${fmtN(m.cur)} → ${m.goal}` : `${fmtN(m.cur)} / ${fmtN(m.goal)}`}</span>}
+              </button>
+            );
+          })}
+        </div>
+        {!list.length && <Hint className="py-6 text-center">{filter === "won" ? "No medals yet. The first one is close." : "Nothing under way yet."}</Hint>}
+        {list.length > 12 && <Button variant="tonal" className="mt-4 w-full" icon={all ? "expand_more" : undefined} onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${list.length}`}</Button>}
+      </Card>
+    </>
   );
 }
 
@@ -138,74 +192,49 @@ function Council() {
   const t = today(), ps = periods(t), ti = termIndex(t), term = termInfo(t);
   const cur = ps.find((p) => t >= p.start && t < p.end) || ps[0];
   const end = t < cur.end ? addDays(t, 1) : cur.end;
-  const r = cur.start < end ? score(range(cur.start, end)) : null, left = diff(t, cur.end);
+  const r = cur.start < end ? score(range(cur.start, end)) : null, left = diff(t, cur.end), line = S.settings.threshold;
   const notesKey = `${ti}-${cur.i}`, note = (S.settings.revNotes || {})[notesKey] ?? "";
   return (
-    <Section title={`This month · ${cur.label}`} right={<span className="text-[13px] text-muted-foreground">{left > 0 ? `Council in ${left} d` : "Council due"}</span>}>
-      {!r ? <Hint>{t < cur.start ? `Term ${term.n} starts ${fmt(cur.start, { day: "numeric", month: "long" })}.` : "No days counted yet."}</Hint> : (
-        <>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[40px] leading-none font-bold tracking-tight tnum">{pctTxt(r.overall)}</span>
-            <span className="text-[13px] text-muted-foreground">approval · {r.logged} of {r.n} days logged</span>
-          </div>
-          <div className="mt-3 flex flex-col">
-            {MINISTERS.map((m) => {
-              const [cls, txt] = verdict(r[m.key], m.immune);
-              return (
-                <button key={m.key} onClick={() => openSheet({ type: "minister", key: m.key })} className="press flex items-center gap-3 border-t py-2.5 text-left">
-                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: `var(--m-${m.key})` }} />
-                  <span className="w-24 shrink-0 text-[14px]">{m.en.replace("Minister of ", "")}</span>
-                  <Bar className="flex-1" value={r[m.key]} color={`var(--m-${m.key})`} />
-                  <span className={cn("w-11 shrink-0 text-right text-[13px] font-semibold tnum", cls === "bad" && "text-bad", cls === "warn" && "text-warn")} title={txt}>{pctTxt(r[m.key])}</span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                </button>
-              );
-            })}
-          </div>
-          <Hint className="mt-2">Below {S.settings.threshold}% a minister’s strategy is up for impeachment at the council. Faith can’t be impeached.</Hint>
-        </>
-      )}
-      <Fold className="mt-2 border-t" title="The council’s verdict" summary={note ? "Written" : "Notes"}>
-        <Textarea key={notesKey} defaultValue={note} rows={4} className="mt-1 mb-2" placeholder="Who keeps their seat, who is replaced, and the new strategy."
-          onChange={(e) => { S.settings.revNotes = { ...(S.settings.revNotes || {}), [notesKey]: e.target.value }; clearTimeout(S.timers.rev); S.timers.rev = setTimeout(saveSettings, 600); }} />
-      </Fold>
-    </Section>
-  );
-}
-
-/* ---------- medals, with how close each one is ---------- */
-function Medals() {
-  const [all, setAll] = useState(false);
-  const ms = allMedals(), won = ms.filter((m) => m.won), rest = ms.filter((m) => !m.won).sort((a, b) => b.frac - a.frac);
-  const list = [...won, ...rest], shown = all ? list : list.slice(0, Math.max(9, won.length + 3));
-  return (
-    <Section title="Medals" right={<span className="text-[13px] text-muted-foreground tnum">{won.length} of {ms.length}</span>}>
-      <Bar value={won.length / ms.length} color="var(--gold)" className="mb-3" />
-      <div className="grid grid-cols-3 gap-2">
-        {shown.map((m) => (
-          <div key={m.id} className={cn("flex flex-col items-center gap-1 rounded-2xl px-2 pt-3 pb-2.5 text-center", m.won ? "bg-gold-soft ring-1 ring-gold/30" : "bg-muted")}>
-            {m.won ? <Trophy className="size-5 text-gold" /> : <Crown className="size-5 text-muted-foreground/40" />}
-            <span className={cn("text-[12.5px] leading-tight font-semibold", !m.won && "text-muted-foreground")}>{m.en}</span>
-            <Ar className={cn("text-[12px] leading-tight", m.won ? "text-gold" : "text-muted-foreground/70")}>{m.ar}</Ar>
-            <span className="text-[10.5px] leading-tight text-muted-foreground">{m.how}</span>
-            {!m.won && (
-              <div className="mt-1 w-full">
-                <Bar value={m.frac} color="var(--gold)" className="h-1" />
-                <div className="mt-1 text-[10px] text-muted-foreground tnum">{m.down ? `${fmtN(m.cur)} → ${m.goal}` : `${fmtN(m.cur)} / ${fmtN(m.goal)}`}</div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      {list.length > shown.length || all ? (
-        <button className="press mt-3 h-10 w-full rounded-full bg-muted text-[14px] font-medium" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${ms.length}`}</button>
-      ) : null}
-    </Section>
+    <>
+      <SectionTitle sub={`${cur.label} of term ${term.n}`} trailing={<span className="inline-flex h-8 items-center gap-1 rounded-lg bg-secondary-container px-3 type-label-l text-on-secondary-container"><Icon name="gavel" size={16} />{left > 0 ? `Council in ${left} d` : "Council due"}</span>}>The council</SectionTitle>
+      <Card className="rise p-4">
+        {!r ? <Hint>{t < cur.start ? `Term ${term.n} starts ${fmt(cur.start, { day: "numeric", month: "long" })}.` : "No days counted yet."}</Hint> : (
+          <>
+            <div className="flex items-end gap-3">
+              <span className={cn("type-display-m em-x tnum leading-none", r.overall * 100 < line ? "text-error" : "text-primary")}>{pctTxt(r.overall)}</span>
+              <span className="pb-1 type-body-m text-on-surface-variant">approval · {r.logged} of {r.n} days logged</span>
+            </div>
+            <div className="mt-4 flex flex-col gap-1">
+              {MINISTERS.map((m) => {
+                const [cls, txt] = verdict(r[m.key], m.immune);
+                return (
+                  <button key={m.key} type="button" onClick={() => openSheet({ type: "minister", key: m.key })} className="state -mx-2 flex items-center gap-3 rounded-2xl px-2 py-2 text-left" title={txt}>
+                    <Shape name={MIN[m.key].shape} rot={MIN[m.key].rot || 0} size={32} color={mContainer(m.key)}><Icon name={MIN[m.key].icon} fill size={16} style={{ color: mColor(m.key) }} /></Shape>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between type-label-l"><span>{m.en.replace("Minister of ", "")}</span>
+                        <span className={cn("em tnum", cls === "bad" && "text-error", cls === "warn" && "text-warning")}>{pctTxt(r[m.key])}</span></div>
+                      <div className="relative mt-1">
+                        <Progress value={r[m.key]} color={mColor(m.key)} stop={false} />
+                        <span className="absolute -top-1 h-3 w-0.5 rounded-full bg-on-surface" style={{ left: `${line}%` }} aria-hidden />
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <Hint className="mt-2">The mark is the impeachment line ({line}%): below it a minister’s strategy is up for replacement at the council. Faith can’t be impeached.</Hint>
+          </>
+        )}
+        <Fold className="mt-2 border-t pt-1" title="The council’s verdict" summary={note ? "Written" : "Notes"}>
+          <Textarea key={notesKey} defaultValue={note} rows={4} className="mt-1 mb-2" placeholder="Who keeps their seat, who is replaced, and the new strategy."
+            onChange={(e) => { S.settings.revNotes = { ...(S.settings.revNotes || {}), [notesKey]: e.target.value }; clearTimeout(S.timers.rev); S.timers.rev = setTimeout(saveSettings, 600); }} />
+        </Fold>
+      </Card>
+    </>
   );
 }
 
 /* ---------- trends: one chart, pick the measure ---------- */
-const RANGES = [[7, "7D"], [30, "30D"], [90, "90D"]];
 function Trends() {
   const to = today(), days = S.range || 30, from = addDays(to, -days + 1), win = range(from, addDays(to, 1));
   const logged = win.filter((k) => manual(S.days[k]));
@@ -226,17 +255,16 @@ function Trends() {
   };
   const key = S.trend && M[S.trend] ? S.trend : "weight", [title, unit, digits, get, color, goal] = M[key], pts = get();
   return (
-    <Section title="Trends" right={
-      <div className="flex rounded-full bg-muted p-0.5">
-        {RANGES.map(([n, l]) => <button key={n} onClick={() => { S.range = n; bump(); }} className={cn("press h-7 rounded-full px-2.5 text-[12px] font-semibold", days === n ? "bg-card shadow-sm" : "text-muted-foreground")}>{l}</button>)}
-      </div>}>
-      <div className="no-scrollbar -mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4">
-        {Object.entries(M).map(([k, [l]]) => (
-          <button key={k} onClick={() => { S.trend = k; bump(); }} className={cn("press h-8 shrink-0 rounded-full px-3 text-[13px] font-medium", k === key ? "bg-foreground text-background" : "bg-muted text-muted-foreground")}>{l}</button>
-        ))}
-      </div>
-      {pts.length ? <TrendChart points={pts} unit={unit} digits={digits} color={color} goal={goal || null} smooth={days > 60 ? 7 : 1} min={key === "weight" ? null : 0} />
-        : <Hint className="py-8 text-center">No {title.toLowerCase()} data in the last {days} days yet.</Hint>}
-    </Section>
+    <>
+      <SectionTitle>Trends</SectionTitle>
+      <Card className="rise p-4">
+        <Connected value={days} onChange={(n) => { S.range = n; bump(); }} options={[{ value: 7, label: "7 days" }, { value: 30, label: "30 days" }, { value: 90, label: "90 days" }]} label="Range" />
+        <div className="no-scrollbar -mx-4 my-3 flex gap-2 overflow-x-auto px-4">
+          {Object.entries(M).map(([k, [l]]) => <Chip key={k} selected={k === key} onClick={() => { S.trend = k; bump(); }}>{l}</Chip>)}
+        </div>
+        {pts.length ? <TrendChart points={pts} unit={unit} digits={digits} color={color} goal={goal || null} smooth={days > 60 ? 7 : 1} min={key === "weight" ? null : 0} />
+          : <Hint className="py-8 text-center">No {title.toLowerCase()} data in the last {days} days yet.</Hint>}
+      </Card>
+    </>
   );
 }

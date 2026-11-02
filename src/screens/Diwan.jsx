@@ -1,12 +1,12 @@
 // Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, FatSecret, account.
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor, X, ArrowUp, Copy, Check, Plus } from "lucide-react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { widgetScript } from "@/lib/widget.js";
 import { openSheet } from "@/components/sheets.jsx";
-import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin } from "@/components/kit";
+import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin, Icon } from "@/components/kit";
+import { Connected, IconButton, Shape } from "@/components/m3/index.jsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,11 +28,11 @@ function setSetting(k, v) {
 function Field({ label, k, type = "text", hint, ...attrs }) {
   const v = S.settings[k] ?? "";
   return (
-    <div className="border-t py-2 first:border-t-0">
-      <div className="flex min-h-10 items-center gap-3">
-        <Label htmlFor={"f-" + k} className="min-w-0 flex-1 text-[15px] leading-snug font-normal">{label}</Label>
+    <div className="py-1.5">
+      <div className="flex min-h-12 items-center gap-3">
+        <Label htmlFor={"f-" + k} className="min-w-0 flex-1 type-body-l text-on-surface">{label}</Label>
         <Input id={"f-" + k} key={k + String(v)} type={type} defaultValue={String(v)} inputMode={type === "number" ? "decimal" : undefined} {...attrs}
-          className={cn("h-9 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none", type === "text" ? "w-44" : type === "date" || type === "time" ? "w-36" : "w-28")}
+          className={cn("h-10 shrink-0 rounded-xl border-0 bg-surface-container-highest px-3 text-right type-title-m tnum focus-visible:shadow-[inset_0_0_0_2px_var(--md-sys-color-primary)]", type === "text" ? "w-44" : type === "date" || type === "time" ? "w-36" : "w-28")}
         onBlur={(e) => { let x = e.target.value; if (type === "number") x = Math.max(0, parseFloat(x) || 0); if (String(x) !== String(v)) setSetting(k, x); }}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
       </div>
@@ -44,7 +44,7 @@ function Field({ label, k, type = "text", hint, ...attrs }) {
 export default function Diwan() {
   return (
     <>
-      <LargeTitle title="Settings" ar="الديوان" />
+      <LargeTitle title="Settings" ar="الديوان" caption="The diwan: targets, schedule, connections" />
       <Appearance />
       <Section title="Targets" ar="الأهداف" desc="The body plan sets the deficit, protein, sessions and steps when each term begins.">
         <Field label="First term starts" k="termStart" type="date" />
@@ -74,10 +74,10 @@ export default function Diwan() {
       <Whoop />
       <FatSecret />
       <Section title="Account" ar="الحساب">
-        <Row label="Signed in as"><span className="text-[15px] font-medium">{SESSION?.email || ""}</span></Row>
-        <Button variant="outline" className="mt-3 w-full" onClick={() => { signOut(); S.tab = "palace"; bump(); }}>Sign out</Button>
+        <Row label="Signed in as"><span className="type-title-s">{SESSION?.email || ""}</span></Row>
+        <Button variant="outline" className="mt-3 w-full" onClick={() => { signOut(); S.tab = "palace"; bump(); }}><Icon name="logout" size={20} />Sign out</Button>
       </Section>
-      <Hint className="text-center">Al-Mustanir · Ahmed 2.0</Hint>
+      <div className="flex flex-col items-center gap-2 py-4"><Shape name="verySunny" size={28} color="var(--md-sys-color-tertiary)" /><Hint className="text-center">Al-Mustanir · Ahmed 2.0</Hint></div>
     </>
   );
 }
@@ -86,11 +86,7 @@ function Appearance() {
   const p = themePref();
   return (
     <Section title="Appearance" ar="المظهر">
-      <ToggleGroup type="single" value={p} onValueChange={(v) => v && setTheme(v)}>
-        <ToggleGroupItem value="system"><Monitor className="size-4" />System</ToggleGroupItem>
-        <ToggleGroupItem value="light"><Sun className="size-4" />Light</ToggleGroupItem>
-        <ToggleGroupItem value="dark"><Moon className="size-4" />Dark</ToggleGroupItem>
-      </ToggleGroup>
+      <Connected value={p} onChange={setTheme} label="Appearance" options={[{ value: "system", label: "System", icon: "brightness_auto" }, { value: "light", label: "Light", icon: "light_mode" }, { value: "dark", label: "Dark", icon: "dark_mode" }]} />
     </Section>
   );
 }
@@ -102,10 +98,10 @@ function Profile() {
     <Section title="Daily vitals" ar="الحيوية" desc="WHOOP fills these in; each one met is worth XP.">
       <div className="flex flex-col">
         {vitalsFor(today()).map((x) => (
-          <div key={x.k} className="flex min-h-10 items-center gap-3 border-t py-2 first:border-t-0">
-            <Label htmlFor={"v-" + x.k} className="min-w-0 flex-1 text-[15px] font-normal">{x.en}{x.unit ? <span className="text-muted-foreground"> ({x.unit})</span> : ""}</Label>
+          <div key={x.k} className="flex min-h-12 items-center gap-3 py-1.5">
+            <Label htmlFor={"v-" + x.k} className="min-w-0 flex-1 type-body-l text-on-surface">{x.en}{x.unit ? <span className="text-on-surface-variant"> ({x.unit})</span> : ""}</Label>
             <Input id={"v-" + x.k} key={x.k + g[x.k]} type="number" inputMode="decimal" min="0" step={x.k === "sleepH" ? "0.5" : "1"} defaultValue={String(g[x.k])}
-              className="h-9 w-28 shrink-0 rounded-xl border-0 bg-muted text-right shadow-none"
+              className="h-10 w-28 shrink-0 rounded-xl border-0 bg-surface-container-highest px-3 text-right type-title-m tnum focus-visible:shadow-[inset_0_0_0_2px_var(--md-sys-color-primary)]"
               onBlur={(e) => { if (+e.target.value !== g[x.k]) setG(x.k, e.target.value); }} />
           </div>
         ))}
@@ -135,19 +131,20 @@ function Training() {
         {WEEK.map(([d, name]) => {
           const list = weekly.filter((x) => (x.days || []).includes(d)).sort((a, b) => hmMin(a.start) - hmMin(b.start));
           return (
-            <div key={d} className="border-t py-2.5 first:border-t-0">
+            <div key={d} className="py-2">
               <div className="flex items-center gap-3">
-                <span className={cn("min-w-0 flex-1 text-[15px]", list.length ? "font-medium" : "text-muted-foreground")}>
-                  {name}{!list.length && <span className="text-[14px]"> · rest</span>}{list.length > 1 && <span className="text-[13px] font-normal text-muted-foreground"> · {list.length} sessions</span>}
+                <span className={cn("grid size-10 shrink-0 place-items-center rounded-full type-label-l em", list.length ? "bg-primary-container text-on-primary-container" : "bg-surface-container-highest text-on-surface-variant")}>{name.slice(0, 2)}</span>
+                <span className={cn("min-w-0 flex-1 type-title-m", !list.length && "font-normal text-on-surface-variant")}>
+                  {name}{!list.length && <span className="type-body-m"> · rest</span>}{list.length > 1 && <span className="type-body-m text-on-surface-variant"> · {list.length} sessions</span>}
                 </span>
-                <button aria-label={`Add a session on ${name}`} className="press grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground" onClick={() => openSheet({ type: "slot", day: d })}><Plus className="size-4" /></button>
+                <IconButton icon="add" variant="tonal" size="xs" label={`Add a session on ${name}`} onClick={() => openSheet({ type: "slot", day: d })} />
               </div>
               {list.length > 0 && (
-                <div className="mt-2 flex flex-col gap-1.5">
+                <div className="mt-2 ml-[52px] flex flex-col gap-1.5">
                   {list.map((x) => (
-                    <div key={x.id} className="flex items-center gap-2 rounded-xl bg-muted py-1.5 pr-1 pl-3">
-                      <span className="min-w-0 flex-1 truncate text-[14px]"><b className="font-semibold">{slotName(x)}</b> <span className="text-muted-foreground tnum">{x.start}–{x.end} · {fmtMin(len(x))}</span></span>
-                      <button aria-label={`Remove ${slotName(x)} ${x.start} on ${name}`} className="press grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground" onClick={() => removeDay(x, d)}><X className="size-4" /></button>
+                    <div key={x.id} className="flex items-center gap-2 rounded-2xl bg-surface-container-high py-1 pr-1 pl-3">
+                      <span className="min-w-0 flex-1 truncate type-body-m"><b className="font-bold">{slotName(x)}</b> <span className="text-on-surface-variant tnum">{x.start}–{x.end} · {fmtMin(len(x))}</span></span>
+                      <IconButton icon="close" size="xs" label={`Remove ${slotName(x)} ${x.start} on ${name}`} onClick={() => removeDay(x, d)} />
                     </div>
                   ))}
                 </div>
@@ -160,14 +157,14 @@ function Training() {
         <div className="mt-2">
           <Subhead className="mt-2">One-off sessions</Subhead>
           {once.map((x) => (
-            <div key={x.id} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
-              <div className="min-w-0 flex-1"><div className="text-[15px] font-medium tnum">{slotName(x)} · {x.start}–{x.end}</div><div className="text-xs text-muted-foreground">{fmt(x.date, { weekday: "short", day: "numeric", month: "short" })}</div></div>
-              <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={() => remove("trainingOnce", x.id)}><X /></Button>
+            <div key={x.id} className="flex items-center gap-3 py-2">
+              <div className="min-w-0 flex-1"><div className="type-title-s tnum">{slotName(x)} · {x.start}–{x.end}</div><div className="type-body-s text-on-surface-variant">{fmt(x.date, { weekday: "short", day: "numeric", month: "short" })}</div></div>
+              <IconButton icon="close" size="xs" label="Remove" onClick={() => remove("trainingOnce", x.id)} />
             </div>
           ))}
         </div>
       )}
-      <Button className="mt-3 w-full" onClick={() => openSheet({ type: "slot" })}><Plus />Add training</Button>
+      <Button className="mt-3 w-full" size="lg" onClick={() => openSheet({ type: "slot" })}><Icon name="add" size={24} />Add training</Button>
     </Section>
   );
 }
@@ -181,10 +178,11 @@ function ChecklistEdit() {
   return (
     <Section title="Daily checklist" ar="قائمة الإنجاز" desc="What a productive day means for you. Each day’s score is the share you tick.">
       {list.map((x, i) => (
-        <div key={x.id} className="flex items-center gap-1 border-t py-2 first:border-t-0">
-          <span className="min-w-0 flex-1 text-[15px]">{x.text}</span>
-          {i > 0 && <Button variant="ghost" size="icon-sm" aria-label="Move up" onClick={() => move(i, -1)}><ArrowUp /></Button>}
-          <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={() => save(list.filter((y) => y.id !== x.id))}><X /></Button>
+        <div key={x.id} className="flex min-h-12 items-center gap-1">
+          <Icon name="task_alt" size={20} className="mr-2 text-tertiary" />
+          <span className="min-w-0 flex-1 type-body-l">{x.text}</span>
+          {i > 0 && <IconButton icon="arrow_upward" size="xs" label="Move up" onClick={() => move(i, -1)} />}
+          <IconButton icon="close" size="xs" label="Remove" onClick={() => save(list.filter((y) => y.id !== x.id))} />
         </div>
       ))}
       <div className="mt-3 flex gap-2">
@@ -241,7 +239,7 @@ function CopyField({ value, label }) {
       {label && <Label className="text-[13px] font-normal text-muted-foreground">{label}</Label>}
       <div className="flex gap-2">
         <Input readOnly value={value} onFocus={(e) => e.target.select()} className="font-mono text-[13px]" />
-        <Button variant="secondary" size="icon" aria-label="Copy" onClick={async () => { try { await navigator.clipboard.writeText(value); setDone(true); setTimeout(() => setDone(false), 1500); } catch { /* the field is selectable */ } }}>{done ? <Check /> : <Copy />}</Button>
+        <Button variant="secondary" size="icon" aria-label="Copy" onClick={async () => { try { await navigator.clipboard.writeText(value); setDone(true); setTimeout(() => setDone(false), 1500); } catch { /* the field is selectable */ } }}>{done ? <Icon name="check" size={20} /> : <Icon name="content_copy" size={20} />}</Button>
       </div>
     </div>
   );
@@ -283,7 +281,7 @@ function Widget() {
     <Section title="Home-screen widget" ar="الأداة" desc="Your level, today’s XP, streak and what’s still open, on the home screen or the lock screen. Refreshes about every 15 minutes.">
       {script ? (
         <div className="flex flex-col gap-3">
-          <Button className="w-full" onClick={copy}>{copied ? <><Check />Script copied</> : <><Copy />Copy the widget script</>}</Button>
+          <Button className="w-full" onClick={copy}>{copied ? <><Icon name="check" size={20} />Script copied</> : <><Icon name="content_copy" size={20} />Copy the widget script</>}</Button>
           <ol className="ml-5 list-decimal space-y-1.5 text-[14px] leading-relaxed">
             <li>Install <a className="underline" href="https://apps.apple.com/app/scriptable/id1405459188">Scriptable</a> (free).</li>
             <li>In Scriptable, tap <b>+</b>, paste, and name the script <b>Mustanir</b>.</li>
@@ -297,11 +295,11 @@ function Widget() {
   );
 }
 
-const C = ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12.5px]">{children}</code>;
+const C = ({ children }) => <code className="rounded bg-surface-container-highest px-1 py-0.5 font-mono text-[12.5px]">{children}</code>;
 function Guide({ title, children }) {
   return (
     <details className="group border-t py-1 first-of-type:border-t-0">
-      <summary className="flex cursor-pointer list-none items-center justify-between py-2.5 text-[15px] font-medium">{title}<Plus className="size-4 text-muted-foreground transition-transform group-open:rotate-45" /></summary>
+      <summary className="flex cursor-pointer list-none items-center justify-between py-2.5 type-title-m">{title}<Icon name="add" size={20} className="text-on-surface-variant transition-transform group-open:rotate-45" /></summary>
       <div className="flex flex-col gap-2 pb-3 text-[14px] leading-relaxed [&_li]:pl-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_ol]:space-y-2">{children}</div>
     </details>
   );

@@ -1,154 +1,182 @@
 @import "tailwindcss";
-@import "tw-animate-css";
+@import "./styles/m3-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   Mustanir design system · built on shadcn/ui tokens
-   Emerald (the seal), gold (the crown), the five ministers.
-   Light: warm parchment. Dark: night over Cairo.
+   Al-Mustanir on Material 3 Expressive.
+   Color: tonal roles from the brand (emerald primary, gold tertiary for XP and rewards), the five ministers as
+   custom colors (scripts/m3-tokens.mjs). Type: Google Sans Flex, rounder where it's a number to be proud of.
+   Shape: the M3 scale plus the expressive shape library (src/components/m3/shapes.js). Motion: springs.
    ============================================================ */
-/* ============================================================
-   Mustanir · minimal
-   Quiet neutrals, one emerald accent, gold only for XP and levels.
-   The five ministers keep their colours for dots and rings.
-   ============================================================ */
-:root {
-  --radius: 1.25rem;
-
-  --background: oklch(0.975 0.003 100);
-  --foreground: oklch(0.19 0.008 165);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.008 165);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.008 165);
-  --primary: oklch(0.46 0.085 166);
-  --primary-foreground: oklch(0.985 0.005 100);
-  --secondary: oklch(0.955 0.004 100);
-  --secondary-foreground: oklch(0.22 0.01 165);
-  --muted: oklch(0.955 0.004 100);
-  --muted-foreground: oklch(0.52 0.008 165);
-  --accent: oklch(0.95 0.02 166);
-  --accent-foreground: oklch(0.3 0.06 166);
-  --destructive: oklch(0.56 0.19 29);
-  --border: oklch(0.915 0.004 100);
-  --input: oklch(0.9 0.004 100);
-  --ring: oklch(0.46 0.085 166);
-
-  --gold: oklch(0.66 0.12 78);
-  --gold-soft: oklch(0.955 0.03 85);
-  --ok: oklch(0.56 0.13 155);
-  --warn: oklch(0.66 0.14 68);
-  --bad: oklch(0.58 0.18 28);
-  --m-body: #C2513A;
-  --m-knowledge: #3374C0;
-  --m-faith: #1F8C5A;
-  --m-habits: #B7801A;
-  --m-purity: #8A64C4;
-  --chart-1: var(--m-body);
-  --chart-2: var(--m-knowledge);
-  --chart-3: var(--m-faith);
-  --chart-4: var(--m-habits);
-  --chart-5: var(--m-purity);
-
-  --bar: oklch(0.99 0.002 100 / 0.8);
-  --grid: oklch(0.19 0.008 165 / 0.07);
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("/fonts/GoogleSansFlex-latin.woff2") format("woff2");
+  font-weight: 300 900; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+2082, U+20AC, U+2122, U+2190-2199, U+2212, U+2215, U+2248, U+25B2, U+25BC;
 }
 
-.dark {
-  --background: oklch(0.13 0.004 165);
-  --foreground: oklch(0.96 0.004 100);
-  --card: oklch(0.185 0.005 165);
-  --card-foreground: oklch(0.96 0.004 100);
-  --popover: oklch(0.2 0.005 165);
-  --popover-foreground: oklch(0.96 0.004 100);
-  --primary: oklch(0.76 0.12 165);
-  --primary-foreground: oklch(0.17 0.03 165);
-  --secondary: oklch(0.24 0.005 165);
-  --secondary-foreground: oklch(0.94 0.004 100);
-  --muted: oklch(0.235 0.005 165);
-  --muted-foreground: oklch(0.68 0.008 165);
-  --accent: oklch(0.27 0.03 166);
-  --accent-foreground: oklch(0.88 0.06 166);
-  --destructive: oklch(0.68 0.17 28);
-  --border: oklch(1 0 0 / 0.08);
-  --input: oklch(1 0 0 / 0.12);
-  --ring: oklch(0.76 0.12 165);
+:root {
+  /* M3 shape scale */
+  --md-sys-shape-corner-extra-small: 4px; --md-sys-shape-corner-small: 8px; --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px; --md-sys-shape-corner-large-increased: 20px; --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-extra-large-increased: 32px; --md-sys-shape-corner-extra-extra-large: 48px;
+  /* M3 elevation (shadow part; the tonal part is the surface container role) */
+  --md-sys-elevation-1: 0 1px 2px 0 rgb(0 0 0 / .3), 0 1px 3px 1px rgb(0 0 0 / .15);
+  --md-sys-elevation-2: 0 1px 2px 0 rgb(0 0 0 / .3), 0 2px 6px 2px rgb(0 0 0 / .15);
+  --md-sys-elevation-3: 0 1px 3px 0 rgb(0 0 0 / .3), 0 4px 8px 3px rgb(0 0 0 / .15);
+  --md-sys-elevation-4: 0 2px 3px 0 rgb(0 0 0 / .3), 0 6px 10px 4px rgb(0 0 0 / .15);
+  --rond: 40;
+  --spring-fast: var(--md-sys-motion-spring-fast-spatial-duration) var(--md-sys-motion-spring-fast-spatial);
+  --spring: var(--md-sys-motion-spring-default-spatial-duration) var(--md-sys-motion-spring-default-spatial);
+  --spring-slow: var(--md-sys-motion-spring-slow-spatial-duration) var(--md-sys-motion-spring-slow-spatial);
+  --effect-fast: var(--md-sys-motion-spring-fast-effects-duration) var(--md-sys-motion-spring-fast-effects);
+  --effect: var(--md-sys-motion-spring-default-effects-duration) var(--md-sys-motion-spring-default-effects);
+  --effect-slow: var(--md-sys-motion-spring-slow-effects-duration) var(--md-sys-motion-spring-slow-effects);
 
-  --gold: oklch(0.82 0.11 82);
-  --gold-soft: oklch(0.27 0.04 80);
-  --ok: oklch(0.77 0.15 155);
-  --warn: oklch(0.8 0.13 75);
-  --bad: oklch(0.72 0.16 28);
-  --m-body: #DE6A52;
-  --m-knowledge: #5C9BE0;
-  --m-faith: #36A874;
-  --m-habits: #C9922E;
-  --m-purity: #A982DA;
-
-  --bar: oklch(0.17 0.005 165 / 0.78);
-  --grid: oklch(1 0 0 / 0.07);
+  /* Older names, mapped onto M3 roles (charts and any shared helper still read these). */
+  --background: var(--md-sys-color-surface);
+  --foreground: var(--md-sys-color-on-surface);
+  --card: var(--md-sys-color-surface-container-low);
+  --popover: var(--md-sys-color-surface-container-high);
+  --muted: var(--md-sys-color-surface-container-highest);
+  --muted-foreground: var(--md-sys-color-on-surface-variant);
+  --border: var(--md-sys-color-outline-variant);
+  --gold: var(--md-sys-color-tertiary);
+  --gold-soft: var(--md-sys-color-tertiary-container);
+  --ok: var(--md-custom-color-success);
+  --warn: var(--md-custom-color-warning);
+  --bad: var(--md-sys-color-error);
+  --m-body: var(--md-custom-color-body-vivid);
+  --m-knowledge: var(--md-custom-color-knowledge-vivid);
+  --m-faith: var(--md-custom-color-faith-vivid);
+  --m-habits: var(--md-custom-color-habits-vivid);
+  --m-purity: var(--md-custom-color-purity-vivid);
+  --grid: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
 }
 
 @theme inline {
+  --font-sans: "Google Sans Flex", "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-arabic: "Reem Kufi", "Noto Kufi Arabic", "Geeza Pro", sans-serif;
+  --font-quran: "Amiri", "Geeza Pro", serif;
+
+  --color-primary: var(--md-sys-color-primary);
+  --color-on-primary: var(--md-sys-color-on-primary);
+  --color-primary-container: var(--md-sys-color-primary-container);
+  --color-on-primary-container: var(--md-sys-color-on-primary-container);
+  --color-inverse-primary: var(--md-sys-color-inverse-primary);
+  --color-primary-fixed: var(--md-sys-color-primary-fixed);
+  --color-on-primary-fixed: var(--md-sys-color-on-primary-fixed);
+  --color-secondary: var(--md-sys-color-secondary);
+  --color-on-secondary: var(--md-sys-color-on-secondary);
+  --color-secondary-container: var(--md-sys-color-secondary-container);
+  --color-on-secondary-container: var(--md-sys-color-on-secondary-container);
+  --color-tertiary: var(--md-sys-color-tertiary);
+  --color-on-tertiary: var(--md-sys-color-on-tertiary);
+  --color-tertiary-container: var(--md-sys-color-tertiary-container);
+  --color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+  --color-tertiary-fixed: var(--md-sys-color-tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--md-sys-color-tertiary-fixed-dim);
+  --color-on-tertiary-fixed: var(--md-sys-color-on-tertiary-fixed);
+  --color-error: var(--md-sys-color-error);
+  --color-on-error: var(--md-sys-color-on-error);
+  --color-error-container: var(--md-sys-color-error-container);
+  --color-on-error-container: var(--md-sys-color-on-error-container);
+  --color-surface: var(--md-sys-color-surface);
+  --color-on-surface: var(--md-sys-color-on-surface);
+  --color-surface-variant: var(--md-sys-color-surface-variant);
+  --color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-surface-dim: var(--md-sys-color-surface-dim);
+  --color-surface-bright: var(--md-sys-color-surface-bright);
+  --color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+  --color-surface-container-low: var(--md-sys-color-surface-container-low);
+  --color-surface-container: var(--md-sys-color-surface-container);
+  --color-surface-container-high: var(--md-sys-color-surface-container-high);
+  --color-surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --color-inverse-surface: var(--md-sys-color-inverse-surface);
+  --color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --color-outline: var(--md-sys-color-outline);
+  --color-outline-variant: var(--md-sys-color-outline-variant);
+  --color-scrim: var(--md-sys-color-scrim);
+  /* the ministers and friends: color, on-color, container, on-container, vivid */
+  --color-body: var(--md-custom-color-body-vivid);
+  --color-body-container: var(--md-custom-color-body-container);
+  --color-on-body-container: var(--md-custom-color-on-body-container);
+  --color-knowledge: var(--md-custom-color-knowledge-vivid);
+  --color-knowledge-container: var(--md-custom-color-knowledge-container);
+  --color-on-knowledge-container: var(--md-custom-color-on-knowledge-container);
+  --color-faith: var(--md-custom-color-faith-vivid);
+  --color-faith-container: var(--md-custom-color-faith-container);
+  --color-on-faith-container: var(--md-custom-color-on-faith-container);
+  --color-habits: var(--md-custom-color-habits-vivid);
+  --color-habits-container: var(--md-custom-color-habits-container);
+  --color-on-habits-container: var(--md-custom-color-on-habits-container);
+  --color-purity: var(--md-custom-color-purity-vivid);
+  --color-purity-container: var(--md-custom-color-purity-container);
+  --color-on-purity-container: var(--md-custom-color-on-purity-container);
+  --color-success: var(--md-custom-color-success);
+  --color-success-container: var(--md-custom-color-success-container);
+  --color-on-success-container: var(--md-custom-color-on-success-container);
+  --color-warning: var(--md-custom-color-warning);
+  --color-warning-container: var(--md-custom-color-warning-container);
+  --color-on-warning-container: var(--md-custom-color-on-warning-container);
+  --color-fire: var(--md-custom-color-fire-vivid);
+  --color-fire-container: var(--md-custom-color-fire-container);
+  --color-on-fire-container: var(--md-custom-color-on-fire-container);
+  /* older names */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --color-body: var(--m-body);
-  --color-knowledge: var(--m-knowledge);
-  --color-faith: var(--m-faith);
-  --color-habits: var(--m-habits);
-  --color-purity: var(--m-purity);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 4px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
-  --font-arabic: "Reem Kufi", "Amiri", "Geeza Pro", serif;
-  --font-quran: "Amiri", "Geeza Pro", serif;
+
+  --radius-xs: 4px; --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px; --radius-2xl: 28px; --radius-3xl: 32px; --radius-4xl: 48px;
 }
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
-  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+  * { @apply border-outline-variant; }
+  *, ::before, ::after { font-variation-settings: "ROND" var(--rond); }
+  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; background: var(--md-sys-color-surface); }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "cv11";
-    letter-spacing: -0.006em;
-    overscroll-behavior-y: none;
-    -webkit-tap-highlight-color: transparent;
+    @apply bg-surface text-on-surface antialiased;
+    font: 400 14px/20px var(--font-sans); letter-spacing: .015em;
+    overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent;
   }
+  button { cursor: pointer; }
   input, textarea, select { font-size: 16px; } /* no zoom on focus in iOS */
-  /* iOS gives date and time inputs a wide intrinsic minimum and its own alignment: let them fit their column like any field. */
   input[type="time"], input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; }
   input[type="time"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { text-align: inherit; min-height: 1.4em; }
+  :focus-visible { outline: 3px solid var(--md-sys-color-secondary); outline-offset: 2px; }
 }
+
+/* ---------- the M3 type scale (Expressive: emphasized styles bump the weight) ---------- */
+@utility type-display-l { font-size: 57px; line-height: 64px; letter-spacing: -.25px; font-weight: var(--fw, 400); }
+@utility type-display-m { font-size: 45px; line-height: 52px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-display-s { font-size: 36px; line-height: 44px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-headline-l { font-size: 32px; line-height: 40px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-headline-m { font-size: 28px; line-height: 36px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-headline-s { font-size: 24px; line-height: 32px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-title-l { font-size: 22px; line-height: 28px; letter-spacing: 0; font-weight: var(--fw, 400); }
+@utility type-title-m { font-size: 16px; line-height: 24px; letter-spacing: .15px; font-weight: var(--fw, 500); }
+@utility type-title-s { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: var(--fw, 500); }
+@utility type-body-l { font-size: 16px; line-height: 24px; letter-spacing: .5px; font-weight: var(--fw, 400); }
+@utility type-body-m { font-size: 14px; line-height: 20px; letter-spacing: .25px; font-weight: var(--fw, 400); }
+@utility type-body-s { font-size: 12px; line-height: 16px; letter-spacing: .4px; font-weight: var(--fw, 400); }
+@utility type-label-l { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: var(--fw, 500); }
+@utility type-label-m { font-size: 12px; line-height: 16px; letter-spacing: .5px; font-weight: var(--fw, 500); }
+@utility type-label-s { font-size: 11px; line-height: 16px; letter-spacing: .5px; font-weight: var(--fw, 500); }
+/* emphasized: heavier, and fully round for the numbers and titles of the game */
+@property --fw { syntax: "*"; inherits: false; }
+@utility em { --fw: 700; font-weight: 700; --rond: 100; }
+@utility em-x { --fw: 800; font-weight: 800; --rond: 100; }
+@utility rond { --rond: 100; }
 
 @layer utilities {
   .tnum { font-variant-numeric: tabular-nums; }
@@ -157,73 +185,108 @@
   .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .press { transition: transform .15s cubic-bezier(.2,.8,.2,1), background-color .15s, color .15s, border-color .15s; }
-  .press:active { transform: scale(.96); }
+  .elev-1 { box-shadow: var(--md-sys-elevation-1); }
+  .elev-2 { box-shadow: var(--md-sys-elevation-2); }
+  .elev-3 { box-shadow: var(--md-sys-elevation-3); }
 }
 
-/* iOS 26 Liquid Glass: translucent, blurred, a bright rim on top. Buttons, the tab bar and toasts. */
-.glass {
-  background: rgb(255 255 255 / .62);
-  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: inset 0 1px .5px rgb(255 255 255 / .95), inset 0 0 0 .5px rgb(0 0 0 / .07), 0 8px 24px -10px rgb(0 0 0 / .22);
-}
-.dark .glass {
-  background: rgb(46 50 48 / .55);
-  box-shadow: inset 0 1px .5px rgb(255 255 255 / .16), inset 0 0 0 .5px rgb(255 255 255 / .08), 0 8px 24px -10px rgb(0 0 0 / .7);
-}
-/* The scroll edge effect: the top bar turns to frosted glass and content fades out under it, instead of meeting a hard bar.
-   Two layers, because Safari drops a backdrop blur on an element that also has a mask: the blur has a hard edge,
-   the fade below it is a plain gradient. */
-.edge { background: linear-gradient(to bottom, color-mix(in oklch, var(--background) 97%, transparent), color-mix(in oklch, var(--background) 90%, transparent));
-  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); }
-.edge::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 26px; pointer-events: none;
-  background: linear-gradient(to bottom, color-mix(in oklch, var(--background) 90%, transparent), color-mix(in oklch, var(--background) 40%, transparent) 55%, transparent); }
+/* ---------- state layers: hover 8%, focus 10%, pressed 10% of the content color ---------- */
+.state { position: relative; isolation: isolate; -webkit-tap-highlight-color: transparent; }
+.state::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: currentColor; opacity: 0; pointer-events: none; transition: opacity var(--effect-fast); z-index: -1; }
+@media (hover: hover) { .state:hover::after { opacity: .08; } }
+.state:focus-visible::after { opacity: .1; }
+.state:active::after { opacity: .12; }
+.state:disabled::after, .state[aria-disabled="true"]::after { display: none; }
 
-/* Toasts float just above the tab bar (where iOS 26 puts its glass accessory bar), clear of the status bar and the top row. */
-[data-sonner-toaster][data-y-position="bottom"] { bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px) + 72px) !important; }
-[data-sonner-toast].toast-glass { border: 0 !important; border-radius: 24px !important; color: var(--foreground) !important; padding: 14px 16px !important;
-  background: rgb(255 255 255 / .72) !important; -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: inset 0 1px .5px rgb(255 255 255 / .95), inset 0 0 0 .5px rgb(0 0 0 / .07), 0 12px 32px -12px rgb(0 0 0 / .3) !important; }
-.dark [data-sonner-toast].toast-glass { background: rgb(46 50 48 / .7) !important;
-  box-shadow: inset 0 1px .5px rgb(255 255 255 / .16), inset 0 0 0 .5px rgb(255 255 255 / .08), 0 12px 32px -12px rgb(0 0 0 / .8) !important; }
-[data-sonner-toast].toast-glass [data-button] { height: 32px !important; padding: 0 14px !important; border-radius: 999px !important; font-size: 13px !important; font-weight: 600 !important;
-  background: var(--primary) !important; color: var(--primary-foreground) !important; }
+/* ---------- M3 Expressive buttons: the corners morph on press (round -> squarer), toggles stay square when selected ---------- */
+.m3-btn { --r: 999px; --rp: 8px; border-radius: var(--r); transition: border-radius var(--spring-fast), background-color var(--effect), color var(--effect), box-shadow var(--effect), transform var(--spring-fast); }
+.m3-btn:active:not(:disabled) { border-radius: var(--rp); }
+.m3-btn[data-selected="true"] { --r: var(--rs, 12px); }
+.m3-btn:disabled { opacity: .38; cursor: default; }
+
+/* ---------- M3 switch ---------- */
+.m3-switch { position: relative; width: 52px; height: 32px; flex-shrink: 0; border-radius: 999px; border: 2px solid var(--md-sys-color-outline); background: var(--md-sys-color-surface-container-highest); transition: background-color var(--effect), border-color var(--effect); }
+.m3-switch > i { position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; margin-top: -8px; border-radius: 999px; background: var(--md-sys-color-outline); display: grid; place-items: center; transition: all var(--spring-fast); }
+.m3-switch[aria-checked="true"] { background: var(--md-sys-color-primary); border-color: var(--md-sys-color-primary); }
+.m3-switch[aria-checked="true"] > i { left: 22px; width: 24px; height: 24px; margin-top: -12px; background: var(--md-sys-color-on-primary); color: var(--md-sys-color-primary); }
+.m3-switch:active > i { width: 28px; height: 28px; margin-top: -14px; left: 2px; }
+.m3-switch[aria-checked="true"]:active > i { left: 20px; }
+.m3-switch > i svg { opacity: 0; transition: opacity var(--effect-fast); }
+.m3-switch[aria-checked="true"] > i svg { opacity: 1; }
+.m3-switch:disabled { opacity: .38; }
+
+/* ---------- wavy progress (M3 Expressive): a sine wave for what's done, a flat track for what's left, a stop dot ---------- */
+.wave { -webkit-mask: var(--wave) repeat-x 0 50% / 24px 100%; mask: var(--wave) repeat-x 0 50% / 24px 100%; animation: wave-drift 1.4s linear infinite; }
+@keyframes wave-drift { to { -webkit-mask-position: 24px 50%; mask-position: 24px 50%; } }
+@media (prefers-reduced-motion: reduce) { .wave { animation: none; } }
+
+/* ---------- shapes ---------- */
+.spin-slow { animation: spin 18s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pulse-ring { animation: pulse-ring 2.2s var(--md-sys-motion-spring-slow-effects) infinite; }
+@keyframes pulse-ring { 0% { transform: scale(.9); opacity: .7; } 80%, 100% { transform: scale(1.35); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .spin-slow, .pulse-ring { animation: none; } }
+
+/* Entering content rises in, a little at a time (M3 Expressive "default spatial" spring). */
+.rise { animation: rise var(--spring) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+.pop { animation: pop var(--spring-fast) both; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rise, .pop { animation: none; } }
+
+/* ---------- snackbars (sonner): M3 snackbar on the inverse surface; rewards on gold ---------- */
+[data-sonner-toaster][data-y-position="bottom"] { bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px) + 84px) !important; }
+[data-sonner-toast].m3-snack { border: 0 !important; border-radius: 16px !important; padding: 14px 16px !important; gap: 12px !important;
+  background: var(--md-sys-color-inverse-surface) !important; color: var(--md-sys-color-inverse-on-surface) !important; box-shadow: var(--md-sys-elevation-3) !important;
+  font-family: var(--font-sans) !important; }
+[data-sonner-toast].m3-snack [data-title] { font: 500 14px/20px var(--font-sans); }
+[data-sonner-toast].m3-snack [data-description] { color: color-mix(in srgb, var(--md-sys-color-inverse-on-surface) 78%, transparent) !important; font: 400 13px/18px var(--font-sans); }
+[data-sonner-toast].m3-snack [data-icon] { color: var(--md-sys-color-inverse-primary); }
+[data-sonner-toast].m3-snack [data-button] { height: 36px !important; padding: 0 12px !important; border-radius: 999px !important; font: 600 14px var(--font-sans) !important;
+  background: transparent !important; color: var(--md-sys-color-inverse-primary) !important; }
+[data-sonner-toast].m3-reward { background: var(--md-sys-color-tertiary-container) !important; color: var(--md-sys-color-on-tertiary-container) !important; }
+[data-sonner-toast].m3-reward [data-title] { font-weight: 700; --rond: 100; }
+[data-sonner-toast].m3-reward [data-description] { color: color-mix(in srgb, var(--md-sys-color-on-tertiary-container) 75%, transparent) !important; }
+[data-sonner-toast].m3-reward [data-icon] { color: var(--md-sys-color-tertiary); }
 
 /* Live: the Realtime socket is open. */
 .live-dot { animation: live 2.4s ease-out infinite; }
-@keyframes live { 0% { box-shadow: 0 0 0 0 rgb(52 194 122 / .45); } 70%, 100% { box-shadow: 0 0 0 7px rgb(52 194 122 / 0); } }
-[data-sonner-toast].toast-live [data-title] { color: var(--gold); font-weight: 700; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--md-custom-color-success-vivid) 50%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
 
-/* Room changes (View Transitions, iOS 18+): a short cross-fade; the tab bar stays put. */
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
-/* On the glass itself, not the <nav>: a view-transition-name makes its element a backdrop root, which would stop its children's blur. */
-nav[aria-label="Rooms"] > .glass { view-transition-name: tabbar; }
+/* Room changes (View Transitions): a quick fade-through; the bars stay put. */
+::view-transition-old(root) { animation: vt-out 90ms cubic-bezier(.3, 0, .8, .15) both; }
+::view-transition-new(root) { animation: vt-in 210ms cubic-bezier(.05, .7, .1, 1) 90ms both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: scale(.98); } }
+.m3-navbar { view-transition-name: navbar; }
+.m3-hud { view-transition-name: hud; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
 
 /* Loading a room for the first time. */
-.skeleton { border-radius: 24px; background: linear-gradient(90deg, var(--muted) 0%, color-mix(in oklch, var(--muted) 55%, var(--card)) 50%, var(--muted) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+.skeleton { border-radius: 28px; background: linear-gradient(90deg, var(--md-sys-color-surface-container) 0%, var(--md-sys-color-surface-container-high) 50%, var(--md-sys-color-surface-container) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-/* reward moments (src/lib/fx.js) */
+/* ---------- reward moments (src/lib/fx.js) ---------- */
 canvas.fx { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 85; }
-.xpfloat { position: fixed; z-index: 86; pointer-events: none; transform: translate(-50%, -50%); font: 700 16px var(--font-display); color: var(--gold); text-shadow: 0 1px 8px color-mix(in oklch, var(--background) 60%, transparent); animation: xp-up 1.2s cubic-bezier(.2, .8, .3, 1) forwards; }
-.xpfloat.neg { color: var(--bad); }
-@keyframes xp-up { from { opacity: 0; transform: translate(-50%, -30%) scale(.8); } 15% { opacity: 1; transform: translate(-50%, -80%) scale(1.06); } to { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
-.levelup { position: fixed; inset: 0; z-index: 90; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #fff;
-  background: radial-gradient(120% 70% at 50% 38%, #1C6B57 0%, #0F4A3C 42%, #07231D 100%); animation: fade .3s ease-out; }
+.xpfloat { position: fixed; z-index: 86; pointer-events: none; transform: translate(-50%, -50%); padding: 4px 12px; border-radius: 999px; font: 800 15px/22px var(--font-sans); --rond: 100;
+  background: var(--md-sys-color-tertiary-container); color: var(--md-sys-color-on-tertiary-container); box-shadow: var(--md-sys-elevation-2);
+  animation: xp-up 1.25s var(--md-sys-motion-spring-default-spatial) forwards; white-space: nowrap; }
+.xpfloat.neg { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+@keyframes xp-up { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 18% { opacity: 1; transform: translate(-50%, -110%) scale(1.08); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
+.levelup { position: fixed; inset: 0; z-index: 90; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;
+  background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); animation: fade .25s ease-out; }
+.dark .levelup { background: radial-gradient(120% 70% at 50% 38%, color-mix(in srgb, var(--md-sys-color-primary-container) 100%, transparent) 0%, var(--md-sys-color-surface-container-lowest) 100%); }
 .levelup.out { opacity: 0; transition: opacity .25s; }
-.levelup .rays { position: absolute; left: 50%; top: 38%; width: 0; height: 0; animation: spin 40s linear infinite; }
-.levelup .rays i { position: absolute; left: -36px; top: -900px; width: 72px; height: 900px; transform-origin: 50% 100%; background: linear-gradient(to top, rgb(241 216 150 / .14), transparent 80%); clip-path: polygon(50% 100%, 0 0, 100% 0); }
-.levelup .kicker { position: relative; font: 700 13px var(--font-sans, system-ui); letter-spacing: .18em; text-transform: uppercase; color: #F1D896; }
-.levelup .seal { position: relative; width: 168px; height: 168px; margin-top: 22px; animation: pop .7s cubic-bezier(.3, 1.4, .5, 1); }
-.levelup .seal svg { width: 100%; height: 100%; fill: #D6AF5F; filter: drop-shadow(0 18px 40px rgb(214 175 95 / .55)); }
-.levelup .lv { position: absolute; inset: 0; display: grid; place-items: center; font: 800 56px var(--font-display, system-ui); color: #0F3A30; font-variant-numeric: tabular-nums; }
-.levelup .ar { position: relative; margin-top: 24px; font-family: var(--font-arabic); font-size: 44px; line-height: 1.1; color: #F1D896; direction: rtl; }
-.levelup .en { position: relative; margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
-.levelup .line { position: relative; margin: 10px 24px 0; max-width: 320px; font-size: 15px; line-height: 1.45; color: rgb(255 255 255 / .75); }
-.levelup .btn { position: absolute; left: 24px; right: 24px; bottom: max(env(safe-area-inset-bottom), 24px); height: 54px; border-radius: 999px; background: linear-gradient(90deg, #D6AF5F, #F1D896); color: #0F3A30; font-size: 17px; font-weight: 700; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .levelup .rays, .levelup .seal { animation: none; } }
+.levelup .kicker { position: relative; font: 700 14px/20px var(--font-sans); letter-spacing: .2em; text-transform: uppercase; color: var(--md-sys-color-tertiary); }
+.dark .levelup .kicker { color: var(--md-sys-color-tertiary); }
+.levelup .seal { position: relative; width: 200px; height: 200px; margin-top: 18px; animation: lv-pop .8s var(--md-sys-motion-spring-fast-spatial) both; }
+.levelup .seal svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.levelup .lv { position: absolute; inset: 0; display: grid; place-items: center; font: 800 76px var(--font-sans); --rond: 100; color: var(--md-sys-color-on-tertiary-container); font-variant-numeric: tabular-nums; }
+.levelup .ar { position: relative; margin-top: 22px; font-family: var(--font-arabic); font-size: 44px; line-height: 1.15; color: var(--md-sys-color-tertiary); direction: rtl; }
+.levelup .en { position: relative; margin-top: 4px; font: 700 26px/32px var(--font-sans); --rond: 100; }
+.levelup .line { position: relative; margin: 10px 24px 0; max-width: 320px; font: 400 16px/24px var(--font-sans); opacity: .8; }
+.levelup .btn { position: absolute; left: 24px; right: 24px; bottom: max(env(safe-area-inset-bottom), 24px); height: 56px; border-radius: 999px; background: var(--md-sys-color-tertiary); color: var(--md-sys-color-on-tertiary); font: 600 16px var(--font-sans); transition: border-radius var(--spring-fast); }
+.levelup .btn:active { border-radius: 16px; }
+@keyframes lv-pop { from { transform: scale(.3) rotate(-90deg); opacity: 0; } }
 @keyframes fade { from { opacity: 0; } }
-@keyframes pop { from { transform: scale(.55) rotate(-20deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .xpfloat, .levelup, .levelup .seal { animation: none; } }

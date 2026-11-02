@@ -1,18 +1,16 @@
-// Every bottom sheet in the app: one controlled drawer, its content picked by S.sheet.type.
+// Every bottom sheet in the app: one controlled M3 bottom sheet, its content picked by S.sheet.type.
 import { useEffect, useState } from "react";
-import { S, MINISTERS, SPORTS, today, rankFor, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM } from "@/lib/logic.js";
+import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart } from "@/lib/logic.js";
 import { saveSettings, loadMetricSeries } from "@/lib/store.js";
-import { bump, go, allTotals } from "@/lib/app-state.js";
+import { bump, go, allTotals, allMedals } from "@/lib/app-state.js";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Ar, Emblem, Ring, Chip, Hint, Subhead, Stat, fmtMin, pctTxt, SHORT } from "./kit";
+import { Ar, Emblem, Ring, Hint, Subhead, Stat, Seal, MIN, mColor, mContainer, medalKind, fmtN, fmtMin, pctTxt, SHORT } from "./kit";
+import { Icon, Shape, Button, IconButton, Chip, Connected, Progress } from "@/components/m3/index.jsx";
 import { TrendChart } from "./charts";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
 
 export function openSheet(sheet) { S.sheet = sheet; bump(); }
 export function closeSheet() { S.sheet = null; bump(); }
@@ -23,6 +21,7 @@ export function Sheets() {
     <Drawer open={!!sh} onOpenChange={(o) => { if (!o) closeSheet(); }}>
       <DrawerContent>
         {sh?.type === "minister" && <MinisterSheet k={sh.key} />}
+        {sh?.type === "medal" && <MedalSheet id={sh.id} />}
         {sh?.type === "slot" && <SlotSheet pre={sh} />}
         {sh?.type === "metric" && <MetricSheet m={sh.meta} r={sh.row} fmtVal={sh.fmtVal} />}
       </DrawerContent>
@@ -38,15 +37,16 @@ function MinisterSheet({ k }) {
     const t = allTotals(), rank = rankFor(t.level);
     return (
       <>
-        <DrawerHeader className="flex-row items-center gap-3"><Emblem k="president" size={48} /><div><Ar className="block text-left text-2xl leading-tight text-gold">الرئيس المُستنير</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">The President</DrawerTitle></div></DrawerHeader>
-        <p className="text-[15px]">Level {t.level}, {rank.en}. {t.logged} days logged, {t.perfect} perfect.</p>
+        <DrawerHeader className="flex-row items-center gap-4"><Seal level={t.level} size={64} /><div><Ar className="block text-left text-[26px] leading-tight text-tertiary">الرئيس المُستنير</Ar><DrawerTitle>The President</DrawerTitle></div></DrawerHeader>
+        <p className="type-body-l">Level {t.level}, {rank.en}. {t.logged} days logged, {t.perfect} perfect.</p>
         <div className="my-4 flex flex-col gap-2">
-          {[1, 3, 6, 9, 12].map((L) => { const rk = rankFor(L); return (
-            <div key={L} className={cn("flex items-center justify-between rounded-2xl px-4 py-3", t.level >= L ? "bg-gold-soft" : "bg-muted/60")}>
-              <Ar className={cn("text-lg", t.level >= L ? "text-gold" : "text-muted-foreground")}>{rk.ar}</Ar><span className="text-sm text-muted-foreground">{rk.en} · level {L}</span>
-            </div>); })}
+          {RANKS.map((rk) => (
+            <div key={rk.from} className={cn("flex items-center justify-between rounded-[20px] px-4 py-3", t.level >= rk.from ? "bg-tertiary-container text-on-tertiary-container" : "bg-surface-container-high")}>
+              <Ar className={cn("text-lg", t.level >= rk.from ? "" : "text-on-surface-variant")}>{rk.ar}</Ar><span className="type-body-m">{rk.en} · level {rk.from}</span>
+            </div>
+          ))}
         </div>
-        <Hint className="pb-4">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10.</Hint>
+        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10.</Hint>
       </>
     );
   }
@@ -61,22 +61,51 @@ function MinisterSheet({ k }) {
   const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure], habits: ["Up for Fajr", T.fajr] }[k];
   return (
     <>
-      <DrawerHeader className="flex-row items-center gap-3"><Emblem k={k} size={48} /><div className="min-w-0"><Ar className="block text-left text-2xl leading-tight">{m.ar}</Ar><DrawerTitle className="text-base font-medium text-muted-foreground">{m.en} · {m.agenda}</DrawerTitle></div></DrawerHeader>
-      <div className="flex items-center gap-4 rounded-2xl bg-muted/60 p-4">
-        <Ring value={v || 0} color={`var(--m-${k})`} size={72} stroke={7} label="Approval"><span className="text-base">{pctTxt(v)}</span></Ring>
-        <div><div className={cn("font-semibold", cls === "ok" && "text-ok", cls === "warn" && "text-warn", cls === "bad" && "text-bad")}>{txt}</div><Hint>{period ? `${period.label} of the term` : "Last 30 days"}</Hint></div>
+      <DrawerHeader className="flex-row items-center gap-4"><Emblem k={k} size={64} /><div className="min-w-0"><Ar className="block text-left text-[26px] leading-tight" style={{ color: mColor(k) }}>{m.ar}</Ar><DrawerTitle className="type-title-l">{m.en}</DrawerTitle><DrawerDescription>{m.agenda}</DrawerDescription></div></DrawerHeader>
+      <div className="flex items-center gap-4 rounded-[24px] p-4" style={{ background: mContainer(k) }}>
+        <Ring value={v || 0} color={mColor(k)} size={80} stroke={8} wavy label="Approval"><span className="type-title-m em">{pctTxt(v)}</span></Ring>
+        <div><div className={cn("type-title-m em", cls === "bad" && "text-error")}>{txt}</div><div className="type-body-m opacity-80">{period ? `${period.label} of the term` : "Last 30 days"}</div></div>
       </div>
-      <p className="mt-4 text-[15px] leading-relaxed">{detail}</p>
-      {st && <p className="mt-2 text-[15px]">{st[0]} streak: <b>{streak(st[1])}</b> days now, best <b>{bestStreak(st[1])}</b>.</p>}
-      {k === "purity" && <p className="mt-1 text-[15px]">Abstinence streak (no masturbation, no porn): <b>{streak(T.abstain)}</b> days now, best <b>{bestStreak(T.abstain)}</b>. Each one is +10 XP.</p>}
+      <p className="mt-4 type-body-l">{detail}</p>
+      {st && <p className="mt-2 type-body-l">{st[0]} streak: <b>{streak(st[1])}</b> days now, best <b>{bestStreak(st[1])}</b>.</p>}
+      {k === "purity" && <p className="mt-1 type-body-l">Abstinence streak (no masturbation, no porn): <b>{streak(T.abstain)}</b> days now, best <b>{bestStreak(T.abstain)}</b>. Each one is +10 XP.</p>}
       <Hint className="mt-3">{m.immune ? "The prayer is the foundation: this minister can never be impeached." : `Below ${S.settings.threshold}% at a council review, the strategy is impeached and replaced. The agenda stays.`}</Hint>
-      <Button className="my-5 w-full" size="lg" onClick={() => { closeSheet(); go("today"); }}>Open today</Button>
+      <Button size="m" className="my-6 w-full" icon="swords" onClick={() => { closeSheet(); go("today"); }}>Open today’s quests</Button>
     </>
+  );
+}
+
+function MedalSheet({ id }) {
+  const m = allMedals().find((x) => x.id === id);
+  if (!m) return null;
+  const k = medalKind(id), sh = MIN[k];
+  return (
+    <div className="flex flex-col items-center pb-6 text-center">
+      <div className="relative mt-2">
+        {m.won && <Shape name="burst" size={150} spin color={`color-mix(in srgb, ${mColor(k)} 22%, transparent)`} className="absolute -inset-[23px]" />}
+        {m.won
+          ? <Shape name={sh.shape} rot={sh.rot || 0} size={104} color={mColor(k)} className="pop"><Icon name={sh.icon} fill size={46} style={{ color: "var(--md-sys-color-surface)" }} /></Shape>
+          : <Ring value={m.frac} size={104} stroke={6} wavy color={mColor(k)}><Shape name={sh.shape} rot={sh.rot || 0} size={76} color="var(--md-sys-color-surface-container-highest)"><Icon name="lock" size={30} className="text-on-surface-variant" /></Shape></Ring>}
+      </div>
+      <Ar className="mt-5 text-[26px] leading-tight text-tertiary">{m.ar}</Ar>
+      <DrawerTitle className="mt-1">{m.en}</DrawerTitle>
+      <DrawerDescription className="mt-1 max-w-[280px]">{m.how}</DrawerDescription>
+      <div className={cn("mt-5 w-full rounded-[24px] p-4", m.won ? "bg-tertiary-container text-on-tertiary-container" : "bg-surface-container-high")}>
+        {m.won ? <div className="flex items-center justify-center gap-2 type-title-m em"><Icon name="military_tech" fill size={22} />Won</div> : (
+          <>
+            <div className="flex items-baseline justify-between type-label-l"><span>Progress</span><span className="em tnum">{m.down ? `${fmtN(m.cur)} → ${m.goal} kg` : `${fmtN(m.cur)} / ${fmtN(m.goal)}`}</span></div>
+            <Progress value={m.frac} wavy color={mColor(k)} className="mt-2" />
+            <div className="mt-2 type-body-m text-on-surface-variant">{Math.round(m.frac * 100)}% of the way there</div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
 const DAYS = [["SAT", "Sat"], ["SUN", "Sun"], ["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"]];
 const DAY_NAME = { SAT: "Saturday", SUN: "Sunday", MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday" };
+const SPORT_ICON = { gym: "fitness_center", tennis: "sports_tennis", mma: "sports_mma", swim: "pool", run: "directions_run", walk: "directions_walk", other: "exercise" };
 const plus = (t, m) => { const x = hmMin(t); return x == null ? t : minHM(x + m); };
 // One sport on the chosen days, with as many sessions a day as you train: two tennis sessions on Saturday are one sheet.
 function SlotSheet({ pre }) {
@@ -103,13 +132,13 @@ function SlotSheet({ pre }) {
     <>
       <DrawerHeader><DrawerTitle>Add training</DrawerTitle><DrawerDescription>Checked by the watch, shown in Apple Calendar, reminded 30 minutes before.</DrawerDescription></DrawerHeader>
       <Subhead className="mt-0">Sport</Subhead>
-      <div className="flex flex-wrap gap-2">{Object.entries(SPORTS).map(([k, v]) => <Chip key={k} on={st.sport === k} onClick={() => up({ sport: k })}>{v.chip || v.en}</Chip>)}</div>
+      <div className="flex flex-wrap gap-2">{Object.entries(SPORTS).map(([k, v]) => <Chip key={k} selected={st.sport === k} icon={SPORT_ICON[k]} onClick={() => up({ sport: k })}>{v.chip || v.en}</Chip>)}</div>
       {st.sport === "other" && <Input className="mt-3" placeholder="Name, e.g. Yoga" value={st.label} onChange={(e) => up({ label: e.target.value })} />}
       <Subhead>Repeats</Subhead>
-      <ToggleGroup type="single" value={st.mode} onValueChange={(v) => v && up({ mode: v })}><ToggleGroupItem value="weekly">Every week</ToggleGroupItem><ToggleGroupItem value="once">One date</ToggleGroupItem></ToggleGroup>
+      <Connected value={st.mode} onChange={(v) => up({ mode: v })} options={[{ value: "weekly", label: "Every week", icon: "repeat" }, { value: "once", label: "One date", icon: "event" }]} label="Repeats" />
       <div className="mt-3">
         {st.mode === "weekly"
-          ? <div className="flex flex-wrap gap-2">{DAYS.map(([k, l]) => <Chip key={k} size="sm" on={st.days.includes(k)} onClick={() => up({ days: st.days.includes(k) ? st.days.filter((x) => x !== k) : [...st.days, k] })}>{l}</Chip>)}</div>
+          ? <div className="flex flex-wrap gap-2">{DAYS.map(([k, l]) => <Chip key={k} selected={st.days.includes(k)} onClick={() => up({ days: st.days.includes(k) ? st.days.filter((x) => x !== k) : [...st.days, k] })}>{l}</Chip>)}</div>
           : <div className="grid gap-1.5"><Label htmlFor="sl-date">Date</Label><Input id="sl-date" type="date" value={st.date} onChange={(e) => up({ date: e.target.value })} /></div>}
       </div>
       <Subhead>{times.length > 1 ? `${times.length} sessions a day` : "Time"}</Subhead>
@@ -119,14 +148,14 @@ function SlotSheet({ pre }) {
             <div className="grid min-w-0 gap-1.5"><Label htmlFor={`sl-s${i}`} className={cn(i && "sr-only")}>Starts</Label><Input id={`sl-s${i}`} type="time" value={t.start} onChange={(e) => setTime(i, { start: e.target.value })} /></div>
             <div className="grid min-w-0 gap-1.5"><Label htmlFor={`sl-e${i}`} className={cn(i && "sr-only")}>Ends</Label><Input id={`sl-e${i}`} type="time" value={t.end} onChange={(e) => setTime(i, { end: e.target.value })} /></div>
             {times.length > 1
-              ? <Button variant="ghost" size="icon" aria-label={`Remove session ${i + 1}`} onClick={() => setTimes((ts) => ts.filter((_, j) => j !== i))}><X /></Button>
-              : <span className="w-9" />}
+              ? <IconButton icon="close" label={`Remove session ${i + 1}`} className="mb-1" onClick={() => setTimes((ts) => ts.filter((_, j) => j !== i))} />
+              : <span className="w-10" />}
           </div>
         ))}
       </div>
-      <Button variant="secondary" className="mt-3 w-full" onClick={another}><Plus />Add another time</Button>
-      {msg && <p className="mt-3 text-sm text-bad" role="alert">{msg}</p>}
-      <Button className="my-5 w-full" size="lg" onClick={save}>{times.length > 1 ? `Add ${times.length} sessions` : "Add to schedule"}</Button>
+      <Button variant="tonal" icon="add" className="mt-3 w-full" onClick={another}>Add another time</Button>
+      {msg && <p className="mt-3 type-body-m text-error" role="alert">{msg}</p>}
+      <Button size="m" className="my-6 w-full" onClick={save}>{times.length > 1 ? `Add ${times.length} sessions` : "Add to schedule"}</Button>
     </>
   );
 }

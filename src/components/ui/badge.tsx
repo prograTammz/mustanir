@@ -1,18 +1,17 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
-
-const badgeVariants = cva("inline-flex items-center justify-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap shrink-0 [&>svg]:size-3", {
+const badgeVariants = cva("inline-flex items-center justify-center gap-1 rounded-lg px-2 h-6 type-label-m whitespace-nowrap shrink-0 [&>svg]:size-3.5", {
   variants: {
     variant: {
-      default: "border-transparent bg-primary text-primary-foreground",
-      secondary: "border-transparent bg-secondary text-secondary-foreground",
-      outline: "text-foreground",
-      ok: "border-transparent bg-ok/14 text-ok",
-      warn: "border-transparent bg-warn/16 text-warn",
-      bad: "border-transparent bg-bad/14 text-bad",
-      gold: "border-transparent bg-gold-soft text-gold",
-      muted: "border-transparent bg-muted text-muted-foreground",
+      default: "bg-primary text-on-primary",
+      secondary: "bg-secondary-container text-on-secondary-container",
+      outline: "border border-outline-variant text-on-surface-variant",
+      ok: "bg-success-container text-on-success-container",
+      warn: "bg-warning-container text-on-warning-container",
+      bad: "bg-error-container text-on-error-container",
+      gold: "bg-tertiary-container text-on-tertiary-container",
+      muted: "bg-surface-container-highest text-on-surface-variant",
     },
   },
   defaultVariants: { variant: "default" },
