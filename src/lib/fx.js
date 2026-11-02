@@ -59,7 +59,7 @@ export function levelUp(level, rank, line = "A new rank in office.") {
   const seq = ["verySunny", "burst", "softBurst", "verySunny"].map((n) => shapePath(n)).join(";");
   el.innerHTML = `<p class="kicker">Level up</p>
     <div class="seal"><svg viewBox="0 0 100 100" aria-hidden="true" class="spin-slow" style="animation-duration:24s"><path d="${shapePath("burst")}" style="fill:color-mix(in srgb, var(--md-sys-color-tertiary) 22%, transparent)" transform="translate(-14 -14) scale(1.28)"/></svg>
-    <svg viewBox="0 0 100 100" aria-hidden="true"><path d="${shapePath("verySunny")}" style="fill:var(--md-sys-color-tertiary-container)">${reduced() ? "" : `<animate attributeName="d" values="${seq}" dur="6s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.33;0.66;1" keySplines="0.3 1.3 0.4 1;0.3 1.3 0.4 1;0.3 1.3 0.4 1"/>`}</path></svg><span class="lv"></span></div>
+    <svg viewBox="0 0 100 100" aria-hidden="true"><path d="${shapePath("verySunny")}" style="fill:var(--md-sys-color-tertiary-container)">${reduced() ? "" : `<animate attributeName="d" values="${seq}" dur="6s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.33;0.66;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"/>`}</path></svg><span class="lv"></span></div>
     <p class="ar"></p><p class="en"></p><p class="line"></p><button class="btn">Continue</button>`;
   el.querySelector(".lv").textContent = level;
   el.querySelector(".ar").textContent = rank.ar;

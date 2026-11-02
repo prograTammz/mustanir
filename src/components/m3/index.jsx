@@ -42,7 +42,7 @@ export function Shape({ name = "circle", size = 48, color, rot = 0, spin = false
     <span role={label ? "img" : undefined} aria-label={label} className={cn("relative grid shrink-0 place-items-center", className)} style={{ width: size, height: size, ...style }}>
       <svg viewBox="0 0 100 100" aria-hidden className={cn("absolute inset-0 size-full overflow-visible", spin && "spin-slow")}>
         <path d={d} style={{ fill: color || "currentColor", transition: "fill .3s" }}>
-          <animate ref={anim} attributeName="d" dur="0.6s" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.3 1.4 0.4 1" />
+          <animate ref={anim} attributeName="d" dur="0.6s" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1" />
         </path>
       </svg>
       {children != null && <span className="relative grid place-items-center">{children}</span>}
@@ -54,7 +54,7 @@ export function Shape({ name = "circle", size = 48, color, rot = 0, spin = false
 const LOADING = ["softBurst", "cookie9", "pentagon", "clover4", "sunny", "cookie4", "circle"];
 export function Loading({ size = 48, color = "var(--md-sys-color-primary)", contained = false, className, label = "Loading" }) {
   const values = [...LOADING, LOADING[0]].map((n) => shapePath(n)).join(";");
-  const splines = Array(LOADING.length).fill("0.3 1.3 0.4 1").join(";");
+  const splines = Array(LOADING.length).fill("0.4 0 0.2 1").join(";");
   return (
     <span role="progressbar" aria-label={label} className={cn("relative grid shrink-0 place-items-center rounded-full", contained && "bg-primary-container", className)} style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" aria-hidden className="spin-slow size-[70%]" style={{ animationDuration: "4.2s" }}>
@@ -249,9 +249,9 @@ function waveArc(cx, cy, r, amp, waves, a0, a1) {
   return "M" + pts.join("L");
 }
 export function Ring({ value = 0, size = 48, stroke = 4, color = "var(--md-sys-color-primary)", track, wavy = false, label, className, children }) {
-  const v = Math.max(0, Math.min(1, useTween(value || 0))), amp = wavy ? Math.max(1.2, stroke * 0.38) : 0;
+  const v = Math.max(0, Math.min(1, useTween(value || 0))), amp = wavy ? Math.min(2.6, Math.max(1.2, stroke * 0.26)) : 0;
   const c = size / 2, r = c - stroke / 2 - amp, gap = v > 0 && v < 1 ? ((stroke + 4) / r) * (180 / Math.PI) : 0;
-  const end = 360 * v, waves = Math.max(6, Math.round((2 * Math.PI * r) / (stroke * 5)));
+  const end = 360 * v, waves = Math.max(8, Math.round((2 * Math.PI * r) / 15));
   return (
     <div role="progressbar" aria-label={label} aria-valuenow={Math.round(v * 100)} aria-valuemin={0} aria-valuemax={100} className={cn("relative grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden>

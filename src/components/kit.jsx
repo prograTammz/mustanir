@@ -146,10 +146,9 @@ export function Fold({ title, summary, children, defaultOpen = false, className,
 export function Tile({ label, value, sub, hit, icon }) {
   return (
     <div className={cn("relative flex min-w-0 flex-col gap-0.5 rounded-[20px] px-3 py-2.5 transition-colors", hit === true ? "bg-success-container text-on-success-container" : "bg-surface-container-high")}>
-      <div className={cn("flex items-center gap-1 type-label-m", hit === true ? "opacity-80" : "text-on-surface-variant")}>{icon && <Icon name={icon} size={14} />}<span className="truncate">{label}</span></div>
+      <div className={cn("flex items-center gap-1 type-label-m", hit === true ? "opacity-80" : "text-on-surface-variant")}>{icon && <Icon name={hit === true ? "check_circle" : icon} fill={hit === true} size={14} />}<span className="truncate">{label}</span></div>
       <div className="type-title-l em tnum">{value}</div>
       {sub && <div className={cn("truncate type-label-s tnum", hit === true ? "opacity-75" : "text-on-surface-variant")}>{sub}</div>}
-      {hit === true && <Icon name="check_circle" fill size={18} className="absolute top-2 right-2" />}
     </div>
   );
 }

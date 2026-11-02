@@ -49,7 +49,8 @@ function DayBar({ s, isToday }) {
         <IconButton icon="chevron_left" label="Previous day" variant="surface" onClick={() => move(-1)} />
         <div className="min-w-0 flex-1 text-center">
           <h1 className="type-headline-s em truncate">{isToday ? "Today" : yest ? "Yesterday" : fmt(s, { weekday: "long" })}</h1>
-          <p className="type-body-s truncate text-on-surface-variant">{fmt(s, { day: "numeric", month: "long" })}{dn >= 1 ? ` · Day ${dn} of term ${term.n}` : ""} · <bdi>{hijri(s)}</bdi></p>
+          <p className="type-body-s truncate text-on-surface-variant">{fmt(s, { day: "numeric", month: "long" })}{dn >= 1 ? ` · Day ${dn} of term ${term.n}` : ""}</p>
+          <Ar className="block truncate text-center text-[13px] leading-5 text-tertiary">{hijri(s)}</Ar>
         </div>
         <IconButton icon="chevron_right" label="Next day" variant="surface" disabled={isToday} className="disabled:opacity-30" onClick={() => move(1)} />
       </div>

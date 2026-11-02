@@ -1,7 +1,7 @@
 // Al-Mustanir: the app shell, on Material 3 Expressive. A player HUD on top (your seal and level, XP to the next one,
 // the streak and the live link to WHOOP), the room in the middle, the M3 navigation bar below.
 import { lazy, Suspense, useEffect, useState } from "react";
-import { S, today, addDays, PRAYERS, rankFor, RANKS, streak, T } from "@/lib/logic.js";
+import { S, today, addDays, PRAYERS, rankFor, streak, T } from "@/lib/logic.js";
 import { SESSION, load, flushOutbox, wake } from "@/lib/store.js";
 import { useApp, go, bump, TABS, tabOf, isDark, allTotals } from "@/lib/app-state.js";
 import { Toaster } from "@/components/ui/sonner";
@@ -98,7 +98,7 @@ export default function App() {
 
 /* ---------- the HUD: who you are in the game, always in sight ---------- */
 function Hud({ scrolled }) {
-  const t = allTotals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level), run = streak(T.office);
+  const t = allTotals(), rank = rankFor(t.level), run = streak(T.office);
   return (
     <header className={cn("m3-hud pt-safe sticky top-0 z-40 transition-colors duration-300", scrolled ? "bg-surface-container" : "bg-surface")}>
       <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
@@ -107,7 +107,7 @@ function Hud({ scrolled }) {
           <div className="min-w-0 flex-1 text-left">
             <div className="flex items-baseline gap-2"><span className="type-title-m em truncate">{rank.en}</span><span className="ar truncate text-[14px] text-tertiary">{rank.ar}</span></div>
             <Progress value={t.frac} color="var(--md-sys-color-tertiary)" className="mt-1" stop={false} />
-            <div className="mt-0.5 type-label-s text-on-surface-variant tnum">{t.xp.toLocaleString("en")} XP · {(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}{next && next.from === t.level + 1 ? ` · ${next.en}` : ""}</div>
+            <div className="mt-0.5 truncate type-label-s text-on-surface-variant tnum">{t.xp.toLocaleString("en")} XP · {(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</div>
           </div>
         </button>
         <span className={cn("flex h-10 shrink-0 items-center gap-1 rounded-full px-3 type-title-m em tnum", run ? "bg-fire-container text-on-fire-container" : "bg-surface-container-highest text-on-surface-variant")} aria-label={`${run}-day streak`}>
