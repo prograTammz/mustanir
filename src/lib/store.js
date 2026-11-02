@@ -201,13 +201,14 @@ export function load() {
     try {
       await flushOutbox();
       if (settingsPending()) { clearTimeout(settingsTimer); await sendSettings(); }
+      const settingsAt = settingsRev; // any change after this point is newer than what this sync will bring back
       const since = CURSOR ? "&updated_at=gt." + encodeURIComponent(CURSOR) : "";
       const [st, rows, player] = await Promise.all([
         rest("settings?select=data"),
         all("days?select=date,data,updated_at&order=updated_at" + since),
         rest("player_state?select=*").catch(() => null),
       ]);
-      if (!settingsPending()) { applySettings(st && st[0] ? st[0].data : {}); persistSettings(); }
+      if (!settingsPending() && settingsRev === settingsAt) { applySettings(st && st[0] ? st[0].data : {}); persistSettings(); }
       if (rows.length) onRemote(() => { for (const r of rows) applyRow(r.date, r.data, r.updated_at); }, { initial: !CURSOR });
       if (player && player[0]) setPlayer(player[0]);
       S.mode = "cloud"; S.loaded = true;
