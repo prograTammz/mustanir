@@ -135,17 +135,23 @@ function Training() {
         {WEEK.map(([d, name]) => {
           const list = weekly.filter((x) => (x.days || []).includes(d)).sort((a, b) => hmMin(a.start) - hmMin(b.start));
           return (
-            <div key={d} className="flex items-start gap-3 border-t py-2.5 first:border-t-0">
-              <span className={cn("w-[84px] shrink-0 pt-1 text-[15px]", list.length ? "font-medium" : "text-muted-foreground")}>{name}</span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                {list.length ? list.map((x) => (
-                  <div key={x.id} className="flex items-center gap-2 rounded-xl bg-muted py-1.5 pr-1 pl-3">
-                    <span className="min-w-0 flex-1 truncate text-[14px]"><b className="font-semibold">{slotName(x)}</b> <span className="text-muted-foreground tnum">{x.start}–{x.end}</span></span>
-                    <button aria-label={`Remove ${slotName(x)} ${x.start} on ${name}`} className="press grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground" onClick={() => removeDay(x, d)}><X className="size-4" /></button>
-                  </div>
-                )) : <span className="pt-1 text-[14px] text-muted-foreground">Rest</span>}
+            <div key={d} className="border-t py-2.5 first:border-t-0">
+              <div className="flex items-center gap-3">
+                <span className={cn("min-w-0 flex-1 text-[15px]", list.length ? "font-medium" : "text-muted-foreground")}>
+                  {name}{!list.length && <span className="text-[14px]"> · rest</span>}{list.length > 1 && <span className="text-[13px] font-normal text-muted-foreground"> · {list.length} sessions</span>}
+                </span>
+                <button aria-label={`Add a session on ${name}`} className="press grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground" onClick={() => openSheet({ type: "slot", day: d })}><Plus className="size-4" /></button>
               </div>
-              <button aria-label={`Add a session on ${name}`} className="press grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground" onClick={() => openSheet({ type: "slot", day: d })}><Plus className="size-4" /></button>
+              {list.length > 0 && (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {list.map((x) => (
+                    <div key={x.id} className="flex items-center gap-2 rounded-xl bg-muted py-1.5 pr-1 pl-3">
+                      <span className="min-w-0 flex-1 truncate text-[14px]"><b className="font-semibold">{slotName(x)}</b> <span className="text-muted-foreground tnum">{x.start}–{x.end} · {fmtMin(len(x))}</span></span>
+                      <button aria-label={`Remove ${slotName(x)} ${x.start} on ${name}`} className="press grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground" onClick={() => removeDay(x, d)}><X className="size-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
