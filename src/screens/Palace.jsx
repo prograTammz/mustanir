@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import Health from "./Health.jsx";
-import { Seal, fmtN } from "./Today.jsx";
+import { Seal, SEAL, fmtN } from "./Today.jsx";
 
 let healthLoading = false, healthFailedAt = 0;
 export function useHealth() {
@@ -49,46 +49,63 @@ export default function Palace() {
 /* ---------- the rank ladder and XP ---------- */
 function Ladder() {
   const strip = useRef(null);
-  useEffect(() => { const el = strip.current?.querySelector("[data-cur]"); if (el) strip.current.scrollLeft = el.offsetLeft - 16; }, []);
+  // Open the ladder on your rank, measured against the strip itself (offsetLeft is relative to some other ancestor).
+  useEffect(() => {
+    const st = strip.current, el = st?.querySelector("[data-cur]");
+    if (el) st.scrollLeft += el.getBoundingClientRect().left - st.getBoundingClientRect().left - 16;
+  }, []);
   const t = allTotals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
   const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
   const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
   const best = days.reduce((a, k) => Math.max(a, dayXP(k)), 0);
+  const toNext = next ? Math.max(0, levelStart(next.from) - t.xp) : 0;
   return (
-    <Card className="gap-4 overflow-hidden py-0">
-      <div className="bg-[linear-gradient(140deg,#13584A_0%,#0F4A3C_45%,#0A3329_100%)] px-4 pt-5 pb-4 text-white">
-        <div className="flex items-center gap-4">
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="relative overflow-hidden bg-[linear-gradient(150deg,#17604F_0%,#0F4A3C_48%,#0A3128_100%)] px-4 pt-5 pb-4 text-white">
+        <svg viewBox="0 0 24 24" aria-hidden className="pointer-events-none absolute -top-12 -right-12 size-48 fill-white/[0.05]"><path d={SEAL} /></svg>
+        <div className="relative flex items-center gap-4">
           <Seal level={t.level} size={72} />
           <div className="min-w-0 flex-1">
-            <Ar className="block text-left text-[26px] leading-tight text-[#E6C77E]">{rank.ar}</Ar>
-            <div className="text-[14px] text-white/75">{rank.en} · Level {t.level}</div>
+            <Ar className="block text-left text-[28px] leading-tight text-[#EBD08E]">{rank.ar}</Ar>
+            <div className="text-[15px] text-white/80">{rank.en} · Level {t.level}</div>
           </div>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[linear-gradient(90deg,#C99A3E,#EBD08E)]" style={{ width: `${t.frac * 100}%` }} /></div>
-        <div className="mt-1.5 flex justify-between text-[12px] text-white/65 tnum"><span>{t.xp.toLocaleString("en")} XP</span><span>{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</span></div>
+        <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[linear-gradient(90deg,#C99A3E,#F1D896)] transition-[width] duration-700" style={{ width: `${t.frac * 100}%` }} /></div>
+        <div className="relative mt-1.5 flex justify-between gap-2 text-[12.5px] text-white/70 tnum">
+          <span>{t.xp.toLocaleString("en")} XP</span>
+          <span className="truncate">{(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}{next && next.from === t.level + 1 ? ` · ${next.en}` : ""}</span>
+        </div>
       </div>
-      <div ref={strip} className="no-scrollbar -mt-1 flex gap-2 overflow-x-auto px-4">
-        {RANKS.map((r) => {
-          const cur = r === rank, got = t.level >= r.from;
-          return (
-            <div key={r.from} data-cur={cur || undefined} className={cn("flex w-[96px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center", cur ? "bg-gold-soft ring-1 ring-gold/50" : "bg-muted", !got && "opacity-60")}>
-              {got ? <Seal level={r.from} size={30} /> : <span className="grid size-[30px] place-items-center"><Lock className="size-4 text-muted-foreground" /></span>}
-              <Ar className={cn("text-[14px] leading-tight", got ? "text-gold" : "text-muted-foreground")}>{r.ar}</Ar>
-              <span className="text-[12px] leading-tight font-medium">{r.en}</span>
-              <span className="text-[10.5px] leading-tight text-muted-foreground tnum">Level {r.from}<br />{levelStart(r.from).toLocaleString("en")} XP</span>
-            </div>
-          );
-        })}
+      <div className="pt-4">
+        <div className="flex items-baseline justify-between px-4">
+          <h2 className="text-[15px] font-semibold">The ranks</h2>
+          {next && <span className="text-[13px] text-muted-foreground tnum">{next.en} in {toNext.toLocaleString("en")} XP</span>}
+        </div>
+        <div ref={strip} className="no-scrollbar mt-2.5 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-1">
+          {RANKS.map((r) => {
+            const cur = r === rank, got = t.level >= r.from;
+            return (
+              <div key={r.from} data-cur={cur || undefined} className={cn("flex w-[100px] shrink-0 snap-start flex-col items-center gap-1 rounded-2xl px-2 pt-3 pb-2.5 text-center",
+                cur ? "bg-gold-soft shadow-[inset_0_0_0_1.5px_var(--gold)]" : "bg-muted")}>
+                {got ? <Seal level={r.from} size={30} /> : <span className="grid size-[30px] place-items-center"><Lock className="size-4 text-muted-foreground" /></span>}
+                <Ar className={cn("text-[15px] leading-tight", got ? "text-gold" : "text-muted-foreground")}>{r.ar}</Ar>
+                <span className={cn("text-[12.5px] leading-tight font-semibold", !got && "text-muted-foreground")}>{r.en}</span>
+                <span className={cn("mt-0.5 text-[10.5px] leading-tight tnum", cur ? "font-semibold text-gold" : "text-muted-foreground")}>
+                  {cur ? "You’re here" : got ? "Reached" : `Level ${r.from}`}<br />{cur ? `Level ${t.level}` : `${levelStart(r.from).toLocaleString("en")} XP`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+      <div className="grid grid-cols-3 gap-2 p-4">
         {[[week.toLocaleString("en"), "XP this week"], [best, "best day"], [days.length, "days logged"]].map(([v, l]) => (
           <div key={l} className="rounded-2xl bg-muted px-2 py-2.5 text-center">
-            <div className="text-[18px] font-semibold tracking-tight tnum">{v}</div>
-            <div className="text-[11px] leading-tight text-muted-foreground">{l}</div>
+            <div className="text-[19px] font-bold tracking-tight tnum">{v}</div>
+            <div className="text-[11.5px] leading-tight text-muted-foreground">{l}</div>
           </div>
         ))}
       </div>
-      {next && <Hint className="-mt-2 px-4 pb-4">Next rank: <b className="text-foreground">{next.en}</b> at level {next.from}, {Math.max(0, levelStart(next.from) - t.xp).toLocaleString("en")} XP away.</Hint>}
     </Card>
   );
 }

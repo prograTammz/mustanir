@@ -174,8 +174,11 @@
 /* The scroll edge effect: the top bar turns to frosted glass and content fades out under it, instead of meeting a hard bar.
    Two layers, because Safari drops a backdrop blur on an element that also has a mask: the blur has a hard edge,
    the fade below it is a plain gradient. */
-.edge { background: color-mix(in oklch, var(--background) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
-.edge::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 18px; background: linear-gradient(to bottom, color-mix(in oklch, var(--background) 72%, transparent), transparent); }
+.edge { background: linear-gradient(to bottom, color-mix(in oklch, var(--background) 97%, transparent), color-mix(in oklch, var(--background) 90%, transparent));
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); }
+.edge::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 26px; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in oklch, var(--background) 90%, transparent), color-mix(in oklch, var(--background) 40%, transparent) 55%, transparent); }
+
 /* Toasts float just above the tab bar (where iOS 26 puts its glass accessory bar), clear of the status bar and the top row. */
 [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px) + 72px) !important; }
 [data-sonner-toast].toast-glass { border: 0 !important; border-radius: 24px !important; color: var(--foreground) !important; padding: 14px 16px !important;
