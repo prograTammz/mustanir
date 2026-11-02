@@ -169,8 +169,8 @@ export { Icon, Shape };
 /** Your level, on the gold seal (the M3 "very sunny" shape: the eight-pointed star of the brand, softened). */
 export function Seal({ level, size = 56, dim = false, spin = false, className }) {
   return (
-    <Shape name="verySunny" size={size} spin={spin} color={dim ? "var(--md-sys-color-surface-container-highest)" : "var(--md-sys-color-tertiary)"} className={className}>
-      <span className={cn("em-x tnum leading-none", dim ? "text-on-surface-variant" : "text-on-tertiary")} style={{ fontSize: Math.round(size * 0.36) }}>{level}</span>
+    <Shape name="verySunny" size={size} spin={spin} color={dim ? "var(--md-sys-color-surface-container-highest)" : "var(--md-sys-color-tertiary-fixed-dim)"} className={className}>
+      <span className={cn("em-x tnum leading-none", dim ? "text-on-surface-variant" : "text-on-tertiary-fixed")} style={{ fontSize: Math.round(size * 0.36) }}>{level}</span>
     </Shape>
   );
 }

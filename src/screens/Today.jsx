@@ -66,7 +66,7 @@ function RunCard({ s, xp }) {
     <Card variant="high" className="rise relative overflow-hidden p-5">
       <Shape name="verySunny" size={220} spin color="color-mix(in srgb, var(--md-sys-color-tertiary) 9%, transparent)" className="pointer-events-none absolute -top-16 -right-16" />
       <div className="relative flex items-center gap-4">
-        <Ring value={earned / max} size={128} stroke={11} wavy color="var(--md-sys-color-tertiary)" label={`${earned} of ${max} XP ${s === today() ? "today" : "that day"}`}>
+        <Ring value={earned / max} size={128} stroke={8} wavy color="var(--md-sys-color-tertiary)" label={`${earned} of ${max} XP ${s === today() ? "today" : "that day"}`}>
           <span className="type-display-s em-x tnum leading-none">{earned}</span>
           <span className="mt-1 type-label-m text-on-surface-variant tnum">of {max} XP</span>
         </Ring>
@@ -243,7 +243,7 @@ function Vitality({ s, r, xp }) {
         <XP {...xp.vitality} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Tile icon="wb_twilight" label="Up for Fajr" value={r.wake == null ? "—" : r.wake ? "Yes" : "No"} sub={`Fajr ${fajrTime(s)}`} hit={r.wake == null ? null : r.wake} />
+        <Tile icon="wb_twilight" label="Fajr" value={r.wake == null ? "—" : r.wake ? "Yes" : "No"} sub={`Fajr ${fajrTime(s)}`} hit={r.wake == null ? null : r.wake} />
         {tile("sleepH", "Sleep", "bedtime", r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : undefined)}
         {tile("sleepCons", "Rhythm", "repeat")}
         {tile("steps", "Steps", "footprint")}

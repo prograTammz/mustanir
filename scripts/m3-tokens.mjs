@@ -36,7 +36,7 @@ const palette = (hex, C) => { const { h } = hexToLch(hex); return (T) => tone(h,
 
 /* ---------- the brand palettes ---------- */
 const EMERALD = "#1F8C5A", GOLD = "#D6AF5F", RED = "#C8382B";
-const P = palette(EMERALD, 58), S = palette(EMERALD, 18), T = palette(GOLD, 62), N = palette(EMERALD, 3.5), NV = palette(EMERALD, 8), E = palette(RED, 70);
+const P = palette(EMERALD, 46), S = palette(EMERALD, 18), T = palette(GOLD, 62), N = palette(EMERALD, 3.5), NV = palette(EMERALD, 8), E = palette(RED, 70);
 // The M3 role-to-tone table (light, dark).
 const ROLES = {
   primary: [P, 40, 80], "on-primary": [P, 100, 20], "primary-container": [P, 90, 30], "on-primary-container": [P, 10, 90],
