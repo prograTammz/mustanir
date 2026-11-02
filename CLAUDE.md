@@ -2,7 +2,8 @@
 
 Ahmed 2.0's self-improvement PWA, run as a game. Hosted at https://mustanir.ahmed-elmahdy.com (GitHub Pages), backed by the
 Supabase project `qanzhisoxueaizscdial`. Read `README.md` for how everything fits together, `docs/adr/0001-*.md` for the
-server engine and live sync, `docs/design/material-3.md` for the design system.
+server engine and live sync, `docs/design/material-3.md` for the design system, and the newest file in `docs/handoff/`
+for where the work last stood.
 
 ## Commands
 - `npm install`, then `npm run dev` (Vite) and `npm run build`.
