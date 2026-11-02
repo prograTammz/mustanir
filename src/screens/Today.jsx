@@ -394,7 +394,7 @@ function Sessions({ s, r }) {
   const upcoming = ms.some((m) => m.status === "upcoming" || m.status === "live");
   return (
     <div className="mt-3 border-t pt-1">
-      <Fold title="Training" summary={summary} defaultOpen={upcoming}>
+      <Fold key={s} title="Training" summary={summary} defaultOpen={upcoming}>
         {ms.map((m) => {
           const off = m.status === "cancelled", canCancel = !off && m.status !== "done";
           return (

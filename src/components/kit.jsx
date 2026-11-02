@@ -136,8 +136,11 @@ export const pctTxt = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
 
 // A section that opens on tap: a title and a one-line summary when closed.
 export function Fold({ title, summary, children, defaultOpen = false, className }) {
+  // Open or closed on first render only; after that it's yours. (A live `open` prop would snap it shut under your finger,
+  // e.g. when cancelling the last upcoming session.)
+  const [initial] = useState(defaultOpen);
   return (
-    <details open={defaultOpen || undefined} className={cn("group", className)}>
+    <details open={initial || undefined} className={cn("group", className)}>
       <summary className="press flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <span className="text-[15px] font-medium">{title}</span>
         <span className="ml-auto truncate text-[13px] text-muted-foreground tnum">{summary}</span>
