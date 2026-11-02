@@ -147,10 +147,11 @@ async function notifyRun() {
     const s = settingsOf(st?.data || null), done = new Set((logged || []).map((r) => r.key));
     const due: { key: string; at: number; title: string; body: string; url?: string }[] = [];
     const wake = hm(s.wake) ?? 300;
+    const off: Record<string, boolean> = today?.data?.cancelled || {}; // sessions you called off today: no reminder
     if (s.notify.morning) due.push({ key: "morning", at: wake + 20, title: "Morning decrees · صباح الخير", body: "Seal Fajr, last night's sleep and your morning routine.", url: APP + "#today" });
     for (const b of blocks(s, now.day)) {
       if (b.key === "reading" && s.notify.reading) due.push({ key: "reading", at: b.start, title: "وزير المعرفة · Reading time", body: `${s.readingMin} minutes, ${s.pagesPerDay} pages minimum.` });
-      if (b.key.startsWith("training:") && s.notify.training) due.push({ key: b.key, at: b.start - 30, title: `وزير البدن · ${b.title.split(" · ")[0]} in 30 min`, body: `${toHM(b.start)}–${toHM(b.end)}. Pack your bag.` });
+      if (b.key.startsWith("training:") && s.notify.training && !off[b.key.slice(9)]) due.push({ key: b.key, at: b.start - 30, title: `وزير البدن · ${b.title.split(" · ")[0]} in 30 min`, body: `${toHM(b.start)}–${toHM(b.end)}. Pack your bag.` });
       if (b.key === "windDown" && s.notify.windDown) due.push({ key: "windDown", at: b.start, title: "Wind-down · وقت الهدوء", body: `Phone out of the bedroom. Lights out at ${s.bedtime}.` });
     }
     if (s.notify.evening) {
@@ -200,18 +201,24 @@ async function calendar(token: string) {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Al-Mustanir//Ahmed 2.0//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "X-WR-CALNAME:Al-Mustanir", "X-WR-TIMEZONE:" + TZ, "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"];
-  const ev = (uid: string, title: string, note: string, startDay: string, start: number, end: number, rrule: string) => {
+  const ev = (uid: string, title: string, note: string, startDay: string, start: number, end: number, rrule: string, extra: string[] = []) => {
     L.push("BEGIN:VEVENT", `UID:${uid}-${tok.user_id}@mustanir`, `DTSTAMP:${stamp}`, `DTSTART;TZID=${TZ}:${local(startDay, start)}`, `DTEND;TZID=${TZ}:${local(startDay, end)}`,
-      rrule, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(note + "\n" + APP)}`, "TRANSP:OPAQUE", "END:VEVENT");
+      rrule, ...extra, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(note + "\n" + APP)}`, "TRANSP:OPAQUE", "END:VEVENT");
   };
+  // Sessions you called off: each one leaves its series as an EXDATE (one-offs simply drop out).
+  const { data: cx } = await admin.from("days").select("date,cancelled:data->cancelled").eq("user_id", tok.user_id).gte("date", from).not("data->cancelled", "is", null);
+  const offOn = new Map<string, string[]>();
+  for (const r of cx || []) for (const [id, on] of Object.entries(r.cancelled || {})) if (on) offOn.set(id, [...(offOn.get(id) || []), r.date]);
   for (const b of blocks(s, from)) if (!b.key.startsWith("training:")) ev(b.key, b.title, b.note, from, b.start, b.end, `RRULE:FREQ=DAILY;UNTIL=${until}`);
   for (const x of weeklySlots(s)) {
     const days = x.days!.map((d) => d.toUpperCase()), a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
     let first = from; for (let i = 0; i < 7 && !days.includes(dowOf(first)); i++) first = addDays(first, 1);
-    ev("train-" + x.id, `${slotName(x)} · ${AR[x.sport] || "البدن"}`, "Ministry of Body: " + slotName(x) + ".", first, a, b > a ? b : b + 1440, `RRULE:FREQ=WEEKLY;BYDAY=${days.map((d) => d.slice(0, 2)).join(",")};UNTIL=${until}`);
+    const ex = (offOn.get(x.id) || []).map((d) => local(d, a));
+    ev("train-" + x.id, `${slotName(x)} · ${AR[x.sport] || "البدن"}`, "Ministry of Body: " + slotName(x) + ".", first, a, b > a ? b : b + 1440, `RRULE:FREQ=WEEKLY;BYDAY=${days.map((d) => d.slice(0, 2)).join(",")};UNTIL=${until}`,
+      ex.length ? [`EXDATE;TZID=${TZ}:${ex.join(",")}`] : []);
   }
   for (const x of onceSlots(s)) {
-    if (x.date < from) continue; const a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
+    if (x.date < from || (offOn.get(x.id) || []).includes(x.date)) continue; const a = hm(x.start), b = hm(x.end); if (a == null || b == null) continue;
     ev("once-" + x.id, `${slotName(x)} · ${AR[x.sport] || "البدن"}`, "Ministry of Body: " + slotName(x) + " (one-off).", x.date, a, b > a ? b : b + 1440, "X-MUSTANIR:ONCE");
   }
   [1, 2, 3].forEach((i) => {

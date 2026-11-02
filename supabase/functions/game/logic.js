@@ -153,9 +153,13 @@ const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, 
 // How much of a slot the watch saw. Workouts (exact times) win; otherwise hourly exercise minutes are
 // spread across the hour and counted where they overlap the slot. 30 minutes of slack either side
 // covers starting late or staying on court.
+// A session can be called off (the coach cancelled, no court): day.cancelled[slotId]. It is never judged, for or against you,
+// sends no reminder and leaves the calendar feed.
+export const isCancelled = (date, slot) => !!(((S.days[date] || {}).cancelled || {})[slot.id]);
 export function matchSlot(date, slot, nowMin = null) {
   const d = S.days[date] || {}, a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440;
   const planned = b - a, A = a - 30, B = b + 30;
+  if (isCancelled(date, slot)) return { slot, planned, done: 0, kcal: 0, source: null, status: "cancelled", frac: 0 };
   let done = 0, kcal = 0, source = null;
   // A slot is met by a workout of its own sport, or one WHOOP couldn't name ("Activity"). A walk never counts for anything but a walk slot.
   const wks = (d.workoutsDetail || []).filter((w) => { const k = sportOf(w.a); return slot.sport === "other" ? k !== "walk" : k === slot.sport || (k == null && slot.sport !== "walk"); });
@@ -242,8 +246,9 @@ export function day(s) {
 export function dayMinisters(s) {
   const x = day(s);
   if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: 0 };
-  const ms = matchDay(s);
-  const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() ? 1 : (x.trained || x.rest)); // no slot today = rest day
+  const all = matchDay(s), ms = all.filter((m) => m.status !== "cancelled");
+  // No session today, or every one called off: a rest day. Otherwise the sessions that stand, on average.
+  const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() || all.length ? 1 : (x.trained || x.rest));
   return {
     body: 0.6 * x.diet + 0.4 * training,
     knowledge: x.knowledge >= 1 ? 1 : x.knowledge,
@@ -261,8 +266,8 @@ export function score(dates) {
   if (hasSchedule()) {
     sessions = 0; planned = 0;
     for (const k of dates) for (const m of matchDay(k)) {
-      if (m.status === "upcoming" || m.status === "live") continue; // not judged yet
-      planned++; plannedMin += m.planned; trainMin += m.status === "skipped" ? 0 : Math.min(m.done, m.planned) + (m.status === "done" && !m.done ? m.planned : 0);
+      if (m.status === "upcoming" || m.status === "live" || m.status === "cancelled") continue; // not judged (yet, or at all)
+      planned++; plannedMin += m.planned; trainMin += Math.min(m.done, m.planned);
       if (m.status === "done") sessions++;
     }
   }

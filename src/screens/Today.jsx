@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function Today() {
   useApp();
@@ -374,21 +375,42 @@ function Food({ s, r }) {
 }
 
 function Sessions({ s, r }) {
-  const ms = matchDay(s);
-  const dot = { done: "bg-ok", partial: "bg-warn", live: "bg-warn animate-pulse", missed: "bg-bad", upcoming: "bg-muted-foreground/40", skipped: "bg-muted-foreground/40" };
-  const label = (m) => ({ done: `${fmtMin(m.done || m.planned)} done`, partial: `${fmtMin(m.done)} of ${fmtMin(m.planned)}`, live: `${fmtMin(m.done)} so far`, missed: "Missed", upcoming: "Upcoming", skipped: "Skipped" }[m.status]);
+  const ms = matchDay(s), standing = ms.filter((m) => m.status !== "cancelled"), off = ms.length - standing.length;
+  const dot = { done: "bg-ok", partial: "bg-warn", live: "bg-warn animate-pulse", missed: "bg-bad", upcoming: "bg-muted-foreground/40", cancelled: "bg-muted-foreground/25" };
+  const label = (m) => ({ done: `${fmtMin(m.done || m.planned)} done`, partial: `${fmtMin(m.done)} of ${fmtMin(m.planned)}`, live: `${fmtMin(m.done)} so far`, missed: "Missed", upcoming: "Upcoming", cancelled: "Cancelled" }[m.status]);
   const wks = r.workoutsDetail || []; // every workout WHOOP recorded, matched to a slot or not
-  const summary = r.away ? "Paused today" : ms.length ? `${ms.filter((m) => m.status === "done").length} of ${ms.length} done` : hasSchedule() ? "Rest day" : "No schedule";
+  const summary = r.away ? "Paused today" : ms.length
+    ? (standing.length ? `${standing.filter((m) => m.status === "done").length} of ${standing.length} done` : "All cancelled · rest day") + (off && standing.length ? ` · ${off} cancelled` : "")
+    : hasSchedule() ? "Rest day" : "No schedule";
+  // Calling a session off (or putting it back): it stops counting either way, and its reminder and calendar event go too.
+  const toggle = (m) => {
+    const c = { ...(r.cancelled || {}) }, was = !!c[m.slot.id];
+    if (was) delete c[m.slot.id]; else c[m.slot.id] = true;
+    set("cancelled", Object.keys(c).length ? c : null);
+    toast(was ? `${slotName(m.slot)} ${m.slot.start} is back on` : `${slotName(m.slot)} ${m.slot.start} cancelled`, {
+      description: was ? "It counts again." : "Not counted for or against you" + (s === today() ? ", and no reminder." : "."),
+    });
+  };
+  const upcoming = ms.some((m) => m.status === "upcoming" || m.status === "live");
   return (
     <div className="mt-3 border-t pt-1">
-      <Fold title="Training" summary={summary}>
-        {ms.map((m) => (
-          <div key={m.slot.id} className="flex items-center gap-3 border-t py-2.5">
-            <span className={cn("size-2 shrink-0 rounded-full", dot[m.status])} />
-            <span className="min-w-0 flex-1 text-[14px]">{slotName(m.slot)} <span className="text-muted-foreground">{m.slot.start}–{m.slot.end}</span></span>
-            <span className="shrink-0 text-[13px] text-muted-foreground tnum">{label(m)}</span>
-          </div>
-        ))}
+      <Fold title="Training" summary={summary} defaultOpen={upcoming}>
+        {ms.map((m) => {
+          const off = m.status === "cancelled", canCancel = !off && m.status !== "done";
+          return (
+            <div key={m.slot.id} className="flex items-center gap-3 border-t py-2">
+              <span className={cn("size-2 shrink-0 rounded-full", dot[m.status])} />
+              <span className={cn("min-w-0 flex-1 text-[14px]", off && "text-muted-foreground line-through")}>{slotName(m.slot)} <span className="text-muted-foreground">{m.slot.start}–{m.slot.end}</span></span>
+              <span className="shrink-0 text-[13px] text-muted-foreground tnum">{label(m)}</span>
+              {(canCancel || off) && (
+                <button onClick={() => toggle(m)} aria-label={off ? `Restore ${slotName(m.slot)} at ${m.slot.start}` : `Cancel ${slotName(m.slot)} at ${m.slot.start}`}
+                  className={cn("press h-8 shrink-0 rounded-full px-3 text-[12.5px] font-semibold", off ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                  {off ? "Restore" : "Cancel"}
+                </button>
+              )}
+            </div>
+          );
+        })}
         {wks.map((w, i) => (
           <div key={i} className="flex items-center gap-3 border-t py-2.5">
             <Dumbbell className="size-3.5 shrink-0 text-muted-foreground" />
@@ -397,6 +419,7 @@ function Sessions({ s, r }) {
           </div>
         ))}
         {!ms.length && !wks.length && <Hint className="border-t py-2.5">No workouts recorded{s === today() ? " yet" : ""}. WHOOP adds them here.</Hint>}
+        {off > 0 && <Hint className="border-t pt-2.5 pb-1">Cancelled sessions don’t count for or against you.</Hint>}
       </Fold>
     </div>
   );

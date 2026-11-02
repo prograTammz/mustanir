@@ -103,6 +103,32 @@ describe("training slots and WHOOP workouts", () => {
   });
 });
 
+describe("cancelled sessions", () => {
+  const am = { id: "am", sport: "tennis", days: ["SAT"], start: "09:00", end: "10:30" };
+  const pm = { id: "pm", sport: "tennis", days: ["SAT"], start: "17:00", end: "18:30" };
+  test("a cancelled session is never judged, and the one that stands decides the day", () => {
+    setSystemTime(new Date(2026, 10, 8, 23)); // Saturday night
+    fresh({ "2026-11-07": { pages: 20, cancelled: { pm: true }, workoutsDetail: [{ a: "Tennis", s: "09:00", e: "10:30", min: 90 }] } }, { training: [am, pm] });
+    expect(G.matchSlot("2026-11-07", pm).status).toBe("cancelled");
+    expect(G.matchSlot("2026-11-07", am).status).toBe("done");
+    G.S.days["2026-11-07"].totalKcal = 3000; G.S.days["2026-11-07"].dietaryKcal = 2000; // diet met
+    expect(G.dayMinisters("2026-11-07").body).toBeCloseTo(1);
+  });
+  test("every session called off is a rest day, not a missed one", () => {
+    setSystemTime(new Date(2026, 10, 8, 23));
+    fresh({ "2026-11-07": { pages: 20, cancelled: { am: true, pm: true }, totalKcal: 3000, dietaryKcal: 2000 } }, { training: [am, pm] });
+    expect(G.dayMinisters("2026-11-07").body).toBeCloseTo(1);
+    const r = G.score(["2026-11-07"]);
+    expect(r.planned).toBe(0);
+  });
+  test("without cancelling, the missed session counts against the day", () => {
+    setSystemTime(new Date(2026, 10, 8, 23));
+    fresh({ "2026-11-07": { pages: 20, totalKcal: 3000, dietaryKcal: 2000, workoutsDetail: [{ a: "Tennis", s: "09:00", e: "10:30", min: 90 }] } }, { training: [am, pm] });
+    expect(G.matchSlot("2026-11-07", pm).status).toBe("missed");
+    expect(G.dayMinisters("2026-11-07").body).toBeCloseTo(0.6 + 0.4 * 0.5);
+  });
+});
+
 describe("streaks and medals", () => {
   test("streaks count back from today, or from yesterday if today isn't logged yet", () => {
     setSystemTime(new Date(2026, 10, 4, 12));
