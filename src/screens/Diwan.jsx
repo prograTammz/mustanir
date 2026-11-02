@@ -4,7 +4,7 @@ import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { widgetScript } from "@/lib/widget.js";
-import { openSheet } from "@/components/sheets.jsx";
+import { openSheet } from "@/lib/app-state.js";
 import { Section, Hint, Subhead, Row, Ar, LargeTitle, fmtMin, Icon } from "@/components/kit";
 import { Connected, IconButton, Shape } from "@/components/m3/index.jsx";
 import { Button } from "@/components/ui/button";

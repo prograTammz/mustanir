@@ -5,7 +5,7 @@ import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, d
   slotName, ABSTAIN_XP, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
-import { openSheet } from "@/components/sheets.jsx";
+import { openSheet } from "@/lib/app-state.js";
 import { Ar, Fold, Tile, Hint, Stepper, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
 import { Icon, Shape, Button, IconButton, Chip, Checkbox, Switch, Card, SectionTitle, Progress, Ring, XP, haptic } from "@/components/m3/index.jsx";
 import { Input } from "@/components/ui/input";

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { S, today, addDays, range, lastWithin, windowAvg, BODY_PLAN, TERMS, termIndex, termInfo, planTargets, vitalityFor, vitalsFor, DEFAULTS } from "@/lib/logic.js";
 import { SESSION, loadHealthSummary, saveSettings } from "@/lib/store.js";
 import { bump } from "@/lib/app-state.js";
-import { openSheet } from "@/components/sheets.jsx";
+import { openSheet } from "@/lib/app-state.js";
 import { Section, Stat, Hint, Subhead, Ar, fmtMin, Icon } from "@/components/kit";
 import { Chip } from "@/components/m3/index.jsx";
 import { TrendChart, DivergingBar } from "@/components/charts";

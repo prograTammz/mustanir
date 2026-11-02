@@ -72,6 +72,10 @@ setRemoteHandler((apply, info = {}) => {
   if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level), "Your watch carried you over the line."), 400 + fresh.length * 900);
 });
 
+// Bottom sheets (src/components/sheets.jsx, loaded on demand): one at a time, picked by S.sheet.type.
+export function openSheet(sheet) { S.sheet = sheet; bump(); }
+export function closeSheet() { S.sheet = null; bump(); }
+
 export const TABS = ["today", "palace", "settings"];
 // Older links (notifications, shortcuts, bookmarks) still land in the right place.
 export const ALIAS = { decrees: "today", progress: "palace", records: "palace", council: "palace", diwan: "settings" };

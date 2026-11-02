@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart } from "@/lib/logic.js";
 import { saveSettings, loadMetricSeries } from "@/lib/store.js";
-import { bump, go, allTotals, allMedals } from "@/lib/app-state.js";
+import { go, allTotals, allMedals, openSheet, closeSheet } from "@/lib/app-state.js";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,9 @@ import { TrendChart } from "./charts";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export function openSheet(sheet) { S.sheet = sheet; bump(); }
-export function closeSheet() { S.sheet = null; bump(); }
+export { openSheet, closeSheet };
 
-export function Sheets() {
+export default function Sheets() {
   const sh = S.sheet;
   return (
     <Drawer open={!!sh} onOpenChange={(o) => { if (!o) closeSheet(); }}>

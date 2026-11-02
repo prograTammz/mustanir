@@ -133,8 +133,8 @@ export function Fold({ title, summary, children, defaultOpen = false, className,
     <details open={initial || undefined} className={cn("group", className)} onToggle={() => haptic(5)}>
       <summary className="state -mx-2 flex min-h-12 cursor-pointer list-none items-center gap-3 rounded-2xl px-2 [&::-webkit-details-marker]:hidden">
         {leading}
-        <span className="type-title-m">{title}</span>
-        <span className="ml-auto truncate type-body-m text-on-surface-variant tnum">{summary}</span>
+        <span className="shrink-0 type-title-m">{title}</span>
+        <span className="ml-auto min-w-0 truncate type-body-m text-on-surface-variant tnum">{summary}</span>
         <Icon name="expand_more" size={22} className="shrink-0 text-on-surface-variant transition-transform duration-300 group-open:rotate-180" />
       </summary>
       <div className="pb-1">{children}</div>

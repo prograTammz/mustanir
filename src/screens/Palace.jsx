@@ -5,7 +5,7 @@ import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inO
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
 import { useApp, bump, allTotals, allMedals } from "@/lib/app-state.js";
-import { openSheet } from "@/components/sheets.jsx";
+import { openSheet } from "@/lib/app-state.js";
 import { AdvisorCard } from "@/components/advisor.jsx";
 import { Ar, Fold, Hint, Seal, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
 import { Icon, Shape, Button, Chip, Card, SectionTitle, Progress, Ring, Connected } from "@/components/m3/index.jsx";
@@ -37,7 +37,7 @@ export default function Palace() {
       <AdvisorCard full />
       <Trends />
       <Card className="rise px-4 py-2">
-        <Fold title="All health data" summary="Body plan · every measure" leading={<Icon name="monitoring" size={22} className="text-on-surface-variant" />}>
+        <Fold title="All health data" summary="Plan · measures" leading={<Icon name="monitoring" size={22} className="text-on-surface-variant" />}>
           <div className="-mx-4 flex flex-col gap-3 pt-1 pb-3 [&>section]:rounded-none [&>section]:bg-transparent"><Health hs={hs} /></div>
         </Fold>
       </Card>

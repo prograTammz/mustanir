@@ -6,7 +6,6 @@ import { SESSION, load, flushOutbox, wake } from "@/lib/store.js";
 import { useApp, go, bump, TABS, tabOf, isDark, allTotals } from "@/lib/app-state.js";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Sheets } from "@/components/sheets.jsx";
 import { Seal } from "@/components/kit";
 import { Icon, Progress, Loading, Badge, haptic } from "@/components/m3/index.jsx";
 import { cn } from "@/lib/utils";
@@ -15,6 +14,8 @@ import SignIn from "@/screens/SignIn.jsx";
 // Today is the critical path; the other rooms load on first visit (and are prefetched once Today has painted).
 const loadPalace = () => import("@/screens/Palace.jsx"), loadDiwan = () => import("@/screens/Diwan.jsx");
 const Palace = lazy(loadPalace), Diwan = lazy(loadDiwan);
+// The bottom sheets (and the drawer library under them) load once the phone is idle, or on the first tap that needs one.
+const loadSheets = () => import("@/components/sheets.jsx"), Sheets = lazy(loadSheets);
 
 const ROOMS = {
   today: { en: "Today", icon: "swords", view: Today },
@@ -45,7 +46,7 @@ function updateBadge() {
 
 export default function App() {
   useApp();
-  const [y, setY] = useState(0);
+  const [y, setY] = useState(0), [sheetsReady, setSheetsReady] = useState(false);
   useEffect(() => {
     load();
     window.__mustanirReady?.(); // lift the boot screen once the first frame is on screen
@@ -56,7 +57,7 @@ export default function App() {
     const onVis = () => { if (!document.hidden) wake(); };
     // Warm the other rooms while the phone is idle, so the first tap on Palace or Settings is instant.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
-    idle(() => { loadPalace(); loadDiwan(); });
+    idle(() => { loadPalace(); loadDiwan(); loadSheets().then(() => setSheetsReady(true)); });
     const onUpdate = (e) => toast("A new version is ready", { duration: Infinity, action: { label: "Update", onClick: () => e.detail() } });
     const noZoom = (e) => e.preventDefault();
     const noPinch = (e) => { if (e.touches.length > 1) e.preventDefault(); };
@@ -90,7 +91,7 @@ export default function App() {
         )}
       </main>
       {!signin && <NavBar />}
-      {!signin && <Sheets />}
+      {!signin && (sheetsReady || S.sheet) && <Suspense fallback={null}><Sheets /></Suspense>}
       <Toaster theme={isDark() ? "dark" : "light"} />
     </div>
   );
