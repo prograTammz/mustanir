@@ -101,7 +101,9 @@ export default function App() {
 function Hud({ scrolled }) {
   const t = allTotals(), rank = rankFor(t.level), run = streak(T.office);
   return (
-    <header className={cn("m3-hud pt-safe sticky top-0 z-40 transition-colors duration-300", scrolled ? "bg-surface-container" : "bg-surface")}>
+    <>
+    <div aria-hidden="true" data-scrolled={scrolled || undefined} className="m3-hud-fade" />
+    <header className="m3-hud pt-safe sticky top-0 z-40">
       <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
         <button type="button" onClick={() => { haptic(); go("palace"); }} className="state -ml-1 flex min-w-0 flex-1 items-center gap-3 rounded-full py-1 pr-3 pl-1" aria-label={`Level ${t.level}, ${rank.en}. ${t.to - t.xp} XP to level ${t.level + 1}. Open the palace.`}>
           <Seal level={t.level} size={44} />
@@ -117,6 +119,7 @@ function Hud({ scrolled }) {
         <LiveButton />
       </div>
     </header>
+    </>
   );
 }
 

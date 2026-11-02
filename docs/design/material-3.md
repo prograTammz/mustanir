@@ -20,7 +20,8 @@ cards, wavy linear and circular progress, the loading indicator, shapes, Materia
 `scripts/icons.txt`), haptics.
 
 ## The game layer
-- **HUD** (top app bar): your seal and level, XP to the next level, the streak, the live link to WHOOP.
+- **HUD** (top app bar): your seal and level, XP to the next level, the streak, the live link to WHOOP. It has no edge:
+  what scrolls under it blurs and fades into the surface.
 - **Today** is a quest board: the day's run (XP ring, the five ministers as stats, the perfect-day chest), quest cards that
   show what they pay, what WHOOP and FatSecret track for you, medals within reach.
 - **Palace**: the hero card, the road of ranks, streaks, the trophy room, the council.
