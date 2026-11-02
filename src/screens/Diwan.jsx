@@ -115,35 +115,53 @@ function Profile() {
   );
 }
 
-const DOWN = { SAT: "Sat", SUN: "Sun", MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri" };
+const WEEK = [["SAT", "Saturday"], ["SUN", "Sunday"], ["MON", "Monday"], ["TUE", "Tuesday"], ["WED", "Wednesday"], ["THU", "Thursday"], ["FRI", "Friday"]];
+// The week, day by day: every session that day (two tennis sessions on Saturday are two rows), each removable, and a "+"
+// that opens the sheet with that day already picked.
 function Training() {
   const weekly = S.settings.training || [];
   const once = (S.settings.trainingOnce || []).filter((x) => x.date >= addDays(today(), -1)).sort((a, b) => (a.date + a.start < b.date + b.start ? -1 : 1));
   const remove = (key, id) => { S.settings[key] = (S.settings[key] || []).filter((x) => x.id !== id); saveSettings(); bump(); };
-  const bySport = {};
-  for (const x of weekly) (bySport[x.sport] ||= []).push(x);
-  const perWeek = weekly.reduce((a, x) => a + x.days.length, 0), minWeek = weekly.reduce((a, x) => a + x.days.length * ((hmMin(x.end) - hmMin(x.start) + 1440) % 1440), 0);
-  const SlotRow = ({ title, sub, onRemove }) => (
-    <div className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
-      <div className="min-w-0 flex-1"><div className="text-[15px] font-medium tnum">{title}</div><div className="text-xs text-muted-foreground">{sub}</div></div>
-      <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={onRemove}><X /></Button>
-    </div>
-  );
+  // A slot on several days: removing it from one day keeps it on the others.
+  const removeDay = (x, day) => {
+    if ((x.days || []).length <= 1) return remove("training", x.id);
+    S.settings.training = weekly.map((y) => (y.id === x.id ? { ...y, days: y.days.filter((d) => d !== day) } : y)); saveSettings(); bump();
+  };
+  const len = (x) => (hmMin(x.end) - hmMin(x.start) + 1440) % 1440;
+  const perWeek = weekly.reduce((a, x) => a + x.days.length, 0), minWeek = weekly.reduce((a, x) => a + x.days.length * len(x), 0);
   return (
-    <Section title="Training schedule" ar="جدول التدريب" desc={perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. WHOOP checks each one.` : "Add your weekly slots. WHOOP checks each one, and they show up in Apple Calendar."}>
-      {Object.entries(bySport).sort(([a], [b]) => Object.keys(SPORTS).indexOf(a) - Object.keys(SPORTS).indexOf(b)).map(([sport, list]) => (
-        <div key={sport} className="mb-2">
-          <Subhead className="mt-2 flex items-center justify-between">{(SPORTS[sport] || SPORTS.other).en}<Ar className="text-base normal-case">{(SPORTS[sport] || SPORTS.other).ar}</Ar></Subhead>
-          {list.map((x) => <SlotRow key={x.id} title={`${x.start}–${x.end}`} sub={x.days.map((d) => DOWN[d]).join(", ") + (x.label ? " · " + x.label : "")} onRemove={() => remove("training", x.id)} />)}
-        </div>
-      ))}
+    <Section title="Training schedule" ar="جدول التدريب" desc={perWeek ? `${perWeek} sessions, ${fmtMin(minWeek)} a week. WHOOP checks each one.` : "Add your weekly sessions. WHOOP checks each one, and they show up in Apple Calendar."}>
+      <div className="flex flex-col">
+        {WEEK.map(([d, name]) => {
+          const list = weekly.filter((x) => (x.days || []).includes(d)).sort((a, b) => hmMin(a.start) - hmMin(b.start));
+          return (
+            <div key={d} className="flex items-start gap-3 border-t py-2.5 first:border-t-0">
+              <span className={cn("w-[84px] shrink-0 pt-1 text-[15px]", list.length ? "font-medium" : "text-muted-foreground")}>{name}</span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                {list.length ? list.map((x) => (
+                  <div key={x.id} className="flex items-center gap-2 rounded-xl bg-muted py-1.5 pr-1 pl-3">
+                    <span className="min-w-0 flex-1 truncate text-[14px]"><b className="font-semibold">{slotName(x)}</b> <span className="text-muted-foreground tnum">{x.start}–{x.end}</span></span>
+                    <button aria-label={`Remove ${slotName(x)} ${x.start} on ${name}`} className="press grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground" onClick={() => removeDay(x, d)}><X className="size-4" /></button>
+                  </div>
+                )) : <span className="pt-1 text-[14px] text-muted-foreground">Rest</span>}
+              </div>
+              <button aria-label={`Add a session on ${name}`} className="press grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground" onClick={() => openSheet({ type: "slot", day: d })}><Plus className="size-4" /></button>
+            </div>
+          );
+        })}
+      </div>
       {once.length > 0 && (
-        <div className="mb-2">
+        <div className="mt-2">
           <Subhead className="mt-2">One-off sessions</Subhead>
-          {once.map((x) => <SlotRow key={x.id} title={`${slotName(x)} · ${x.start}–${x.end}`} sub={fmt(x.date, { weekday: "short", day: "numeric", month: "short" })} onRemove={() => remove("trainingOnce", x.id)} />)}
+          {once.map((x) => (
+            <div key={x.id} className="flex items-center gap-3 border-t py-2.5 first:border-t-0">
+              <div className="min-w-0 flex-1"><div className="text-[15px] font-medium tnum">{slotName(x)} · {x.start}–{x.end}</div><div className="text-xs text-muted-foreground">{fmt(x.date, { weekday: "short", day: "numeric", month: "short" })}</div></div>
+              <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={() => remove("trainingOnce", x.id)}><X /></Button>
+            </div>
+          ))}
         </div>
       )}
-      <Button className="mt-2 w-full" onClick={() => openSheet({ type: "slot" })}><Plus />Add training slot</Button>
+      <Button className="mt-3 w-full" onClick={() => openSheet({ type: "slot" })}><Plus />Add training</Button>
     </Section>
   );
 }

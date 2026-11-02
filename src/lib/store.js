@@ -152,11 +152,22 @@ export function saveDay(date) {
     finally { S.dirty.delete(date); }
   }, 600);
 }
-let settingsTimer;
+// Settings changed on the phone win until the server has them: a sync that lands in between (coming back from another
+// app, say) must not put an older schedule back on screen and then save that instead.
+let settingsTimer, settingsRev = 0, settingsSent = 0;
+const settingsPending = () => settingsRev !== settingsSent;
 export function saveSettings() {
-  persistSettings();
+  settingsRev++; persistSettings(); idb.set("meta", "settingsPending", true);
   clearTimeout(settingsTimer);
-  settingsTimer = setTimeout(() => { upsert("settings", "user_id", { data: { ...S.settings, appUrl: APP_URL } }).catch(() => setStatus("Settings saved on this phone · will retry")); }, 400);
+  settingsTimer = setTimeout(sendSettings, 400);
+}
+async function sendSettings() {
+  const rev = settingsRev;
+  try {
+    await upsert("settings", "user_id", { data: { ...S.settings, appUrl: APP_URL } });
+    settingsSent = rev;
+    if (!settingsPending()) idb.set("meta", "settingsPending", false);
+  } catch { setStatus("Settings saved on this phone · will retry"); }
 }
 function applySettings(settings) {
   S.settings = { ...DEFAULTS, ...(settings || {}) }; S.settings.notify = { ...DEFAULTS.notify, ...((settings || {}).notify || {}) }; syncBed();
@@ -164,11 +175,12 @@ function applySettings(settings) {
 
 /** Before the first frame: everything this phone already knows, from IndexedDB (or the old localStorage cache, once). */
 export async function hydrate() {
-  const [days, outbox, cursor, settings] = await Promise.all([idb.entries("days"), idb.get("meta", "outbox"), idb.get("meta", "cursor"), idb.get("meta", "settings")]);
+  const [days, outbox, cursor, settings, settingsUnsent] = await Promise.all([idb.entries("days"), idb.get("meta", "outbox"), idb.get("meta", "cursor"), idb.get("meta", "settings"), idb.get("meta", "settingsPending")]);
   if (days.length) {
     for (const [k, v] of days) BASE[k] = v;
     Object.assign(OUTBOX, outbox || {}); CURSOR = cursor || null;
     applySettings(settings);
+    if (settingsUnsent) settingsRev++; // changed on this phone last time and never confirmed: send it with the next sync
   } else {
     // First run on this version: bring over the localStorage cache, then drop it (it was rewritten whole on every tap).
     const old = LS.get("a2-cache", null), oldOut = LS.get("a2-outbox", {});
@@ -188,13 +200,14 @@ export function load() {
   return (loading ||= (async () => {
     try {
       await flushOutbox();
+      if (settingsPending()) { clearTimeout(settingsTimer); await sendSettings(); }
       const since = CURSOR ? "&updated_at=gt." + encodeURIComponent(CURSOR) : "";
       const [st, rows, player] = await Promise.all([
         rest("settings?select=data"),
         all("days?select=date,data,updated_at&order=updated_at" + since),
         rest("player_state?select=*").catch(() => null),
       ]);
-      applySettings(st && st[0] ? st[0].data : {}); persistSettings();
+      if (!settingsPending()) { applySettings(st && st[0] ? st[0].data : {}); persistSettings(); }
       if (rows.length) onRemote(() => { for (const r of rows) applyRow(r.date, r.data, r.updated_at); }, { initial: !CURSOR });
       if (player && player[0]) setPlayer(player[0]);
       S.mode = "cloud"; S.loaded = true;
