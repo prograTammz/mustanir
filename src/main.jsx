@@ -25,5 +25,7 @@ if ("serviceWorker" in navigator) {
     } catch { /* no service worker: the app still works online */ }
   });
 }
+// iOS Safari only runs :active (the buttons' press morph and state layer) once a touch listener exists.
+document.addEventListener("touchstart", () => {}, { passive: true });
 // Ask the browser to keep this app's storage (offline log, outbox) even under storage pressure.
 navigator.storage?.persist?.().catch(() => {});
