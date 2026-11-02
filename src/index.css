@@ -260,10 +260,18 @@
 @keyframes vt-in { from { opacity: 0; transform: scale(.98); } }
 .m3-navbar { view-transition-name: navbar; }
 .m3-hud { view-transition-name: hud; }
-/* The HUD has no edge: what scrolls under it blurs and dissolves into the surface, up into the status bar.
-   A layer of its own, because a view-transition-name would cut a blur inside the HUD off from the page behind it. */
-.m3-hud-fade { position: fixed; inset: 0 0 auto; z-index: 39; height: calc(env(safe-area-inset-top, 0px) + 96px); pointer-events: none; opacity: 0; transition: opacity .3s; background: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); }
-.m3-hud-fade[data-scrolled] { opacity: 1; }
+/* The banner: the game's HUD runs up behind the status bar, the same deep emerald in both themes, and dissolves into the
+   page. The star lattice is the logo's mark; the embers rise past the clock. */
+.m3-banner { position: fixed; inset: 0 0 auto; z-index: 39; height: calc(env(safe-area-inset-top, 0px) + 92px); overflow: hidden; pointer-events: none; view-transition-name: hud-banner; background: linear-gradient(to bottom, var(--md-sys-color-on-primary-fixed), var(--md-sys-color-on-primary-fixed-variant) calc(100% - 28px), transparent); }
+.m3-banner::before { content: ""; position: absolute; inset: 0 0 28px; opacity: .1; background: var(--md-sys-color-tertiary-fixed-dim); --star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23000' stroke-width='5'%3E%3Crect x='21' y='21' width='58' height='58'/%3E%3Crect x='21' y='21' width='58' height='58' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/svg%3E"); -webkit-mask: var(--star) 0 0/44px 44px, linear-gradient(#000, transparent); -webkit-mask-composite: source-in; mask: var(--star) 0 0/44px 44px, linear-gradient(#000, transparent); mask-composite: intersect; }
+.m3-banner::after { content: ""; position: absolute; inset: 0; background: radial-gradient(130px 90px at max(44px, calc(50% - 212px)) calc(env(safe-area-inset-top, 0px) + 32px), color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 34%, transparent), transparent); animation: banner-glow 4s ease-in-out infinite alternate; }
+.m3-banner i { position: absolute; z-index: 1; bottom: 28px; width: 3px; height: 3px; border-radius: 50%; opacity: 0; background: var(--md-sys-color-tertiary-fixed-dim); box-shadow: 0 0 6px var(--md-sys-color-tertiary-fixed-dim); animation: ember linear infinite; }
+@keyframes banner-glow { from { opacity: .55; } to { opacity: 1; } }
+@keyframes ember { 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -120px); } }
+.m3-hud-seal { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 60%, transparent)); }
+.m3-hud-xp > :first-child { box-shadow: 0 0 9px color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 55%, transparent); }
+.m3-hud-xp::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to right, transparent 0 calc(10% - 2px), var(--md-sys-color-on-primary-fixed-variant) calc(10% - 2px) 10%); }
+@media (prefers-reduced-motion: reduce) { .m3-banner i { display: none; } .m3-banner::after { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
 
 /* Loading a room for the first time. */

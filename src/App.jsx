@@ -46,12 +46,11 @@ function updateBadge() {
 
 export default function App() {
   useApp();
-  const [y, setY] = useState(0), [sheetsReady, setSheetsReady] = useState(false);
+  const [sheetsReady, setSheetsReady] = useState(false);
   useEffect(() => {
     load();
     window.__mustanirReady?.(); // lift the boot screen once the first frame is on screen
     for (const [k, v] of [["whoop", WHOOP_BACK], ["fatsecret", FS_BACK]]) if (v) setTimeout(() => (v === "connected" ? toast.success : toast.error)(MSG[k][v] || `${k}: ${v}`), 500);
-    const onScroll = () => setY(scrollY);
     const onHash = () => { fromHash(); bump(); };
     const onOnline = () => flushOutbox().then(load);
     const onVis = () => { if (!document.hidden) wake(); };
@@ -61,7 +60,6 @@ export default function App() {
     const onUpdate = (e) => toast("A new version is ready", { duration: Infinity, action: { label: "Update", onClick: () => e.detail() } });
     const noZoom = (e) => e.preventDefault();
     const noPinch = (e) => { if (e.touches.length > 1) e.preventDefault(); };
-    addEventListener("scroll", onScroll, { passive: true });
     addEventListener("hashchange", onHash);
     addEventListener("online", onOnline);
     addEventListener("mustanir:update", onUpdate);
@@ -69,7 +67,7 @@ export default function App() {
     ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, noZoom, { passive: false }));
     document.addEventListener("touchmove", noPinch, { passive: false });
     return () => {
-      removeEventListener("scroll", onScroll); removeEventListener("hashchange", onHash); removeEventListener("online", onOnline); removeEventListener("mustanir:update", onUpdate);
+      removeEventListener("hashchange", onHash); removeEventListener("online", onOnline); removeEventListener("mustanir:update", onUpdate);
       document.removeEventListener("visibilitychange", onVis);
       ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.removeEventListener(ev, noZoom));
       document.removeEventListener("touchmove", noPinch);
@@ -82,8 +80,8 @@ export default function App() {
 
   return (
     <div className="min-h-dvh">
-      {!signin && <Hud scrolled={y > 4} />}
-      <main className="mx-auto flex max-w-lg flex-col gap-3 px-4 pb-32">
+      {!signin && <Hud />}
+      <main className={cn("mx-auto flex max-w-lg flex-col gap-3 px-4 pb-32", !signin && "pt-5")}>
         {signin ? <SignIn /> : (
           <Suspense fallback={<div className="grid place-items-center pt-24"><Loading size={64} contained /></div>}>
             <div key={S.tab} className="flex flex-col gap-3"><View /></div>
@@ -98,22 +96,26 @@ export default function App() {
 }
 
 /* ---------- the HUD: who you are in the game, always in sight ---------- */
-function Hud({ scrolled }) {
+// The embers that rise past the clock: [left %, seconds, delay, drift px]. Your streak feeds them.
+const EMBERS = [[14, 5.2, 0, 8], [62, 6.4, 1.1, -10], [38, 4.6, 2.3, 6], [84, 5.8, 0.6, -6], [26, 6.8, 3.2, 12], [72, 4.9, 1.9, 10], [50, 5.5, 4.1, -8], [92, 6.1, 2.8, -12]];
+function Hud() {
   const t = allTotals(), rank = rankFor(t.level), run = streak(T.office);
   return (
     <>
-    <div aria-hidden="true" data-scrolled={scrolled || undefined} className="m3-hud-fade" />
+    <div aria-hidden="true" className="m3-banner">
+      {EMBERS.slice(0, Math.min(3 + run, EMBERS.length)).map(([x, d, w, dx]) => <i key={x} style={{ left: `${x}%`, animationDuration: `${d}s`, animationDelay: `${w}s`, "--dx": `${dx}px` }} />)}
+    </div>
     <header className="m3-hud pt-safe sticky top-0 z-40">
       <div className="mx-auto flex h-16 max-w-lg items-center gap-3 px-4">
         <button type="button" onClick={() => { haptic(); go("palace"); }} className="state -ml-1 flex min-w-0 flex-1 items-center gap-3 rounded-full py-1 pr-3 pl-1" aria-label={`Level ${t.level}, ${rank.en}. ${t.to - t.xp} XP to level ${t.level + 1}. Open the palace.`}>
-          <Seal level={t.level} size={44} />
+          <Seal level={t.level} size={44} className="m3-hud-seal" />
           <div className="min-w-0 flex-1 text-left">
-            <div className="flex items-baseline gap-2"><span className="type-title-m em truncate">{rank.en}</span><span className="ar truncate text-[14px] text-tertiary">{rank.ar}</span></div>
-            <Progress value={t.frac} color="var(--md-sys-color-tertiary)" className="mt-1" stop={false} />
-            <div className="mt-0.5 truncate type-label-s text-on-surface-variant tnum">{t.xp.toLocaleString("en")} XP · {(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</div>
+            <div className="flex items-baseline gap-2"><span className="type-title-m em truncate text-primary-fixed">{rank.en}</span><span className="ar truncate text-[14px] text-tertiary-fixed-dim">{rank.ar}</span></div>
+            <Progress value={t.frac} color="var(--md-sys-color-tertiary-fixed-dim)" track="color-mix(in srgb, var(--md-sys-color-primary-fixed) 18%, transparent)" thick className="m3-hud-xp mt-1" stop={false} />
+            <div className="mt-0.5 truncate type-label-s text-primary-fixed/80 tnum">{t.xp.toLocaleString("en")} XP · {(t.to - t.xp).toLocaleString("en")} to level {t.level + 1}</div>
           </div>
         </button>
-        <span className={cn("flex h-10 shrink-0 items-center gap-1 rounded-full px-3 type-title-m em tnum", run ? "bg-fire-container text-on-fire-container" : "bg-surface-container-highest text-on-surface-variant")} aria-label={`${run}-day streak`}>
+        <span className={cn("flex h-10 shrink-0 items-center gap-1 rounded-full px-3 type-title-m em tnum", run ? "bg-fire-container text-on-fire-container" : "bg-primary-fixed/15 text-primary-fixed")} aria-label={`${run}-day streak`}>
           <Icon name="local_fire_department" fill={!!run} size={20} className={run ? "text-fire" : ""} />{run}
         </span>
         <LiveButton />
@@ -135,9 +137,9 @@ function LiveButton() {
   const st = S.live, t = lastWhoop(), label = st === "live" ? "Live" : st === "connecting" ? "Connecting" : "Offline";
   return (
     <button type="button" onClick={() => { haptic(); wake(); }} aria-label={`${label}${t ? `, WHOOP data ${ago(Date.now() - t)} ago` : ""}. Tap to sync.`}
-      className="m3-btn state relative grid size-10 shrink-0 place-items-center bg-surface-container-highest text-on-surface-variant [--rp:12px]">
+      className="m3-btn state relative grid size-10 shrink-0 place-items-center bg-primary-fixed/15 text-primary-fixed [--rp:12px]">
       <Icon name={st === "live" ? "cloud_done" : st === "connecting" ? "sync" : "cloud_off"} size={22} className={st === "connecting" ? "spin-slow [animation-duration:1.2s]" : ""} />
-      <span className={cn("absolute top-1.5 right-1.5 size-2.5 rounded-full border-2 border-surface-container-highest", st === "live" ? "live-dot bg-success" : st === "connecting" ? "bg-warning" : "bg-outline")} />
+      <span className={cn("absolute top-1.5 right-1.5 size-2.5 rounded-full border-2 border-on-primary-fixed", st === "live" ? "live-dot bg-success" : st === "connecting" ? "bg-warning" : "bg-outline")} />
     </button>
   );
 }
