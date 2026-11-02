@@ -25,12 +25,7 @@ export default function SignIn() {
     <div className="flex min-h-[86dvh] flex-col justify-center gap-8 py-8">
       <div className="flex flex-col items-center gap-3 text-center">
         <span className="grid size-20 place-items-center rounded-[26%] bg-[#0F4A3C]">
-          <svg viewBox="0 0 512 512" className="size-14" aria-hidden="true">
-            <g fill="#D6AF5F"><rect x="125" y="125" width="262" height="262" /><rect x="125" y="125" width="262" height="262" transform="rotate(45 256 256)" /></g>
-            <circle cx="256" cy="256" r="96" fill="#0F4A3C" />
-            <path fill="#D6AF5F" d="M256 178L262.1 241.2L295.6 216.4L270.8 249.9L334 256L270.8 262.1L295.6 295.6L262.1 270.8L256 334L249.9 270.8L216.4 295.6L241.2 262.1L178 256L241.2 249.9L216.4 216.4L249.9 241.2Z" />
-            <circle cx="256" cy="256" r="24" fill="#0F4A3C" /><circle cx="256" cy="256" r="16" fill="#D6AF5F" />
-          </svg>
+          <svg viewBox="0 0 100 100" className="size-12" aria-hidden="true"><g fill="none" stroke="#D6AF5F" strokeWidth="6.5" strokeLinejoin="round"><rect x="21" y="21" width="58" height="58" rx="5"/><rect x="21" y="21" width="58" height="58" rx="5" transform="rotate(45 50 50)"/></g><circle cx="50" cy="50" r="8.5" fill="#D6AF5F"/></svg>
         </span>
         <Ar className="mt-2 text-[26px] text-gold">المُستنير</Ar>
         <p className="max-w-[260px] text-[14px] text-muted-foreground">Sign in to keep your record in sync on every device.</p>

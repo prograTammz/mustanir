@@ -78,7 +78,7 @@ export default function App() {
   return (
     <div className="min-h-dvh">
       <header className="pt-safe sticky top-0 z-40">
-        <div aria-hidden className={cn("edge pointer-events-none absolute inset-x-0 top-0 -bottom-6 transition-opacity duration-300", y > 4 ? "opacity-100" : "opacity-0")} />
+        <div aria-hidden className={cn("edge pointer-events-none absolute inset-0 transition-opacity duration-300", y > 4 ? "opacity-100" : "opacity-0")} />
         <div className="relative mx-auto grid h-[52px] max-w-lg grid-cols-[1fr_auto_1fr] items-center gap-2 px-4">
           <div className="flex justify-start">{!signin && L && <L />}</div>
           <span className={cn("text-[17px] font-semibold transition-opacity duration-200", y > 56 && !signin ? "opacity-100" : "opacity-0")}>{room.en}</span>

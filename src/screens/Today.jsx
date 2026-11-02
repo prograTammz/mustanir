@@ -157,7 +157,7 @@ function Cabinet({ xp }) {
       </div>
       <div className={cn("flex items-center gap-2.5 rounded-2xl px-3.5 py-3", all ? "bg-gold-soft" : "bg-muted")}>
         <Sparkles className={cn("size-4 shrink-0", all ? "text-gold" : "text-muted-foreground")} />
-        <span className="min-w-0 flex-1 text-[14px]">{all ? "Perfect day sealed" : `Perfect day: ${xp.near} of 5 ministers at 90%`}</span>
+        <span className="min-w-0 flex-1 text-[14px]">{all ? "Perfect day sealed" : <>Perfect day <span className="text-muted-foreground">· {xp.near} of 5 at 90%</span></>}</span>
         <span className="shrink-0 text-[14px] font-bold text-gold tnum">+{PERFECT_BONUS} XP</span>
       </div>
     </Card>

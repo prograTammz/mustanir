@@ -25,13 +25,12 @@ type Any = any;
 
 /** Load one player into the engine and read the game off it. */
 async function compute(uid: string) {
+  // Fetch everything first: the engine's state is module-global, so it is loaded and read in one synchronous run below,
+  // and two recomputes interleaving at an await can never mix one player's settings with another's days.
   const { data: st } = await admin.from("settings").select("data").eq("user_id", uid).maybeSingle();
   const raw = st?.data || {};
-  G.setTimeZone(raw.timeZone || TZ);
-  G.S.settings = { ...G.DEFAULTS, ...raw, notify: { ...G.DEFAULTS.notify, ...(raw.notify || {}) } };
-  G.syncBed();
   // The term and the two weeks before it: weigh-ins compare against the previous Sunday.
-  const from = G.addDays(G.S.settings.termStart || "2026-11-01", -14);
+  const from = G.addDays(raw.termStart || G.DEFAULTS.termStart, -14);
   const days: Record<string, Any> = {};
   for (let at = 0; ; at += 1000) {
     const { data, error } = await admin.from("days").select("date,data").eq("user_id", uid).gte("date", from).order("date").range(at, at + 999);
@@ -39,6 +38,9 @@ async function compute(uid: string) {
     for (const r of data || []) days[r.date] = r.data || {};
     if (!data || data.length < 1000) break;
   }
+  G.setTimeZone(raw.timeZone || TZ);
+  G.S.settings = { ...G.DEFAULTS, ...raw, notify: { ...G.DEFAULTS.notify, ...(raw.notify || {}) } };
+  G.syncBed();
   G.S.days = days;
   const day = G.today(), t = G.totals(), rank = G.rankFor(t.level), parts = G.xpParts(day), ms = G.medals();
   const won = ms.filter((m: Any) => m.won);

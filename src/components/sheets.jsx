@@ -100,8 +100,8 @@ function SlotSheet({ pre }) {
           : <div className="grid gap-1.5"><Label htmlFor="sl-date">Date</Label><Input id="sl-date" type="date" value={st.date} onChange={(e) => up({ date: e.target.value })} /></div>}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="grid gap-1.5"><Label htmlFor="sl-s">Starts</Label><Input id="sl-s" type="time" value={st.start} onChange={(e) => up({ start: e.target.value })} /></div>
-        <div className="grid gap-1.5"><Label htmlFor="sl-e">Ends</Label><Input id="sl-e" type="time" value={st.end} onChange={(e) => up({ end: e.target.value })} /></div>
+        <div className="grid min-w-0 gap-1.5"><Label htmlFor="sl-s">Starts</Label><Input id="sl-s" type="time" value={st.start} onChange={(e) => up({ start: e.target.value })} /></div>
+        <div className="grid min-w-0 gap-1.5"><Label htmlFor="sl-e">Ends</Label><Input id="sl-e" type="time" value={st.end} onChange={(e) => up({ end: e.target.value })} /></div>
       </div>
       {msg && <p className="mt-3 text-sm text-bad">{msg}</p>}
       <Button className="my-5 w-full" size="lg" onClick={save}>Add to schedule</Button>

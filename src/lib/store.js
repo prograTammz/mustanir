@@ -55,7 +55,8 @@ async function token() {
   if (!SESSION) throw new Error("Signed out");
   if (Date.now() > SESSION.expires_at - 60000) {
     refreshing ||= authCall("token?grant_type=refresh_token", { refresh_token: SESSION.refresh_token }).then(keepSession).finally(() => { refreshing = null; });
-    try { await refreshing; } catch (e) { if (navigator.onLine !== false) { signOut(); onChange(); } throw e; }
+    // Sign out only when the auth server rejects the session; a network blip (fetch throws a TypeError) just retries later.
+    try { await refreshing; } catch (e) { if (!(e instanceof TypeError) && navigator.onLine !== false) { signOut(); onChange(); } throw e; }
   }
   return SESSION.access_token;
 }
@@ -84,6 +85,9 @@ async function all(path, page = 1000) {
 const BASE = {};
 const OUTBOX = {};
 let CURSOR = null; // the newest updated_at this phone has seen
+const SEEN = {};   // date → the updated_at of the copy in BASE, so an older copy arriving late never replaces a newer one
+// Realtime and PostgREST spell timestamps differently ("2026-11-01 20:03:03.58+00" vs "2026-11-01T20:03:03.58+00:00").
+const ts = (x) => (x ? String(x).replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00") : null);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function applyPatch(base, patch) {
   const out = { ...(base || {}) };
@@ -113,6 +117,9 @@ const persistSettings = () => idb.set("meta", "settings", S.settings);
 
 /** A row from the server (a load or a live change): it becomes the base, your pending patch stays on top. */
 function applyRow(date, data, updatedAt) {
+  updatedAt = ts(updatedAt);
+  if (updatedAt && SEEN[date] && updatedAt < SEEN[date]) return; // a late copy of an older version
+  if (updatedAt) SEEN[date] = updatedAt;
   BASE[date] = data || {};
   S.days[date] = shown(date);
   persistBase(date);

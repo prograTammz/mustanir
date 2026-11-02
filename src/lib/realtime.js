@@ -2,36 +2,40 @@
 // Postgres changes on your own rows only (row-level security applies to what the server sends).
 // Status: "connecting" → "live", or "offline" while it backs off and retries.
 export function connectRealtime({ url, apikey, token, tables, onChange, onStatus }) {
-  let ws = null, ref = 0, joinRef = null, beat = 0, retry = 0, closed = false, timer = 0;
+  let ws = null, ref = 0, joinRef = null, beat = 0, retry = 0, closed = false, timer = 0, opening = false;
   const topic = "realtime:mustanir";
   const msg = (t, event, payload, extra = {}) => JSON.stringify({ topic: t, event, payload, ref: String(++ref), ...extra });
   const status = (s) => onStatus?.(s);
 
   async function open() {
-    if (closed) return;
+    if (closed || opening || (ws && ws.readyState <= 1)) return; // one socket at a time
+    opening = true;
     clearTimeout(timer);
     status("connecting");
     let access;
-    try { access = await token(); } catch { return later(); }
-    ws = new WebSocket(url.replace(/^http/, "ws") + "/realtime/v1/websocket?apikey=" + encodeURIComponent(apikey) + "&vsn=1.0.0");
-    ws.onopen = () => {
+    try { access = await token(); } catch { opening = false; return later(); }
+    opening = false;
+    const sock = (ws = new WebSocket(url.replace(/^http/, "ws") + "/realtime/v1/websocket?apikey=" + encodeURIComponent(apikey) + "&vsn=1.0.0"));
+    // Every handler is bound to its own socket: a late event from an old one never touches the current one.
+    sock.onopen = () => {
       joinRef = String(++ref);
-      ws.send(JSON.stringify({
+      sock.send(JSON.stringify({
         topic, event: "phx_join", ref: joinRef, join_ref: joinRef,
         payload: { config: { broadcast: { self: false }, presence: { key: "" }, postgres_changes: tables.map((t) => ({ event: "*", schema: "public", ...t })) }, access_token: access },
       }));
       clearInterval(beat);
-      beat = setInterval(() => ws?.readyState === 1 && ws.send(msg("phoenix", "heartbeat", {})), 25000);
+      beat = setInterval(() => sock.readyState === 1 && sock.send(msg("phoenix", "heartbeat", {})), 25000);
     };
-    ws.onmessage = (e) => {
+    sock.onmessage = (e) => {
+      if (sock !== ws) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.event === "phx_reply" && m.ref === joinRef) { if (m.payload?.status === "ok") { retry = 0; status("live"); } else { status("offline"); ws.close(); } }
+      if (m.event === "phx_reply" && m.ref === joinRef) { if (m.payload?.status === "ok") { retry = 0; status("live"); } else { status("offline"); sock.close(); } }
       else if (m.event === "postgres_changes" && m.payload?.data) onChange(m.payload.data);
       else if (m.event === "system" && m.payload?.status === "error") status("offline");
-      else if ((m.event === "phx_error" || m.event === "phx_close") && m.topic === topic) ws.close();
+      else if ((m.event === "phx_error" || m.event === "phx_close") && m.topic === topic) sock.close();
     };
-    ws.onclose = () => { clearInterval(beat); ws = null; if (!closed) later(); };
-    ws.onerror = () => {};
+    sock.onclose = () => { if (sock !== ws) return; clearInterval(beat); ws = null; if (!closed) later(); };
+    sock.onerror = () => {};
   }
   function later() { status("offline"); clearTimeout(timer); timer = setTimeout(open, Math.min(30000, 1000 * 2 ** retry++)); }
 
@@ -40,7 +44,7 @@ export function connectRealtime({ url, apikey, token, tables, onChange, onStatus
     /** After the session refreshes, hand the channel the new token so row-level security keeps matching. */
     setToken(t) { if (ws?.readyState === 1 && joinRef) ws.send(msg(topic, "access_token", { access_token: t }, { join_ref: joinRef })); },
     /** Coming back from the background: iOS drops idle sockets, so reconnect at once instead of waiting out the backoff. */
-    wake() { if (!ws || ws.readyState > 1) { retry = 0; open(); } },
+    wake() { if (!opening && (!ws || ws.readyState > 1)) { retry = 0; open(); } },
     close() { closed = true; clearTimeout(timer); clearInterval(beat); ws?.close(); },
   };
 }
