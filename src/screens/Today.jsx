@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, streak, T, matchDay, hasSchedule,
   slotName, ABSTAIN_XP, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
-import { SESSION, loadMeals, saveDay } from "@/lib/store.js";
+import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
 import { Ar, Fold, Hero, Tile, Hint, Stepper, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
@@ -183,19 +183,36 @@ function RoutineQuest({ r, pay, done }) {
   );
 }
 
+// A task reads as plain text and edits in place, like a note: tap, type, Done. Emptying one keeps its old words; the X removes it.
+function TaskText({ text, done, onSave }) {
+  const fit = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+  return (
+    <textarea key={text} ref={fit} rows={1} defaultValue={text} aria-label="Task" enterKeyHint="done" onInput={(e) => fit(e.target)}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }}
+      onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== text) onSave(t); else { e.target.value = text; fit(e.target); } }}
+      className={cn("min-w-0 flex-1 resize-none overflow-hidden bg-transparent py-2 type-body-l outline-none transition-colors", done && "text-on-surface-variant line-through")} />
+  );
+}
+
 function TaskQuest({ r, c, pay, done }) {
   const [txt, setTxt] = useState("");
   const toggle = (id) => set("checks", { ...(r.checks || {}), [id]: !(r.checks || {})[id] });
   const add = () => { const t = txt.trim(); if (!t) return; set("extraTasks", [...(r.extraTasks || []), { id: "x" + Date.now().toString(36), text: t }]); setTxt(""); };
   const extra = (id) => (r.extraTasks || []).some((t) => t.id === id);
+  // Today's own tasks change for today; an item of the daily checklist changes in Settings too, so it stays reworded.
+  const rename = (id, text) => {
+    const swap = (list) => list.map((t) => (t.id === id ? { ...t, text } : t));
+    if (extra(id)) set("extraTasks", swap(r.extraTasks));
+    else { S.settings.checklist = swap(S.settings.checklist || []); saveSettings(); bump(); }
+  };
   return (
     <Quest k="tasks" title="The day’s work" sub={c.total ? `${c.done} of ${c.total} done` : "Add what today is for"} pay={<XP {...pay} />} done={done}>
       <div className="flex flex-col">
         {c.items.map((x) => (
           <div key={x.id} className="flex min-h-11 items-center gap-3">
             <Checkbox checked={!!c.checks[x.id]} onChange={() => toggle(x.id)} label={x.text} color="var(--md-sys-color-tertiary)" />
-            <span className={cn("min-w-0 flex-1 type-body-l transition-colors", c.checks[x.id] && "text-on-surface-variant line-through")}>{x.text}</span>
-            {extra(x.id) && <IconButton icon="close" label="Remove task" size="xs" onClick={() => set("extraTasks", r.extraTasks.filter((t) => t.id !== x.id))} />}
+            <TaskText text={x.text} done={!!c.checks[x.id]} onSave={(t) => rename(x.id, t)} />
+            {extra(x.id) &&<IconButton icon="close" label="Remove task" size="xs" onClick={() => set("extraTasks", r.extraTasks.filter((t) => t.id !== x.id))} />}
           </div>
         ))}
         <div className="mt-1 flex items-center gap-2">
