@@ -8,7 +8,8 @@ const RUNTIME = ["fonts.googleapis.com", "fonts.gstatic.com"]; // the Arabic fon
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", SHELL, ...PRECACHE])).then(async () => {
-    // First install, or replacing the pre-redesign worker: take over at once. Later updates wait until you tap "Update".
+    // First install, or replacing the pre-redesign worker: take over at once. Later updates wait for the app to close;
+    // only the rescue on the stuck and error screens (index.html) sends SKIP_WAITING.
     const legacy = (await caches.keys()).some((k) => /^mustanir-v\d+$/.test(k));
     if (!self.registration.active || legacy) return self.skipWaiting();
   }));

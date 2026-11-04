@@ -57,17 +57,15 @@ export default function App() {
     // Warm the other rooms while the phone is idle, so the first tap on Palace or Settings is instant.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
     idle(() => { loadPalace(); loadDiwan(); loadSheets().then(() => setSheetsReady(true)); });
-    const onUpdate = (e) => toast("A new version is ready", { duration: Infinity, action: { label: "Update", onClick: () => e.detail() } });
     const noZoom = (e) => e.preventDefault();
     const noPinch = (e) => { if (e.touches.length > 1) e.preventDefault(); };
     addEventListener("hashchange", onHash);
     addEventListener("online", onOnline);
-    addEventListener("mustanir:update", onUpdate);
     document.addEventListener("visibilitychange", onVis);
     ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, noZoom, { passive: false }));
     document.addEventListener("touchmove", noPinch, { passive: false });
     return () => {
-      removeEventListener("hashchange", onHash); removeEventListener("online", onOnline); removeEventListener("mustanir:update", onUpdate);
+      removeEventListener("hashchange", onHash); removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVis);
       ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.removeEventListener(ev, noZoom));
       document.removeEventListener("touchmove", noPinch);

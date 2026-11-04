@@ -44,7 +44,7 @@ Every tap that earns XP floats a *+N XP*; a perfect day, a new medal and a level
 
 Old links (`#progress`, `#decrees`, `#records`, `#council`, `#diwan`) redirect to the matching room.
 
-**PWA**: an emerald boot screen with the emblem (shown at least 0.6 s, lifted on the first frame), matching iOS launch images for twelve iPhone sizes (`public/splash/`), a full manifest (id, shortcuts to *Check in* and *Palace*, install screenshots, maskable icon, portrait), and a service worker that precaches every built file (the list and a build id are written into `dist/sw.js` by the `mustanir-precache` plugin in `vite.config.ts`). The app opens instantly from cache and works offline; a new version installs in the background and a toast offers *Update*. The home-screen badge shows what's still open today (prayers not marked, reading not started). Storage is marked persistent.
+**PWA**: an emerald boot screen with the emblem (shown at least 0.6 s, lifted on the first frame), matching iOS launch images for twelve iPhone sizes (`public/splash/`), a full manifest (id, shortcuts to *Check in* and *Palace*, install screenshots, maskable icon, portrait), and a service worker that precaches every built file (the list and a build id are written into `dist/sw.js` by the `mustanir-precache` plugin in `vite.config.ts`). The app opens instantly from cache and works offline; a new version installs in the background and is simply there the next time the app is opened after being closed, with no prompt. The home-screen badge shows what's still open today (prayers not marked, reading not started). Storage is marked persistent.
 
 ## First-time setup
 
