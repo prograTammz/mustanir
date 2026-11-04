@@ -128,7 +128,7 @@ export function intervalFor(s) { const w = Math.floor(Math.max(0, diff(S.setting
 // Every sport a slot can be. `match` reads a WHOOP workout name, so a slot is only met by its own sport
 // (or by a workout WHOOP couldn't name). Add a sport here and it shows up in the slot sheet, Settings and the checks.
 export const SPORTS = {
-  gym: { en: "Gym", ar: "الحديد", match: /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic/i },
+  gym: { en: "Gym", ar: "الحديد", match: /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic|elliptical/i },
   tennis: { en: "Tennis", ar: "التنس", match: /tennis|padel|squash|pickleball|badminton/i },
   mma: { en: "MMA", ar: "الفنون القتالية", match: /martial|mma|box|kick|jiu|jitsu|muay|wrestl|judo|karate|taekwondo|grappl|fight/i },
   swim: { en: "Swimming", ar: "السباحة", match: /swim|water polo/i },
@@ -150,24 +150,43 @@ export function slotsOn(date) {
   ].filter((x) => hmMin(x.start) != null && hmMin(x.end) != null).sort((a, b) => hmMin(a.start) - hmMin(b.start));
 }
 const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
-// How much of a slot the watch saw. Workouts (exact times) win; otherwise hourly exercise minutes are
-// spread across the hour and counted where they overlap the slot. 30 minutes of slack either side
-// covers starting late or staying on court.
 // A session can be called off (the coach cancelled, no court): day.cancelled[slotId]. It is never judged, for or against you,
 // sends no reminder and leaves the calendar feed.
 export const isCancelled = (date, slot) => !!(((S.days[date] || {}).cancelled || {})[slot.id]);
+// When a slot runs, with 30 minutes of slack either side for starting late or staying on court.
+const slotTimes = (slot) => { const a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440; return { planned: b - a, A: a - 30, B: b + 30, b }; };
+// A slot takes a workout of its own sport, or one WHOOP couldn't name ("Activity"). A walk never counts for anything but a walk slot.
+const fits = (slot, k) => (slot.sport === "other" ? k !== "walk" : k === slot.sport || (k == null && slot.sport !== "walk"));
+// Which workouts fill which slots on a day. A workout around a slot's time fills that slot. A workout of a named sport counts
+// whenever it happened: it goes to the nearest slot of its sport that's still unmet, so time only decides between two slots of
+// one sport. An unnamed one counts only around a slot's time, so a stray "Activity" can't stand in for a session.
+function assignWorkouts(date) {
+  const slots = slotsOn(date).filter((x) => !isCancelled(date, x)), got = new Map(slots.map((x) => [x, []])), late = [];
+  const wks = ((S.days[date] || {}).workoutsDetail || []).map((w) => {
+    const s0 = hmMin(w.s), e0 = hmMin(w.e);
+    return s0 == null || e0 == null ? null : { w, s0, e1: e0 >= s0 ? e0 : e0 + 1440, k: sportOf(w.a) };
+  }).filter(Boolean).sort((x, y) => x.s0 - y.s0);
+  for (const x of wks) {
+    let best = null, most = 0;
+    for (const slot of slots) { if (!fits(slot, x.k)) continue; const t = slotTimes(slot), ov = overlap(x.s0, x.e1, t.A, t.B); if (ov > most) { most = ov; best = slot; } }
+    if (best) got.get(best).push(x); else if (x.k) late.push(x);
+  }
+  const minutes = (slot) => got.get(slot).reduce((a, x) => a + x.e1 - x.s0, 0);
+  for (const x of late) {
+    const away = (slot) => { const t = slotTimes(slot); return Math.max(t.A - x.e1, x.s0 - t.B); };
+    const near = slots.filter((slot) => fits(slot, x.k)).sort((p, q) => away(p) - away(q));
+    const slot = near.find((p) => minutes(p) < slotTimes(p).planned * 0.5) || near[0];
+    if (slot) got.get(slot).push(x);
+  }
+  return got;
+}
+// How much of a slot the watch saw. Workouts (exact times) win; otherwise hourly exercise minutes are spread across the hour and
+// counted where they overlap the slot.
 export function matchSlot(date, slot, nowMin = null) {
-  const d = S.days[date] || {}, a = hmMin(slot.start), b0 = hmMin(slot.end), b = b0 > a ? b0 : b0 + 1440;
-  const planned = b - a, A = a - 30, B = b + 30;
+  const d = S.days[date] || {}, { planned, A, B, b } = slotTimes(slot);
   if (isCancelled(date, slot)) return { slot, planned, done: 0, kcal: 0, source: null, status: "cancelled", frac: 0 };
   let done = 0, kcal = 0, source = null;
-  // A slot is met by a workout of its own sport, or one WHOOP couldn't name ("Activity"). A walk never counts for anything but a walk slot.
-  const wks = (d.workoutsDetail || []).filter((w) => { const k = sportOf(w.a); return slot.sport === "other" ? k !== "walk" : k === slot.sport || (k == null && slot.sport !== "walk"); });
-  for (const w of wks) {
-    const s0 = hmMin(w.s), e0 = hmMin(w.e); if (s0 == null || e0 == null) continue;
-    const e1 = e0 >= s0 ? e0 : e0 + 1440, ov = overlap(s0, e1, A, B);
-    if (ov > 0) { done += ov; if (w.kcal) kcal += w.kcal * (ov / Math.max(1, e1 - s0)); source = "workout"; }
-  }
+  for (const { w, s0, e1 } of assignWorkouts(date).get(slot) || []) { done += e1 - s0; if (w.kcal) kcal += w.kcal; source = "workout"; }
   if (!source && d.exByHour) {
     for (const [h, v] of Object.entries(d.exByHour)) {
       const h0 = +h * 60, ov = overlap(h0, h0 + 60, A, B);

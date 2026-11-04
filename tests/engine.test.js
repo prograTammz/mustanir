@@ -83,7 +83,7 @@ describe("the Sunday weigh-in", () => {
 
 describe("training slots and WHOOP workouts", () => {
   test("workout names map to sports", () => {
-    const cases = { Weightlifting: "gym", "Functional Fitness": "gym", Tennis: "tennis", Padel: "tennis", Boxing: "mma", "Jiu Jitsu": "mma",
+    const cases = { Weightlifting: "gym", "Functional Fitness": "gym", Elliptical: "gym", Tennis: "tennis", Padel: "tennis", Boxing: "mma", "Jiu Jitsu": "mma",
       "Muay Thai": "mma", Swimming: "swim", Running: "run", Walking: "walk", Activity: null };
     for (const [name, sport] of Object.entries(cases)) expect([name, G.sportOf(name)]).toEqual([name, sport]);
   });
@@ -100,6 +100,48 @@ describe("training slots and WHOOP workouts", () => {
     const slot = { id: "g", sport: "gym", days: ["MON"], start: "18:00", end: "19:00" };
     fresh({ "2026-11-02": { workoutsDetail: [{ a: "Activity", s: "18:00", e: "19:00", min: 60 }] } }, { training: [slot] });
     expect(G.matchSlot("2026-11-02", slot, 23 * 60).status).toBe("done");
+  });
+  test("a workout of the slot's sport counts at any time that day", () => {
+    setSystemTime(new Date(2026, 10, 4, 12));
+    const slot = { id: "g", sport: "gym", days: ["TUE"], start: "07:00", end: "08:30" };
+    fresh({ "2026-11-03": { workoutsDetail: [
+      { a: "Elliptical", s: "10:36", e: "10:56", kcal: 300 }, { a: "Walking", s: "10:59", e: "11:14", kcal: 100 },
+      { a: "Weightlifting", s: "11:17", e: "12:27", kcal: 400 }, { a: "Tennis", s: "20:32", e: "21:56", kcal: 600 },
+    ] } }, { training: [slot] });
+    const m = G.matchSlot("2026-11-03", slot);
+    expect(m.status).toBe("done");
+    expect(m.done).toBe(90); // the elliptical and the weights, not the walk or the tennis
+    expect(m.kcal).toBe(700);
+    expect(m.source).toBe("workout");
+  });
+  test("another sport, or a walk, doesn't count at any time", () => {
+    setSystemTime(new Date(2026, 10, 4, 12));
+    const slot = { id: "g", sport: "gym", days: ["TUE"], start: "07:00", end: "08:30" };
+    fresh({ "2026-11-03": { workoutsDetail: [{ a: "Tennis", s: "20:00", e: "22:00" }, { a: "Walking", s: "12:00", e: "13:00" }] } }, { training: [slot] });
+    expect(G.matchSlot("2026-11-03", slot).status).toBe("missed");
+  });
+  test("an unnamed activity away from the slot's time doesn't count", () => {
+    setSystemTime(new Date(2026, 10, 4, 12));
+    const slot = { id: "g", sport: "gym", days: ["TUE"], start: "07:00", end: "08:30" };
+    fresh({ "2026-11-03": { workoutsDetail: [{ a: "Activity", s: "15:00", e: "16:00" }] } }, { training: [slot] });
+    expect(G.matchSlot("2026-11-03", slot).status).toBe("missed");
+  });
+  test("with two slots of one sport, time decides, and two off-hours games fill both", () => {
+    setSystemTime(new Date(2026, 10, 8, 12));
+    const am = { id: "am", sport: "tennis", days: ["SAT"], start: "09:00", end: "10:30" };
+    const pm = { id: "pm", sport: "tennis", days: ["SAT"], start: "20:00", end: "21:30" };
+    fresh({ "2026-11-07": { workoutsDetail: [{ a: "Tennis", s: "12:00", e: "13:30" }] } }, { training: [am, pm] });
+    expect(G.matchSlot("2026-11-07", am).status).toBe("done");
+    expect(G.matchSlot("2026-11-07", pm).status).toBe("missed");
+    G.S.days["2026-11-07"].workoutsDetail = [{ a: "Tennis", s: "12:00", e: "13:30" }, { a: "Tennis", s: "15:00", e: "16:30" }];
+    expect(G.matchSlot("2026-11-07", am).status).toBe("done");
+    expect(G.matchSlot("2026-11-07", pm).status).toBe("done");
+  });
+  test("a workout already training today fills a session later today", () => {
+    const slot = { id: "t", sport: "tennis", days: ["WED"], start: "20:00", end: "21:30" };
+    fresh({ "2026-11-04": { workoutsDetail: [{ a: "Tennis", s: "09:00", e: "10:30" }] } }, { training: [slot] });
+    setSystemTime(new Date(2026, 10, 4, 12));
+    expect(G.matchSlot("2026-11-04", slot, 12 * 60).status).toBe("done");
   });
 });
 

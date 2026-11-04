@@ -188,7 +188,7 @@ function scores(d: any, s: any) {
 }
 // The day's training, from WHOOP's workout names. Same sports, same order as SPORTS in the app's logic.js.
 const SPORT_MATCH: [string, RegExp][] = [
-  ["gym", /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic/i],
+  ["gym", /weight|strength|functional|cross|hiit|power|gym|core|pilates|lifting|bodybuild|calisthenic|elliptical/i],
   ["tennis", /tennis|padel|squash|pickleball|badminton/i],
   ["mma", /martial|mma|box|kick|jiu|jitsu|muay|wrestl|judo|karate|taekwondo|grappl|fight/i],
   ["swim", /swim|water polo/i],
