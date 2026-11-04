@@ -86,32 +86,51 @@ async function saveTokens(uid: string, t: any, whoopUser?: number | null) {
   if (whoopUser != null) row.whoop_user_id = whoopUser;
   await admin.from("whoop_tokens").upsert(row, { onConflict: "user_id" });
 }
-async function tokenFor(uid: string, force = false): Promise<string> {
+// WHOOP takes one refresh at a time: each one cancels the pair before it, and two at once can leave us holding a cancelled pair
+// that nothing but a new consent can replace. So a run shares its refresh, and across runs (cron, webhooks, Sync now) one claims it.
+const refreshing = new Map<string, Promise<string>>();
+async function tokenFor(uid: string, rejected?: string): Promise<string> {
   const { data: t } = await admin.from("whoop_tokens").select("*").eq("user_id", uid).maybeSingle();
   if (!t) throw new Error("WHOOP is not connected.");
-  if (!force && Date.parse(t.expires_at) - Date.now() > 120000) return t.access_token;
+  if (t.access_token !== rejected && Date.parse(t.expires_at) - Date.now() > 120000) return t.access_token;
   if (!t.refresh_token) throw new Error("WHOOP session expired. Connect again.");
+  let run = refreshing.get(uid);
+  if (!run) { run = refresh(uid, t.refresh_token, t.access_token).finally(() => refreshing.delete(uid)); refreshing.set(uid, run); }
+  return run;
+}
+async function refresh(uid: string, token: string, old: string): Promise<string> {
+  // The claim lasts 30 seconds, and only the current refresh token can take it: a crashed run can't block the next one for long.
+  const { data: claimed } = await admin.from("whoop_tokens").update({ updated_at: new Date().toISOString() })
+    .eq("user_id", uid).eq("refresh_token", token).lt("updated_at", new Date(Date.now() - 30000).toISOString()).select("user_id");
+  if (!claimed?.length) return refreshedElsewhere(uid, old);
   const { id, secret } = await creds();
   const res = await fetch(OAUTH + "/token", {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: t.refresh_token, client_id: id, client_secret: secret, scope: "offline" }),
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: token, client_id: id, client_secret: secret, scope: "offline" }),
   });
   if (!res.ok) {
-    // Another run may have refreshed a moment ago (each refresh invalidates the old pair): use the stored one.
-    const { data: again } = await admin.from("whoop_tokens").select("access_token,expires_at,updated_at").eq("user_id", uid).maybeSingle();
-    if (again && again.access_token !== t.access_token && Date.parse(again.expires_at) > Date.now()) return again.access_token;
-    throw new Error(`WHOOP refresh failed (${res.status}). Connect again.`);
+    const why = await res.json().then((b) => (typeof b?.error === "string" ? " " + b.error.slice(0, 40) : "")).catch(() => "");
+    // A 4xx means WHOOP no longer accepts this connection; anything else is its outage, and the next run tries again.
+    throw new Error(`WHOOP refresh failed (${res.status}${why}). ${res.status < 500 && res.status !== 429 ? "Connect again." : "Trying again shortly."}`);
   }
   const nt = await res.json();
   await saveTokens(uid, nt);
   return nt.access_token;
+}
+async function refreshedElsewhere(uid: string, old: string): Promise<string> {
+  for (let i = 0; i < 20; i++) {
+    const { data } = await admin.from("whoop_tokens").select("access_token").eq("user_id", uid).maybeSingle();
+    if (data && data.access_token !== old) return data.access_token;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error("WHOOP is still refreshing. Trying again shortly.");
 }
 async function api(uid: string, path: string, params: Record<string, string> = {}) {
   const url = new URL(API + path); for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v);
   let tok = await tokenFor(uid);
   for (let i = 0; i < 2; i++) {
     const res = await fetch(url, { headers: { Authorization: "Bearer " + tok } });
-    if (res.status === 401 && i === 0) { tok = await tokenFor(uid, true); continue; }
+    if (res.status === 401 && i === 0) { tok = await tokenFor(uid, tok); continue; }
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`WHOOP ${path} → ${res.status}`);
     return await res.json();

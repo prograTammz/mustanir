@@ -320,11 +320,17 @@ function Whoop() {
     if (!w && !whoopLoading && SESSION) { whoopLoading = true; loadWhoop().finally(() => { whoopLoading = false; bump(); }); }
   }, [w]);
   const run = async (fn, ok) => { setBusy(true); setMsg(""); try { const r = await fn(); setMsg(ok(r)); } catch (e) { setMsg(e.message); } finally { setBusy(false); bump(); } };
-  const on = !!w?.connected_at;
+  const on = !!w?.connected_at, lost = /connect again/i.test(w?.last_error || ""); // WHOOP no longer accepts this connection
   const when = (t) => new Date(t).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
   return (
     <Section title="WHOOP" ar="ووب" desc="Sleep, recovery, HRV, resting heart rate, strain, steps, energy burned and every workout with its heart-rate zones. Prayers, reading and purity stay yours to log.">
-      {on ? (
+      {on && lost ? (
+        <>
+          <Hint className="mb-2 text-warn">WHOOP stopped accepting this connection{w.last_sync_at ? ` after ${when(w.last_sync_at)}` : ""}, so nothing is syncing. Reconnect and the last 30 days come back in.</Hint>
+          <Hint className="mb-2">{w.last_error}</Hint>
+          <Button className="w-full" disabled={busy} onClick={() => run(whoopConnect, () => "Opening WHOOP…")}>Reconnect WHOOP</Button>
+        </>
+      ) : on ? (
         <>
           <Hint className="mb-2">Connected {when(w.connected_at)}{w.last_sync_at ? ` · last update ${when(w.last_sync_at)}` : ""}. Everything syncs on its own every 10 minutes; new sleeps and workouts usually arrive sooner.</Hint>
           {w.last_error && <Hint className="mb-2 text-warn">Last problem: {w.last_error}</Hint>}
