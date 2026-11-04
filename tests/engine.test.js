@@ -45,10 +45,24 @@ describe("a day's XP", () => {
     expect(G.dayXP("2026-11-02")).toBe(G.MAX_DAY_XP);
     expect(G.xpParts("2026-11-02").perfect.earned).toBe(G.PERFECT_BONUS);
   });
-  test("an unlogged day pays nothing, whatever the watch measured", () => {
+  test("an unlogged day pays only Purity, whatever the watch measured", () => {
     fresh({ "2026-11-02": { steps: 20000, sleepH: 8, source: "WHOOP 2026-11-02T10:00:00Z" } });
-    expect(G.dayXP("2026-11-02")).toBe(0);
     expect(G.manual(G.S.days["2026-11-02"])).toBe(false);
+    expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(20);
+    expect(G.xpParts("2026-11-02").abstain.earned).toBe(G.ABSTAIN_XP);
+    expect(G.dayXP("2026-11-02")).toBe(20 + G.ABSTAIN_XP);
+    expect(G.totals().xp).toBe(20 + G.ABSTAIN_XP);
+    expect(G.totals().logged).toBe(0);
+    expect(G.score(["2026-11-02"]).purity).toBe(1);
+  });
+  test("the shield is only up on term days so far", () => {
+    const later = G.addDays(G.today(), 1);
+    fresh({ "2026-10-31": { steps: 1 }, [later]: { steps: 1 } });
+    for (const k of ["2026-10-31", later]) {
+      expect(G.dayXP(k)).toBe(0);
+      expect(G.dayMinisters(k).purity).toBe(0);
+    }
+    expect(G.totals().xp).toBe(0);
   });
   test("a made-up prayer pays half", () => {
     fresh({ "2026-11-02": { prayers: { fajr: "late" } } });

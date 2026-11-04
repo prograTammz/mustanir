@@ -50,7 +50,7 @@ export default function Palace() {
 function Hero() {
   const t = allTotals(), rank = rankFor(t.level), next = RANKS.find((r) => r.from > t.level);
   const days = Object.keys(S.days).filter((k) => inOffice(k) && manual(S.days[k]));
-  const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && manual(S.days[k]) ? dayXP(k) : 0), 0);
+  const week = range(addDays(today(), -6), addDays(today(), 1)).reduce((a, k) => a + (inOffice(k) && S.days[k] ? dayXP(k) : 0), 0);
   const best = days.reduce((a, k) => Math.max(a, dayXP(k)), 0);
   return (
     <Card className="rise relative overflow-hidden bg-primary-container p-5 text-on-primary-container">

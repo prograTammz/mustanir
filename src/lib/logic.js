@@ -244,9 +244,12 @@ export const consistent = (d) => d?.sleepCons != null && d.sleepCons >= ((S.sett
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
 export function violation(s) { const d = S.days[s]; if (!d || !d.mast) return false; const last = lastMastBefore(s); return !!last && diff(last, s) < intervalFor(s); }
 
+// Purity is the one thing that needs no logging: every term day so far starts with full marks. A slip makes the day logged.
+const shieldUp = (s) => inOffice(s) && s <= today();
+
 export function day(s) {
   const d = S.days[s];
-  if (!manual(d)) return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: 0, plan: 0, habits: 0, rest: 0 };
+  if (!manual(d)) { const up = shieldUp(s) ? 1 : 0; return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: up, plan: up, habits: 0, rest: 0 }; }
   const pr = d.prayers || {};
   const faith = PRAYERS.reduce((a, [k]) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
   const slept = sleptEnough(d), regular = consistent(d);
@@ -264,7 +267,7 @@ export function day(s) {
 // Each minister's verdict on one day, 0 to 1. Used for XP and the decrees rings.
 export function dayMinisters(s) {
   const x = day(s);
-  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: 0 };
+  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: x.porn * x.plan };
   const all = matchDay(s), ms = all.filter((m) => m.status !== "cancelled");
   // No session today, or every one called off: a rest day. Otherwise the sessions that stand, on average.
   const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() || all.length ? 1 : (x.trained || x.rest));
@@ -291,7 +294,7 @@ export function score(dates) {
     }
   }
   const training = Math.min(1, planned ? sessions / planned : 1), diet = sum("diet") / n;
-  const porn = sum("porn") / n, plan = ds.reduce((a, x) => a + (x.logged ? x.plan : 0), 0) / n;
+  const porn = sum("porn") / n, plan = sum("plan") / n;
   const defs = dates.map((k) => (S.days[k] || {}).deficit).filter((v) => v > 0);
   const walk = dates.reduce((a, k) => a + ((S.days[k] || {}).walkMin || 0), 0);
   const r = {
@@ -342,16 +345,16 @@ export function weighIn(s) {
   return { now, before, drop, won: drop >= 0.1 };
 }
 const weighInXP = (s) => (inOffice(s) && weighIn(s)?.won ? WEIGH_IN_XP : 0);
-// A day with no masturbation and no porn, both confirmed by hand, earns a bonus on top of Purity's verdict.
-// Purity's approval is still judged on the spacing schedule; abstaining is rewarded, never required.
+// A day with no masturbation and no porn earns a bonus on top of Purity's verdict, logged or not: only a slip takes it away.
 export const abstained = (d) => !!d && d.mast !== true && d.pornFree !== false; // clean unless a slip is logged
+const abstainPaid = (s) => (manual(S.days[s]) || shieldUp(s)) && abstained(S.days[s] || {});
 export function dayXP(s) {
   const m = dayMinisters(s);
   const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0);
   const perfect = Object.values(m).every((v) => v >= 0.9);
   const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
   const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
-  const a = manual(S.days[s]) && abstained(S.days[s]) ? ABSTAIN_XP : 0; // like every bonus, only on a day you logged
+  const a = abstainPaid(s) ? ABSTAIN_XP : 0;
   return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s);
 }
 
@@ -462,7 +465,7 @@ export function totals() {
   for (const k of Object.keys(S.days)) {
     if (!inOffice(k)) continue;
     if (weighIn(k)?.won) drops++;
-    if (!manual(S.days[k])) { xp += weighInXP(k); continue; } // a Sunday drop counts even on an unlogged day
+    if (!manual(S.days[k])) { xp += dayXP(k); continue; } // Purity and a Sunday drop count even on an unlogged day
     logged++; const x = dayXP(k); xp += x;
     if (Object.values(dayMinisters(k)).every((v) => v >= 0.9)) perfect++;
   }
@@ -591,7 +594,7 @@ export function xpParts(s) {
     perfect: { earned: perfect ? PERFECT_BONUS : 0, max: PERFECT_BONUS },
     checklist: { earned: on ? Math.round((c.frac || 0) * CHECKLIST_XP) : 0, max: CHECKLIST_XP },
     vitality: { earned: on ? Math.round((v.frac || 0) * VITALITY_XP) : 0, max: VITALITY_XP },
-    abstain: { earned: abstained(d) && on ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
+    abstain: { earned: abstainPaid(s) ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
     weighIn: isSunday(s) ? { earned: inOffice(s) && w?.won ? WEIGH_IN_XP : 0, max: WEIGH_IN_XP } : null,
     logged: on,
   };
