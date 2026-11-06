@@ -112,11 +112,14 @@ function SlotSheet({ pre }) {
   const [times, setTimes] = useState([{ start: "19:00", end: "20:30" }]);
   const [msg, setMsg] = useState("");
   const up = (p) => setSt((x) => ({ ...x, ...p }));
-  const setTime = (i, p) => setTimes((ts) => ts.map((t, j) => (j === i ? { ...t, ...p } : t)));
+  const setTime = (i, p) => { setMsg(""); setTimes((ts) => ts.map((t, j) => (j === i ? { ...t, ...p } : t))); };
   const another = () => setTimes((ts) => { const last = ts[ts.length - 1]; const s0 = plus(last.end, 60); return [...ts, { start: s0, end: plus(s0, 90) }]; });
   const save = () => {
     if (st.mode === "weekly" && !st.days.length) return setMsg("Pick at least one day.");
     if (times.some((t) => hmMin(t.start) == null || hmMin(t.end) == null || hmMin(t.end) === hmMin(t.start))) return setMsg("Each session needs a start and an end time.");
+    // A session over four hours is almost always a slip of the clock (07:00–20:30 for 07:00–08:30), and WHOOP would need half of it.
+    const long = times.map((t) => (hmMin(t.end) - hmMin(t.start) + 1440) % 1440).find((m) => m > 240);
+    if (long && !msg.startsWith("That session")) return setMsg(`That session runs ${Math.floor(long / 60)}h ${long % 60}m, and the watch needs half of it to count. Check the end time, or tap again to keep it.`);
     const base = Date.now();
     const slots = times.map((t, i) => ({ id: st.sport + "-" + (base + i).toString(36), sport: st.sport, start: t.start, end: t.end, ...(st.sport === "other" && st.label.trim() ? { label: st.label.trim() } : {}) }));
     const days = DAYS.map((d) => d[0]).filter((d) => st.days.includes(d));

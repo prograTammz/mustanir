@@ -150,7 +150,7 @@ function Training() {
                   {list.map((x) => (
                     <div key={x.id} className="flex items-center gap-2 rounded-2xl bg-surface-container-high py-1 pr-1 pl-3">
                       <span className="min-w-0 flex-1 truncate type-body-m"><b className="font-bold">{slotName(x)}</b> <span className="text-on-surface-variant tnum">{x.start}–{x.end}</span></span>
-                      <span className="shrink-0 type-label-m text-on-surface-variant tnum">{fmtMin(len(x))}</span>
+                      <span className={cn("shrink-0 type-label-m tnum", len(x) > 240 ? "text-error" : "text-on-surface-variant")} title={len(x) > 240 ? "Longer than four hours: check the end time" : undefined}>{fmtMin(len(x))}</span>
                       <IconButton icon="close" size="xs" label={`Remove ${slotName(x)} ${x.start} on ${name}`} onClick={() => removeDay(x, d)} />
                     </div>
                   ))}
