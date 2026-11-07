@@ -214,6 +214,7 @@ function Notifications() {
     ["evening", "Evening check-in, only if something’s open", S.settings.checkinTime],
     ["windDown", "Wind-down", toHM(bed - Number(S.settings.windDownMin || 0))],
     ["advisor", "The advisor’s weekly report", "Fridays"],
+    ["weekly", "The weekly report", "Sundays at 08:00"],
   ];
   if (!pushSupported() || (!standalone && /iPhone|iPad/.test(navigator.userAgent))) return (
     <Section title="Notifications" ar="التنبيهات"><Hint>On iPhone, notifications work once Al-Mustanir is on your home screen: Safari → Share → Add to Home Screen, then open it from the icon and come back here.</Hint></Section>
@@ -231,13 +232,16 @@ function Notifications() {
       <div className="mt-3">
         {prefs.map(([k, label, when]) => (
           <Row key={k} label={<label htmlFor={"n-" + k}>{label}</label>} sub={when}>
-            <Switch id={"n-" + k} checked={!!n[k]} onCheckedChange={(c) => { S.settings.notify = { ...n, [k]: c }; saveSettings(); bump(); }} />
+            <Switch id={"n-" + k} checked={n[k] ?? !!ON_BY_DEFAULT[k]} onCheckedChange={(c) => { S.settings.notify = { ...n, [k]: c }; saveSettings(); bump(); }} />
           </Row>
         ))}
       </div>
     </Section>
   );
 }
+
+// Switches added after your settings were saved: on until you turn them off.
+const ON_BY_DEFAULT = { weekly: true };
 
 function CopyField({ value, label }) {
   const [done, setDone] = useState(false);

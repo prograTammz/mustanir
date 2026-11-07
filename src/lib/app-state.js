@@ -81,7 +81,7 @@ export function closeSheet() { S.sheet = null; bump(); }
 
 export const TABS = ["today", "palace", "settings"];
 // Older links (notifications, shortcuts, bookmarks) still land in the right place.
-export const ALIAS = { decrees: "today", progress: "palace", records: "palace", council: "palace", diwan: "settings" };
+export const ALIAS = { decrees: "today", progress: "palace", records: "palace", council: "palace", diwan: "settings", report: "palace" };
 export const tabOf = (h) => (TABS.includes(h) ? h : ALIAS[h] || null);
 // Rooms change with a View Transition where the browser has one (iOS 18+): a short cross-fade, the tab bar stays put.
 // Each room keeps your place, like native tabs; tapping the room you're already in goes back to its top.

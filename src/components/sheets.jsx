@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Ar, Emblem, Ring, Hint, Subhead, Stat, Seal, MIN, mColor, mContainer, medalKind, fmtN, fmtMin, pctTxt, SHORT } from "./kit";
 import { Icon, Shape, Button, IconButton, Chip, Connected, Progress } from "@/components/m3/index.jsx";
 import { TrendChart } from "./charts";
+import { WeekSheet } from "./report";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ export default function Sheets() {
         {sh?.type === "medal" && <MedalSheet id={sh.id} />}
         {sh?.type === "slot" && <SlotSheet pre={sh} />}
         {sh?.type === "metric" && <MetricSheet m={sh.meta} r={sh.row} fmtVal={sh.fmtVal} />}
+        {sh?.type === "week" && <WeekSheet start={sh.start} />}
       </DrawerContent>
     </Drawer>
   );

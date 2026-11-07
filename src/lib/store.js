@@ -376,6 +376,13 @@ export async function loadMeals(date) {
   (S.meals ||= {})[date] = rows;
   return rows;
 }
+// Protein per day from FatSecret, for the weekly report: { "2026-11-01": 90, … }. Days with no meals are left out.
+export async function loadProtein(from, to) {
+  if (!SESSION) return {};
+  const rows = (await rest(`meals?select=day,protein&day=gte.${from}&day=lte.${to}`)) || [], out = {};
+  for (const r of rows) if (r.protein != null) out[r.day] = (out[r.day] || 0) + Number(r.protein);
+  return out;
+}
 /* ---------- the advisor's weekly reports ---------- */
 export async function loadReviews() {
   if (!SESSION) return [];

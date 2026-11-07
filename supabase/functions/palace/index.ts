@@ -4,6 +4,7 @@
 //   GET  /palace/calendar?t=<token> → private iCalendar feed of the daily schedule
 //   POST /palace/test               → sends a test notification to the signed-in user's devices
 //   POST /palace/events             → (x-cron-token) { user_id } sends that player's pending game events now (the game function calls it)
+// Sunday mornings, the notify run also announces the weekly report (the app builds it from the week that just ended).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
@@ -18,7 +19,7 @@ const DEFAULTS = {
   termStart: "2026-11-01", wake: "05:00", windowHours: 8, pagesPerDay: 20, sessionsPerWeek: 4,
   trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
   windDownMin: 45, checkinTime: "20:00",
-  notify: { morning: true, reading: true, training: true, evening: true, windDown: true, advisor: true },
+  notify: { morning: true, reading: true, training: true, evening: true, windDown: true, advisor: true, weekly: true },
 };
 // deno-lint-ignore no-explicit-any
 type Settings = typeof DEFAULTS & Record<string, any>;
@@ -34,6 +35,10 @@ function cairoNow() {
 const addDays = (s: string, n: number) => { const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const addMonths = (s: string, n: number) => { const d = new Date(s + "T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 const dowOf = (s: string) => ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][new Date(s + "T12:00:00Z").getUTCDay()];
+const dayMonth = (s: string) => new Date(s + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+// "1–7 Nov", or "29 Nov – 5 Dec" across a month, as the app labels a week.
+const weekLabel = (from: string, to: string) => (from.slice(5, 7) === to.slice(5, 7) ? `${+from.slice(8)}–${dayMonth(to)}` : `${dayMonth(from)} – ${dayMonth(to)}`);
+const WEEKLY_AT = 8 * 60; // Sunday 08:00, Cairo
 
 function settingsOf(raw: Record<string, unknown> | null): Settings {
   const s = { ...DEFAULTS, ...(raw || {}) } as Settings;
@@ -159,6 +164,12 @@ async function notifyRun() {
       const left = player && player.day === now.day ? Math.max(0, player.today_max - player.today_xp) : 0;
       const stakes = left ? ` ${left} XP still on the table` + (player!.streak > 1 ? `, and a ${player!.streak}-day streak.` : ".") : "";
       if (open.length) due.push({ key: "evening", at: hm(s.checkinTime) ?? 1200, title: "Evening decrees · مراسيم المساء", body: "Still open: " + open.join(", ") + "." + stakes, url: APP + "#today" });
+    }
+    // Sunday: the week that just ended (Sunday to Saturday), in review.
+    if (s.notify.weekly && now.dow === "SUN") {
+      const from = addDays(now.day, -7), to = addDays(now.day, -1), into = Math.round((Date.parse(to) - Date.parse(s.termStart)) / 86400000);
+      const which = into >= 0 ? `Week ${Math.floor(into / 7) + 1} of the term, ${weekLabel(from, to)}` : weekLabel(from, to);
+      due.push({ key: "weekly", at: WEEKLY_AT, title: "التقرير الأسبوعي · The week in review", body: `${which}: your XP, the cabinet, sleep and purity, day by day.`, url: APP + "#report" });
     }
     for (const r of due) {
       const at = ((r.at % 1440) + 1440) % 1440;

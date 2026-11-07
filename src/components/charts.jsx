@@ -134,3 +134,39 @@ export function DivergingBar({ years, max }) {
     </div>
   );
 }
+
+// A week of days as bars: one or two stacked parts per day, the total over each bar, an optional target as a dashed rule.
+// days: [{ key, label, values: [a, b?], dim? }]; parts: [{ color, opacity? }].
+export function DayBars({ days, parts, target = null, digits = 0, height = 150, label }) {
+  const W = 340, H = height, L = 6, R = 6, T = 18, B = 20;
+  const tot = (d) => d.values.reduce((a, v) => a + (v || 0), 0), seen = (d) => d.values.some((v) => v != null);
+  const hi = Math.max(target || 0, ...days.map(tot)) * 1.15 || 1;
+  const step = (W - L - R) / days.length, bw = Math.min(28, step * 0.6), y = (v) => T + (1 - v / hi) * (H - T - B);
+  const txt = (v) => (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString("en") : v.toFixed(digits));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={label}>
+      <line x1={L} x2={W - R} y1={y(0)} y2={y(0)} stroke="var(--grid)" />
+      {days.map((d, i) => {
+        const cx = L + step * i + step / 2;
+        let acc = 0;
+        return (
+          <g key={d.key}>
+            {d.values.map((v, j) => {
+              if (!v || v <= 0) return null;
+              const y0 = y(acc), y1 = y(acc + v); acc += v;
+              return <rect key={j} x={cx - bw / 2} width={bw} y={y1} height={Math.max(0, y0 - y1)} rx={Math.min(4, bw / 4)} fill={parts[j]?.color} fillOpacity={(parts[j]?.opacity ?? 1) * (d.dim ? 0.45 : 1)} />;
+            })}
+            <text x={cx} y={seen(d) ? y(tot(d)) - 5 : y(0) - 5} textAnchor="middle" fontSize="10.5" fill={seen(d) ? "var(--foreground)" : "var(--muted-foreground)"} className="tnum">{seen(d) ? txt(tot(d)) : "—"}</text>
+            <text x={cx} y={H - 5} textAnchor="middle" fontSize="10.5" fill="var(--muted-foreground)">{d.label}</text>
+          </g>
+        );
+      })}
+      {target != null && (
+        <g>
+          <line x1={L} x2={W - R} y1={y(target)} y2={y(target)} stroke="var(--muted-foreground)" strokeDasharray="4 4" strokeOpacity="0.8" />
+          <text x={W - R} y={y(target) - 4} textAnchor="end" fontSize="10" fill="var(--muted-foreground)" stroke="var(--md-sys-color-surface-container-low)" strokeWidth="3" paintOrder="stroke">{txt(target)}</text>
+        </g>
+      )}
+    </svg>
+  );
+}

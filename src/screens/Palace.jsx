@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { S, MINISTERS, today, addDays, range, diff, fmt, manual, day, dayXP, inOffice, rankFor, RANKS, streak, bestStreak, T, periods, score, verdict, levelStart, termDay, termLength,
   termIndex, termInfo, checklistFor, deficitOf } from "@/lib/logic.js";
 import { SESSION, loadHealth, saveSettings } from "@/lib/store.js";
-import { useApp, bump, allTotals, allMedals } from "@/lib/app-state.js";
+import { useApp, bump, allTotals, allMedals, memo } from "@/lib/app-state.js";
+import { weekReport, lastWeek, weekEnd, firstTracked } from "@/lib/week.js";
 import { openSheet } from "@/lib/app-state.js";
 import { AdvisorCard } from "@/components/advisor.jsx";
-import { Ar, Fold, Hint, LargeTitle, Seal, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
+import { Ar, Fold, Hint, LargeTitle, Seal, Stat, MIN, mColor, mContainer, medalKind, fmtN, pctTxt } from "@/components/kit";
 import { Icon, Shape, Button, Chip, Card, SectionTitle, Progress, Ring, Connected } from "@/components/m3/index.jsx";
 import { TrendChart } from "@/components/charts";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,7 @@ export default function Palace() {
       <RankRoad />
       <Streaks />
       <Trophies />
+      <WeekCard />
       <Council />
       <AdvisorCard full />
       <Trends />
@@ -183,6 +185,34 @@ function Trophies() {
         </div>
         {!list.length && <Hint className="py-6 text-center">{filter === "won" ? "No medals yet. The first one is close." : "Nothing under way yet."}</Hint>}
         {list.length > 12 && <Button variant="tonal" className="mt-4 w-full" icon={all ? "expand_more" : undefined} onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${list.length}`}</Button>}
+      </Card>
+    </>
+  );
+}
+
+/* ---------- the week in review: out every Sunday, for the week that just ended ---------- */
+function WeekCard() {
+  const start = lastWeek(), first = firstTracked();
+  if (!first || weekEnd(start) < first) return null;
+  const r = memo("week:" + start, () => weekReport(start)), s = r.sum;
+  return (
+    <>
+      <SectionTitle sub={r.inTerm ? `Week ${r.week} of term ${r.term.n} · ${r.label}` : `Before the term · ${r.label}`}
+        trailing={<span className="inline-flex h-8 items-center gap-1 rounded-lg bg-secondary-container px-3 type-label-l text-on-secondary-container"><Icon name="event" size={16} />Sundays</span>}>The week in review</SectionTitle>
+      <Card as="button" type="button" onClick={() => openSheet({ type: "week", start })} className="rise state w-full p-4 text-left">
+        <div className="flex items-end gap-3">
+          <span className="type-display-m em-x tnum leading-none text-primary">{r.inTerm ? s.xp.toLocaleString("en") : pctTxt(r.score.overall)}</span>
+          <span className="pb-1 type-body-m text-on-surface-variant">{r.inTerm ? `XP earned · approval ${pctTxt(r.score.overall)}` : "approval · before the term"}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Stat value={`${s.clean} of ${s.days}`} label="days clean" />
+          <Stat value={s.night == null ? "—" : `${s.night.toFixed(1)} h`} label="night sleep, without naps" />
+          <Stat value={s.foodDays ? Math.round(s.deficit).toLocaleString("en") : "—"} label="kcal deficit a day" />
+          <Stat value={`${s.sessions}`} label="training sessions" />
+        </div>
+        <div className="mt-3 flex items-center justify-between type-label-l text-primary">
+          <span>{r.findings.length ? `Open the report · ${r.findings.length} finding${r.findings.length === 1 ? "" : "s"}` : "Open the report"}</span><Icon name="chevron_right" size={20} />
+        </div>
       </Card>
     </>
   );

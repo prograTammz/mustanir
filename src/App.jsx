@@ -23,7 +23,12 @@ const ROOMS = {
   settings: { en: "Settings", icon: "settings", view: Diwan },
 };
 
-const fromHash = () => { const t = tabOf(location.hash.slice(1)); if (t) S.tab = t; };
+const fromHash = () => {
+  const h = location.hash.slice(1), t = tabOf(h);
+  if (t) S.tab = t;
+  // #report (the Sunday notification): the weekly report, open on the palace.
+  if (h === "report") { S.sheet = { type: "week" }; history.replaceState(null, "", location.pathname + location.search + "#palace"); }
+};
 fromHash();
 // Back from WHOOP's or FatSecret's consent page: ?whoop=… / ?fatsecret=…
 const qs = new URLSearchParams(location.search), WHOOP_BACK = qs.get("whoop"), FS_BACK = qs.get("fatsecret");
