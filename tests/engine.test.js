@@ -5,7 +5,7 @@ import * as G from "../src/lib/logic.js";
 
 const PERFECT = {
   prayers: { fajr: "on", dhuhr: "on", asr: "on", maghrib: "on", isha: "on" }, pages: 20,
-  hair: true, skinAm: true, skinPm: true, teethAm: true, teethPm: true, watch: true, wake: true, sleepH: 7.5, sleepCons: 90,
+  hair: true, skinAm: true, skinPm: true, teethAm: true, teethPm: true, watch: true, sleepPerf: 100, recovery: 80, sleepH: 7.5, sleepCons: 90,
   totalKcal: 2900, dietaryKcal: 2000, steps: 13000, exerciseMin: 60, strain: 13,
   checks: { plan: true, deep: true, ship: true, inbox: true, tomorrow: true }, train: "gym",
 };
@@ -85,6 +85,31 @@ describe("a day's XP", () => {
     G.S.days["2026-11-02"].pornFree = false;
     expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(0);
     expect(G.score(["2026-11-02"]).purity).toBe(0);
+  });
+  test("sleep pays by WHOOP's sleep score in whole points of 10, not by hours, Fajr or consistency", () => {
+    const routines = { hair: true, skinAm: true, skinPm: true, teethAm: true, teethPm: true, watch: true };
+    // A short night with a high score beats a long one with a low score; up for Fajr and a steady rhythm add nothing.
+    fresh({ "2026-11-02": { ...routines, sleepPerf: 75, sleepH: 5.2, sleepCons: 40 }, "2026-11-03": { ...routines, sleepPerf: 40, sleepH: 8.5, sleepCons: 95, wake: true } });
+    expect(G.sleepPoints(G.S.days["2026-11-02"])).toBe(8); // 7.5 rounds up
+    expect(G.xpParts("2026-11-02").ministers.habits.earned).toBe(18);
+    expect(G.sleepPoints(G.S.days["2026-11-03"])).toBe(4);
+    expect(G.xpParts("2026-11-03").ministers.habits.earned).toBe(14);
+    // No score yet (or a pre-WHOOP day): the sleep half pays nothing, the routines still pay theirs.
+    fresh({ "2026-11-02": { ...routines, sleepH: 8 } });
+    expect(G.xpParts("2026-11-02").ministers.habits.earned).toBe(10);
+    fresh({ "2026-11-02": { pages: 20, sleepPerf: 100 } });
+    expect(G.xpParts("2026-11-02").ministers.habits.earned).toBe(10);
+  });
+  test("vitality: sleep score and recovery are vitals, hours and consistency are not; the medal needs 4 of 5", () => {
+    fresh({ "2026-11-02": { pages: 20, steps: 9000, exerciseMin: 35, sleepPerf: 82, recovery: 70, strain: 11, sleepH: 5, sleepCons: 30 } });
+    const v = G.vitalityFor("2026-11-02");
+    expect(v.items.map((x) => x.k).join()).toBe("steps,exerciseMin,sleepPerf,recovery,strain");
+    expect(v.hits).toBe(5);
+    G.S.days["2026-11-02"].recovery = 50;
+    expect(G.vitalityFor("2026-11-02").hits).toBe(4);
+    expect(G.T.vital(G.S.days["2026-11-02"], "2026-11-02")).toBe(true);
+    G.S.days["2026-11-02"].sleepPerf = 79;
+    expect(G.T.vital(G.S.days["2026-11-02"], "2026-11-02")).toBe(false);
   });
   test("days before the term never count", () => {
     fresh({ "2026-10-31": PERFECT, "2026-11-02": { pages: 20 } });

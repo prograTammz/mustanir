@@ -57,9 +57,9 @@ function MinisterSheet({ k }) {
     faith: "Average share of the five prayers kept; a made-up prayer counts half.",
     knowledge: `Days at ${S.settings.pagesPerDay} pages or more.`,
     purity: `Porn-free ${pctTxt(r.porn)} of days, masturbation-free ${pctTxt(r.plan)}. Every day starts clean; a logged slip of porn costs 15 of the 20, masturbation 5.`,
-    habits: "Up for Fajr and seven hours asleep count double; bedtime, routines and the watch once each.",
+    habits: "WHOOP’s sleep score pays half, in whole points of its 10 XP (75% earns 8); the five routines and wearing the watch share the other 10.",
   }[k] : "No days in this council period yet.";
-  const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure], habits: ["Up for Fajr", T.fajr] }[k];
+  const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure] }[k];
   return (
     <>
       <DrawerHeader className="flex-row items-center gap-4"><Emblem k={k} size={64} /><div className="min-w-0"><Ar className="block text-left text-[26px] leading-tight" style={{ color: mColor(k) }}>{m.ar}</Ar><DrawerTitle className="type-title-l">{m.en}</DrawerTitle><DrawerDescription>{m.agenda}</DrawerDescription></div></DrawerHeader>

@@ -9,7 +9,7 @@ export const DEFAULTS = {
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
   // Body profile for the biological-age estimate, and the daily vitals the watch keeps.
   birthDate: "", sex: "male",
-  vitality: { steps: 8000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
+  vitality: { steps: 8000, exerciseMin: 30, sleepPerf: 80, recovery: 67, strain: 10 },
   proteinTarget: 160,
   // Training slots. Weekly: { id, sport, label?, days[], start, end }. One-off: { id, sport, label?, date, start, end }.
   training: [
@@ -239,8 +239,13 @@ export function dietMet(d) {
   const x = deficitOf(d);
   return x != null ? x >= (S.settings.deficitMin || 700) : d?.diet === true;
 }
-export const sleptEnough = (d) => (d?.sleepH || 0) >= (S.settings.sleepTarget || 7);
-export const consistent = (d) => d?.sleepCons != null && d.sleepCons >= ((S.settings.vitality || {}).sleepCons ?? DEFAULTS.vitality.sleepCons);
+// Sleep score on the Vitality goal (the Well rested medal); consistency on 80% (the Regular medals). Neither pays XP by itself.
+export const restedOn = (d) => d?.sleepPerf != null && d.sleepPerf >= ((S.settings.vitality || {}).sleepPerf ?? DEFAULTS.vitality.sleepPerf);
+export const consistent = (d) => d?.sleepCons != null && d.sleepCons >= ((S.settings.vitality || {}).sleepCons ?? 80);
+// WHOOP's sleep score (sleep performance, 0–100%) pays half of Order's 20 XP in whole points: 75% earns 8 of the 10.
+// Hours, Fajr and consistency no longer count here: a short night can still score high.
+export const SLEEP_XP = 10;
+export const sleepPoints = (d) => (d?.sleepPerf == null ? 0 : Math.round((SLEEP_XP * Math.max(0, Math.min(100, +d.sleepPerf || 0))) / 100));
 export function lastMastBefore(s) { let best = null; for (const k in S.days) if (k < s && S.days[k].mast && (!best || k > best)) best = k; return best; }
 export function violation(s) { const d = S.days[s]; if (!d || !d.mast) return false; const last = lastMastBefore(s); return !!last && diff(last, s) < intervalFor(s); }
 
@@ -252,9 +257,8 @@ export function day(s) {
   if (!manual(d)) { const up = shieldUp(s) ? 1 : 0; return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: up, plan: up, habits: 0, rest: 0 }; }
   const pr = d.prayers || {};
   const faith = PRAYERS.reduce((a, [k]) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
-  const slept = sleptEnough(d), regular = consistent(d);
-  // Sleep is judged by WHOOP alone: up for Fajr, hours slept and consistency (2 each); routines 1 each.
-  const habits = (2 * +!!d.wake + 2 * +slept + 2 * +regular + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
+  // Sleep is judged by WHOOP's sleep score alone (half the minister); the five routines and the watch share the other half.
+  const habits = sleepPoints(d) / (2 * SLEEP_XP) + (+!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
   return {
     logged: true, faith, habits,
     knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
@@ -363,22 +367,25 @@ export function dayXP(s) {
 }
 
 /* ---------- vitality: the five things WHOOP keeps every day ----------
-   Steps, exercise (WHOOP workouts) and sleep hours are measured on every day; sleep consistency and
-   day strain only exist on WHOOP days (from settings.whoopFrom, or any day WHOOP filled), so earlier days are judged on the first three. */
+   Sleep is judged by WHOOP's sleep score, not hours or consistency. Steps and exercise exist on every day; the sleep
+   score, recovery and day strain only on WHOOP days (from settings.whoopFrom, or any day WHOOP filled), so earlier
+   days are judged on steps and exercise alone. */
 export const VITALS = [
   { k: "steps", en: "Steps", ar: "خطوات", unit: "", fmt: (v) => Math.round(v).toLocaleString("en") },
   { k: "exerciseMin", en: "Exercise", ar: "تمرين", unit: "min", fmt: (v) => Math.round(v) },
-  { k: "sleepH", en: "Sleep", ar: "نوم", unit: "h", fmt: (v) => (+v).toFixed(1) },
-  { k: "sleepCons", en: "Sleep consistency", ar: "انتظام النوم", unit: "%", fmt: (v) => Math.round(v) },
+  { k: "sleepPerf", en: "Sleep score", ar: "درجة النوم", unit: "%", fmt: (v) => Math.round(v) },
+  { k: "recovery", en: "Recovery", ar: "التعافي", unit: "%", fmt: (v) => Math.round(v) },
   { k: "strain", en: "Day strain", ar: "الجهد", unit: "", fmt: (v) => (+v).toFixed(1) },
 ];
-const WHOOP_ONLY = ["sleepCons", "strain"];
+const WHOOP_ONLY = ["sleepPerf", "recovery", "strain"];
 const onWhoop = (s) => (S.settings.whoopFrom && s >= S.settings.whoopFrom) || /^WHOOP/.test((S.days[s] || {}).source || "");
 export const vitalsFor = (s) => (onWhoop(s) ? VITALS : VITALS.filter((x) => !WHOOP_ONLY.includes(x.k)));
-// The Vitality medal: 4 of 5 kept (or all 3 on a pre-WHOOP day).
+// The Vitality medal: 4 of 5 kept (or both on a pre-WHOOP day).
 export const vitalNeed = (total) => Math.ceil(total * 0.8);
 
-export const FLOOR = { steps: 6000, exerciseMin: 20, sleepH: 6.5, sleepCons: 65, strain: 6 }; // the away-day minimum
+// The away-day minimum: WHOOP calls a 70% sleep sufficient, and recovery turns yellow at 34%.
+// sleepH isn't a vital any more; it stays as the "short night" line the weekly report reads.
+export const FLOOR = { steps: 6000, exerciseMin: 20, sleepPerf: 70, recovery: 34, strain: 6, sleepH: 6.5 };
 export function vitalityFor(s) {
   const d = S.days[s] || {}, goals = d.away ? FLOOR : { ...DEFAULTS.vitality, ...(S.settings.vitality || {}) };
   const items = vitalsFor(s).map((x) => { const val = d[x.k]; const goal = goals[x.k]; return { ...x, val, goal, hit: val != null && val >= goal, frac: val == null ? 0 : Math.min(1, val / goal) }; });
@@ -500,7 +507,7 @@ export const T = {
   abstain: (d) => abstained(d),
   read: (d) => (d.pages || 0) >= S.settings.pagesPerDay,
   fajr: (d) => d.wake === true,
-  slept: (d) => sleptEnough(d),
+  slept: (d) => restedOn(d),
   regular: (d) => consistent(d),
   green: (d) => (d.recovery ?? 0) >= 67,
   steps15: (d) => (d.steps || 0) >= 15000,
@@ -543,7 +550,7 @@ export const MEDALS = [
   { id: "fajr90", ar: "حارس الفجر", en: "Guardian of Fajr", how: "Up for Fajr 90 days in a row", cur: () => bestStreak(T.fajr), goal: 90, test: () => bestStreak(T.fajr) >= 90 },
   { id: "regular7", ar: "المنتظم", en: "The Regular", how: "Sleep consistency on target 7 nights in a row", cur: () => bestStreak(T.regular), goal: 7, test: () => bestStreak(T.regular) >= 7 },
   { id: "regular30", ar: "ساعة الجسد", en: "Body clock", how: "Sleep consistency on target 30 nights in a row", cur: () => bestStreak(T.regular), goal: 30, test: () => bestStreak(T.regular) >= 30 },
-  { id: "slept7", ar: "الراحة", en: "Well rested", how: "Your sleep target 7 nights in a row", cur: () => bestStreak(T.slept), goal: 7, test: () => bestStreak(T.slept) >= 7 },
+  { id: "slept7", ar: "الراحة", en: "Well rested", how: "Sleep score on its goal 7 nights in a row", cur: () => bestStreak(T.slept), goal: 7, test: () => bestStreak(T.slept) >= 7 },
   { id: "green7", ar: "الأخضر", en: "In the green", how: "WHOOP recovery 67% or more 7 days in a row", cur: () => bestStreak(T.green), goal: 7, test: () => bestStreak(T.green) >= 7 },
   // Body
   { id: "weigh1", ar: "أول نزول", en: "First drop", how: "A lower weight at the Sunday weigh-in", cur: (t) => t.drops, goal: 1, test: (t) => t.drops >= 1 },
@@ -623,13 +630,13 @@ export const BODY_PLAN = {
   ],
   // What each term asks of you. Applied automatically when a term begins (you can still change them in the Diwan).
   terms: [
-    { deficitMin: 700, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepH: 7, sleepCons: 80, strain: 12 },
+    { deficitMin: 700, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 12000, exerciseMin: 45, sleepPerf: 80, recovery: 67, strain: 12 },
       rules: ["700 kcal deficit a day (WHOOP burned − FatSecret eaten), 160 g protein", "4 training sessions a week across gym, tennis and MMA", "Mornings after Fajr, the December routine", "2–3 outdoor walks a week for VO₂ max"] },
-    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepH: 7, sleepCons: 75, strain: 11 },
+    { deficitMin: 650, sessionsPerWeek: 4, proteinTarget: 160, vitality: { steps: 11000, exerciseMin: 40, sleepPerf: 75, recovery: 67, strain: 11 },
       rules: ["650 kcal deficit; a 1–2 week maintenance break in April", "Ramadan: train light before iftar or after taraweeh, protein at suhoor", "Sleep split is fine in Ramadan; keep 7 hours across the day", "Never miss two training days in a row"] },
-    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepH: 7, sleepCons: 80, strain: 10 },
+    { deficitMin: 250, sessionsPerWeek: 3, proteinTarget: 150, vitality: { steps: 9000, exerciseMin: 30, sleepPerf: 80, recovery: 67, strain: 10 },
       rules: ["Hold weight within ±1.5 kg; lose slowly if it comes easy", "3 sessions minimum: gym, MMA or swimming, indoors or in the water", "Tennis early morning; swim in the heat", "Away days: mark them, keep the floor (6,000 steps, 20 min, protein)", "Never miss twice: one off day is life, two is a new habit"] },
-    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, sleepH: 7, sleepCons: 80, strain: 12 },
+    { deficitMin: 400, sessionsPerWeek: 4, proteinTarget: 150, vitality: { steps: 10000, exerciseMin: 40, sleepPerf: 80, recovery: 67, strain: 12 },
       rules: ["August: maintenance and routine rebuild after summer", "September–October: 400 kcal deficit, 4 sessions", "1–2 interval sessions a week to push VO₂ max past 52", "Plan the next year at the November council"] },
   ],
 };

@@ -199,10 +199,9 @@ function scores(d: any, s: any) {
   const pr = d.prayers || {};
   const faith = PRAYERS.reduce((a, k) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
   const knowledge = (d.pages || 0) >= (s.pagesPerDay || 20) ? 1 : 0;
-  const slept = (d.sleepH || 0) >= (s.sleepTarget || 7) ? 1 : 0;
-  const regular = d.sleepCons != null && d.sleepCons >= ((s.vitality || {}).sleepCons ?? 80) ? 1 : 0;
-  // Sleep is judged by WHOOP alone: Fajr, hours and consistency count double; no bedtime check.
-  const habits = (2 * +!!d.wake + 2 * slept + 2 * regular + +!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
+  // Sleep is judged by WHOOP's sleep score alone: half the minister, in whole points of 10 (75% → 8), as sleepPoints in logic.js.
+  const sleep = d.sleepPerf == null ? 0 : Math.round((10 * Math.max(0, Math.min(100, +d.sleepPerf || 0))) / 100);
+  const habits = sleep / 20 + (+!!d.hair + +!!d.skinAm + +!!d.skinPm + +!!d.teethAm + +!!d.teethPm + +!!d.watch) / 12;
   return { faith, knowledge, habits };
 }
 // The day's training, from WHOOP's workout names. Same sports, same order as SPORTS in the app's logic.js.

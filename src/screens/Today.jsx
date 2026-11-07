@@ -2,7 +2,7 @@
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useRef, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
+  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
@@ -213,10 +213,12 @@ function ReadingQuest({ r, pay, done }) {
 
 const ROUTINES = [["hair", "Hair", "Morning"], ["skinAm", "Skin", "Morning"], ["teethAm", "Teeth", "Morning"], ["skinPm", "Skin", "Night"], ["teethPm", "Teeth", "Night"]];
 function RoutineQuest({ r, pay, done }) {
-  // What the watch fills in counts here too (sleep counts double), shown as read-only chips.
-  const auto = [["Up for Fajr", r.wake === true, "wb_twilight"], [`${S.settings.sleepTarget || 7} h asleep`, sleptEnough(r), "bedtime"], ["Steady rhythm", consistent(r), "repeat"], ["WHOOP worn", !!r.watch, "watch"]];
+  // What the watch fills in counts here too, shown as read-only chips: WHOOP's sleep score pays half (75% → 8 of 10 XP).
+  // The chip lights at 70%, where WHOOP calls a night sufficient.
+  const perf = r.sleepPerf == null ? null : Math.round(r.sleepPerf);
+  const auto = [[perf == null ? "Sleep score —" : `Sleep score ${perf}% · ${sleepPoints(r)} of ${SLEEP_XP} XP`, perf != null && perf >= 70, "dark_mode"], ["WHOOP worn", !!r.watch, "watch"]];
   return (
-    <Quest k="habits" title="Routines and sleep" sub="Five routines by hand, four from the watch" pay={<XP {...pay} />} done={done}>
+    <Quest k="habits" title="Routines and sleep" sub="Five routines by hand, sleep score and the watch from WHOOP" pay={<XP {...pay} />} done={done}>
       {["Morning", "Night"].map((when) => (
         <div key={when} className="flex items-center gap-3 py-1">
           <span className="w-16 shrink-0 type-label-l text-on-surface-variant">{when}</span>
@@ -311,12 +313,11 @@ function Vitality({ s, r, xp }) {
         <XP {...xp.vitality} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Tile icon="wb_twilight" label="Fajr" value={r.wake == null ? "—" : r.wake ? "Yes" : "No"} sub={`Fajr ${fajrTime(s)}`} hit={r.wake == null ? null : r.wake} />
-        {tile("sleepH", "Sleep", "bedtime", r.sleepH != null ? `${(Math.round(r.sleepH * 10) / 10).toFixed(1)} h` : undefined)}
-        {tile("sleepCons", "Rhythm", "repeat")}
+        {tile("sleepPerf", "Sleep score", "dark_mode")}
+        {tile("recovery", "Recovery", "ecg_heart")}
+        {tile("strain", "Strain", "bolt")}
         {tile("steps", "Steps", "footprint")}
         {tile("exerciseMin", "Exercise", "exercise")}
-        {tile("strain", "Strain", "bolt")}
       </div>
     </Card>
   );
@@ -506,7 +507,7 @@ function Away({ s, r }) {
         <Switch checked={!!r.away} onCheckedChange={(v) => set("away", v || null)} label="Away today" />
       </div>
       {r.away && (
-        <p className="mt-3 type-body-m">Floor for today: {FLOOR.steps.toLocaleString("en")} steps, {FLOOR.exerciseMin} min of movement, {FLOOR.sleepH} h of sleep. Prayers and purity still count.
+        <p className="mt-3 type-body-m">Floor for today: {FLOOR.steps.toLocaleString("en")} steps, {FLOOR.exerciseMin} min of movement, a {FLOOR.sleepPerf}% sleep score, {FLOOR.recovery}% recovery. Prayers and purity still count.
           {run >= 2 && <span className="mt-1 block font-bold text-error">{run} away days in a row. Never miss twice.</span>}</p>
       )}
     </Card>
