@@ -137,7 +137,8 @@ export function IconButton({ icon, label, variant = "standard", size = "s", sele
 }
 
 /** M3 Expressive connected button group (the successor of segmented buttons): the selected one turns fully round. */
-export function Connected({ value, onChange, options, size = "s", className, label }) {
+// `dense` trims the side padding so seven short options (the days of the week) fit a phone.
+export function Connected({ value, onChange, options, size = "s", className, label, dense = false }) {
   const h = size === "xs" ? "h-8 type-label-l" : size === "m" ? "h-14 type-title-m" : "h-10 type-label-l";
   return (
     <div role="radiogroup" aria-label={label} className={cn("flex w-full gap-0.5", className)}>
@@ -146,7 +147,7 @@ export function Connected({ value, onChange, options, size = "s", className, lab
         const r = on ? "999px" : `${first ? "999px" : "8px"} ${last ? "999px" : "8px"} ${last ? "999px" : "8px"} ${first ? "999px" : "8px"}`;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => { haptic(); onChange(o.value); }}
-            className={cn("m3-btn state flex min-w-0 flex-1 items-center justify-center gap-1.5 px-3", h, on ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant")}
+            className={cn("m3-btn state flex min-w-0 flex-1 items-center justify-center gap-1.5", dense ? "px-1" : "px-3", h, on ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant")}
             style={{ "--r": r, "--rp": "6px" }}>
             {o.icon && <Icon name={on ? "check" : o.icon} size={18} />}
             <span className="truncate">{o.label}</span>

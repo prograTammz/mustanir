@@ -1,6 +1,6 @@
 // Every bottom sheet in the app: one controlled M3 bottom sheet, its content picked by S.sheet.type.
 import { useEffect, useState } from "react";
-import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart } from "@/lib/logic.js";
+import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart, restDayName } from "@/lib/logic.js";
 import { saveSettings, loadMetricSeries } from "@/lib/store.js";
 import { go, allTotals, allMedals, openSheet, closeSheet } from "@/lib/app-state.js";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
@@ -47,11 +47,13 @@ function MinisterSheet({ k }) {
             </div>
           ))}
         </div>
-        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10.</Hint>
+        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10. On the rest day ({restDayName() || "none set"}) only Faith, Knowledge and Purity count; the rest pays as extra.</Hint>
       </>
     );
   }
-  const m = M[k], v = r ? r[k] : null, [cls, txt] = verdict(v, m.immune);
+  // Order and Body skip the rest day: a period of only that day has no verdict for them.
+  const m = M[k], v = r ? r[k] : null, [cls, txt] = v == null && r ? ["", "Not judged on the rest day"] : verdict(v, m.immune);
+  const rest = r?.rest && (k === "body" || k === "habits") ? ` The rest day (${restDayName()}) isn’t judged here; what you do on it pays extra XP.` : "";
   const detail = r ? {
     body: `Training ${pctTxt(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions${r.plannedMin ? `, ${fmtMin(r.trainMin)} of ${fmtMin(r.plannedMin)}` : ""}), diet on target ${pctTxt(r.diet)} of days.`,
     faith: "Average share of the five prayers kept; a made-up prayer counts half.",
@@ -67,7 +69,7 @@ function MinisterSheet({ k }) {
         <Ring value={v || 0} color={mColor(k)} size={80} stroke={8} wavy label="Approval"><span className="type-title-m em">{pctTxt(v)}</span></Ring>
         <div><div className={cn("type-title-m em", cls === "bad" && "text-error")}>{txt}</div><div className="type-body-m opacity-80">{period ? `${period.label} of the term` : "Last 30 days"}</div></div>
       </div>
-      <p className="mt-4 type-body-l">{detail}</p>
+      <p className="mt-4 type-body-l">{detail}{rest}</p>
       {st && <p className="mt-2 type-body-l">{st[0]} streak: <b>{streak(st[1])}</b> days now, best <b>{bestStreak(st[1])}</b>.</p>}
       {k === "purity" && <p className="mt-1 type-body-l">Abstinence streak (no masturbation, no porn): <b>{streak(T.abstain)}</b> days now, best <b>{bestStreak(T.abstain)}</b>. Each one is +10 XP.</p>}
       <Hint className="mt-3">{m.immune ? "The prayer is the foundation: this minister can never be impeached." : `Below ${S.settings.threshold}% at a council review, the strategy is impeached and replaced. The agenda stays.`}</Hint>

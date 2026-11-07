@@ -253,3 +253,79 @@ describe("the clock", () => {
     G.setTimeZone(null);
   });
 });
+
+describe("the rest day", () => {
+  const PRAYED_AND_READ = { prayers: PERFECT.prayers, pages: 20 };
+  test("Sunday unless Settings moves it", () => {
+    expect(G.isRestDay("2026-11-01")).toBe(true); // a Sunday
+    expect(G.isRestDay("2026-11-02")).toBe(false);
+    fresh({}, { restDay: "FRI" });
+    expect(G.isRestDay("2026-11-06")).toBe(true);
+    expect(G.isRestDay("2026-11-01")).toBe(false);
+    expect(G.restDayName()).toBe("Friday");
+  });
+  test("Faith, Knowledge and Purity make the whole target and open the chest", () => {
+    fresh({ "2026-11-01": PRAYED_AND_READ, "2026-11-02": PRAYED_AND_READ });
+    expect(G.REST_MAX_XP).toBe(3 * 20 + G.PERFECT_BONUS + G.ABSTAIN_XP);
+    const sun = G.xpParts("2026-11-01");
+    expect(sun.max).toBe(G.REST_MAX_XP);
+    expect(sun.perfect.earned).toBe(G.PERFECT_BONUS);
+    expect(sun.earned).toBe(G.REST_MAX_XP);
+    expect(sun.extra).toBe(0);
+    expect(G.dayXP("2026-11-01")).toBe(G.REST_MAX_XP);
+    // The same day's work on a Monday leaves Order and Body short: no chest.
+    expect(G.xpParts("2026-11-02").perfect.earned).toBe(0);
+    expect(G.xpParts("2026-11-02").max).toBe(G.MAX_DAY_XP);
+    expect(G.totals().perfect).toBe(1);
+  });
+  test("Order, Body, the checklist and the vitals still pay, as extra", () => {
+    fresh({ "2026-11-01": PERFECT, "2026-11-02": PERFECT });
+    const sun = G.xpParts("2026-11-01");
+    expect(G.dayXP("2026-11-01")).toBe(G.dayXP("2026-11-02")); // nothing is lost on the rest day
+    expect(sun.ministers.body.extra).toBe(true);
+    expect(sun.ministers.habits.extra).toBe(true);
+    expect(sun.ministers.faith.extra).toBe(false);
+    expect(sun.earned).toBe(G.REST_MAX_XP);
+    expect(sun.extra).toBe(G.dayXP("2026-11-01") - G.REST_MAX_XP);
+  });
+  test("the approval judges Order and Body on working days only", () => {
+    fresh({ "2026-11-01": PRAYED_AND_READ, "2026-11-02": PERFECT });
+    const r = G.score(["2026-11-01", "2026-11-02"]);
+    expect(r.diet).toBe(1); // Sunday ate nothing logged, and isn't judged
+    expect(r.habits).toBe(1);
+    expect(r.rest).toBe(1);
+    const sun = G.score(["2026-11-01"]); // nothing but the rest day: no verdict for them
+    expect(sun.body).toBeNull();
+    expect(sun.habits).toBeNull();
+    expect(sun.overall).toBe(1);
+  });
+  test("a session on the rest day counts when done and is never missed", () => {
+    setSystemTime(new Date(2026, 10, 7, 12));
+    const gym = { a: "Weightlifting", s: "10:00", e: "11:00", min: 60 };
+    fresh({ "2026-11-01": PRAYED_AND_READ, "2026-11-02": { ...PRAYED_AND_READ, workoutsDetail: [gym] } },
+      { training: [{ id: "g", sport: "gym", days: ["SUN", "MON"], start: "10:00", end: "11:00" }] });
+    let r = G.score(["2026-11-01", "2026-11-02"]);
+    expect(r.planned).toBe(1);
+    expect(r.sessions).toBe(1);
+    expect(r.training).toBe(1);
+    G.S.days["2026-11-01"].workoutsDetail = [gym];
+    r = G.score(["2026-11-01", "2026-11-02"]);
+    expect(r.sessions).toBe(2);
+    expect(r.planned).toBe(1);
+  });
+  test("Order and Body streaks step over a missed rest day; Faith's don't", () => {
+    setSystemTime(new Date(2026, 10, 10, 20));
+    const up = { wake: true, prayers: PERFECT.prayers };
+    fresh({ "2026-11-07": up, "2026-11-08": { wake: false, prayers: {} }, "2026-11-09": up, "2026-11-10": up }); // 8 Nov is a Sunday
+    expect(G.bestStreak(G.T.fajr)).toBe(3);
+    expect(G.streak(G.T.fajr)).toBe(3);
+    expect(G.bestStreak(G.T.prayers)).toBe(2);
+    expect(G.streak(G.T.prayers)).toBe(2);
+    delete G.S.days["2026-11-08"]; // nothing recorded on the rest day at all
+    expect(G.bestStreak(G.T.fajr)).toBe(3);
+    G.S.days["2026-11-08"] = up; // met on the rest day, it counts
+    expect(G.bestStreak(G.T.fajr)).toBe(4);
+    fresh({ "2026-11-09": up, "2026-11-10": { wake: false }, "2026-11-11": up }); // a missed Tuesday still breaks it
+    expect(G.bestStreak(G.T.fajr)).toBe(1);
+  });
+});

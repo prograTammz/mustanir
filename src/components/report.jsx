@@ -98,6 +98,7 @@ export function WeekSheet({ start: asked }) {
                 <div key={d.date} className={cn("grid grid-cols-[3.25rem_1fr_auto] items-center gap-3 border-b border-outline-variant py-2.5 last:border-0", !d.office && "opacity-70")}>
                   <div><div className="type-label-l em">{fmt(d.date, { weekday: "short" })}</div><div className="type-body-s text-on-surface-variant tnum">{short(d.date)}</div></div>
                   <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 type-body-s text-on-surface-variant tnum">
+                    {d.rest && <span className="inline-flex items-center gap-1 text-primary"><Icon name="weekend" fill size={16} />Rest day</span>}
                     <span className="inline-flex items-center gap-1"><Icon name="mosque" size={16} />{d.prayers.logged ? `${pr} of 5` : d.office ? "not logged" : "—"}</span>
                     <span className="inline-flex items-center gap-1"><Icon name="bedtime" size={16} />{d.night == null ? "—" : `${n1(d.night)} h`}{d.nap ? ` +${d.nap}m` : ""}{d.bed ? ` · ${d.bed}` : ""}</span>
                     {d.fajr != null && <span className={cn("inline-flex items-center gap-1", d.fajr && "text-primary")}><Icon name="wb_twilight" fill={d.fajr} size={16} />{d.fajr ? "Fajr" : "no Fajr"}</span>}

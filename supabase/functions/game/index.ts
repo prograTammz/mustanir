@@ -50,15 +50,16 @@ async function compute(uid: string) {
     pagesLeft: Math.max(0, (G.S.settings.pagesPerDay || 20) - (d.pages || 0)),
     tasks: (() => { const c = G.checklistFor(day); return c.total - c.done; })(),
   };
-  const todayMax = G.MAX_DAY_XP + (G.isSunday(day) ? G.WEIGH_IN_XP : 0);
   const next = ms.filter((m: Any) => !m.won).sort((a: Any, b: Any) => b.frac - a.frac).slice(0, 3)
     .map((m: Any) => ({ id: m.id, en: m.en, ar: m.ar, how: m.how, frac: Math.round(m.frac * 100) / 100, cur: m.cur, goal: m.goal }));
   const state = {
     user_id: uid, level: t.level, xp: t.xp, rank_en: rank.en, rank_ar: rank.ar, day,
-    today_xp: G.dayXP(day), today_max: todayMax, streak: G.streak(G.T.office),
+    // Today's ring: XP toward the day's target. On the rest day only Faith, Knowledge and Purity count; the rest is data.extra.
+    today_xp: parts.earned, today_max: parts.max, streak: G.streak(G.T.office),
     medals_won: won.length, medals_total: ms.length,
     data: {
-      toNext: t.to - t.xp, frac: Math.round(t.frac * 1000) / 1000, perfect: parts.perfect.earned > 0, near: parts.near,
+      toNext: t.to - t.xp, frac: Math.round(t.frac * 1000) / 1000, perfect: parts.perfect.earned > 0, near: parts.near, need: parts.need,
+      rest: parts.rest, extra: parts.extra,
       ministers: Object.fromEntries(Object.entries(parts.ministers).map(([k, v]: [string, Any]) => [k, v.earned])),
       open, next,
       streaks: Object.fromEntries(STREAKS.map((k) => [k, { now: G.streak(G.T[k]), best: G.bestStreak(G.T[k]) }])),

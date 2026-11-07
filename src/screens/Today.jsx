@@ -1,8 +1,8 @@
 // Today: the quest board. The day's run (XP ring, the five ministers as stats, the perfect-day chest), the quests you
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useRef, useState } from "react";
-import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP } from "@/lib/logic.js";
+import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, streak, T, matchDay, hasSchedule,
+  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP, isRestDay } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
@@ -18,18 +18,23 @@ export default function Today() {
   const s = S.selected, r = rec(), isToday = s === today(), xp = xpParts(s), c = checklistFor(s);
   const pr = r.prayers || {};
   const quests = [PRAYERS.every(([k]) => pr[k]), (r.pages || 0) >= S.settings.pagesPerDay, xp.ministers.habits.earned >= 20, c.total > 0 && c.done === c.total, r.pornFree !== false && r.mast !== true];
+  // The rest day asks only for prayers, reading and purity; routines and tasks move under "Extra today".
+  const counts = xp.rest ? [0, 1, 4] : [0, 1, 2, 3, 4];
+  const prayer = <PrayerQuest pr={pr} pay={xp.ministers.faith} done={quests[0]} />, reading = <ReadingQuest r={r} pay={xp.ministers.knowledge} done={quests[1]} />;
+  const routine = <RoutineQuest r={r} pay={xp.ministers.habits} done={quests[2]} />, tasks = <TaskQuest r={r} c={c} pay={xp.checklist} done={quests[3]} />;
+  const purity = <PurityQuest s={s} r={r} xp={xp} />;
   return (
     <>
       <Hero><DayBar s={s} isToday={isToday} /></Hero>
       {S.mode === "error" && <div className="flex items-center gap-3 rounded-2xl bg-error-container px-4 py-3 type-body-m text-on-error-container"><Icon name="cloud_off" size={20} />Offline. Keep checking in; it syncs when you’re back.</div>}
       <RunCard s={s} xp={xp} />
-      <SectionTitle trailing={<span className="type-label-l text-on-surface-variant tnum">{quests.filter(Boolean).length} of {quests.length} complete</span>}>Quests</SectionTitle>
-      <PrayerQuest pr={pr} pay={xp.ministers.faith} done={quests[0]} />
-      <ReadingQuest r={r} pay={xp.ministers.knowledge} done={quests[1]} />
-      <RoutineQuest r={r} pay={xp.ministers.habits} done={quests[2]} />
-      <TaskQuest r={r} c={c} pay={xp.checklist} done={quests[3]} />
-      <PurityQuest s={s} r={r} xp={xp} />
-      <SectionTitle sub="Filled in by WHOOP and FatSecret, nothing to tap">Tracked for you</SectionTitle>
+      <SectionTitle trailing={<span className="type-label-l text-on-surface-variant tnum">{counts.filter((i) => quests[i]).length} of {counts.length} complete</span>}>Quests</SectionTitle>
+      {xp.rest ? <>
+        {prayer}{reading}{purity}
+        <SectionTitle sub="They pay XP today; skipping them costs nothing">Extra today</SectionTitle>
+        {routine}{tasks}
+      </> : <>{prayer}{reading}{routine}{tasks}{purity}</>}
+      <SectionTitle sub={xp.rest ? "Filled in by WHOOP and FatSecret · extra on the rest day" : "Filled in by WHOOP and FatSecret, nothing to tap"}>Tracked for you</SectionTitle>
       <Vitality s={s} r={r} xp={xp} />
       <BodyCard s={s} r={r} xp={xp} />
       <Bounties />
@@ -61,16 +66,25 @@ function DayBar({ s, isToday }) {
 
 /* ---------- the day's run: XP ring, five stats, the perfect-day chest ---------- */
 function RunCard({ s, xp }) {
-  const earned = dayXP(s), max = MAX_DAY_XP + (isSunday(s) ? WEIGH_IN_XP : 0), open = xp.perfect.earned > 0;
+  // The ring fills with what counts toward the day's target. On the rest day Order, Body, the checklist, the vitals and the
+  // weigh-in are extra: they show as "+N extra" under the number instead of filling the ring.
+  const { earned, extra, max } = xp, open = xp.perfect.earned > 0, when = s === today() ? "today" : "that day";
   return (
     <Card variant="high" className="rise relative overflow-hidden p-5">
       <Shape name="verySunny" size={220} spin color="color-mix(in srgb, var(--md-sys-color-tertiary) 9%, transparent)" className="pointer-events-none absolute -top-16 -right-16" />
+      {xp.rest && (
+        <div className="relative mb-4 flex items-center gap-3 rounded-[20px] bg-secondary-container px-3 py-2.5 text-on-secondary-container">
+          <Icon name="weekend" fill size={22} className="shrink-0" />
+          <p className="min-w-0 type-body-s"><b className="type-title-s em">Rest day.</b> Faith, Knowledge and Purity count. Order and Body pay extra.</p>
+        </div>
+      )}
       <div className="relative flex items-center gap-4">
-        <Ring value={earned / max} size={128} stroke={8} wavy color="var(--md-sys-color-tertiary)" label={`${earned} of ${max} XP ${s === today() ? "today" : "that day"}`}>
+        <Ring value={earned / max} size={128} stroke={8} wavy color="var(--md-sys-color-tertiary)" label={`${earned} of ${max} XP ${when}${extra ? `, plus ${extra} extra` : ""}`}>
           <span className="type-display-s em-x tnum leading-none">{earned}</span>
           <span className="mt-1 type-label-m text-on-surface-variant tnum">of {max} XP</span>
+          {extra > 0 && <span className="type-label-m em text-tertiary tnum">+{extra} extra</span>}
         </Ring>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5" role="list" aria-label={"Today: " + MINISTERS.map((m) => `${m.en.replace("Minister of ", "")} ${xp.ministers[m.key].earned} of 20`).join(", ")}>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5" role="list" aria-label={`${xp.rest ? "Rest day" : "Today"}: ` + MINISTERS.map((m) => `${m.en.replace("Minister of ", "")} ${xp.ministers[m.key].earned} of 20${xp.ministers[m.key].extra ? ", extra" : ""}`).join("; ")}>
           {MINISTERS.map((m) => {
             const v = xp.ministers[m.key];
             return (
@@ -78,9 +92,10 @@ function RunCard({ s, xp }) {
                 <div className="flex items-center gap-1.5 type-label-m">
                   <Icon name={MIN[m.key].icon} size={14} fill style={{ color: mColor(m.key) }} />
                   <span className="min-w-0 flex-1 truncate">{m.en.replace("Minister of ", "")}</span>
+                  {v.extra && <span className="rounded-md bg-surface-container-highest px-1.5 type-label-s text-on-surface-variant">extra</span>}
                   <span className="em tnum">{v.earned}</span><span className="text-on-surface-variant tnum">/20</span>
                 </div>
-                <Progress value={v.frac} color={mColor(m.key)} stop={false} className="mt-1" />
+                <Progress value={v.frac} color={mColor(m.key)} stop={false} className={cn("mt-1", v.extra && "opacity-50")} />
               </button>
             );
           })}
@@ -92,10 +107,11 @@ function RunCard({ s, xp }) {
         </Shape>
         <div className="min-w-0 flex-1">
           <div className="type-title-s em">{open ? "Perfect day · chest opened" : "Perfect-day chest"}</div>
-          <div className="mt-1 flex items-center gap-1" aria-label={`${xp.near} of 5 ministers at 90%`}>
-            {[0, 1, 2, 3, 4].map((i) => <span key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i < xp.near ? "bg-tertiary" : "bg-outline-variant")} />)}
+          <div className="mt-1 flex items-center gap-1" aria-label={`${xp.near} of ${xp.need} ministers at 90%`}>
+            {Array.from({ length: xp.need }, (_, i) => <span key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i < xp.near ? "bg-tertiary" : "bg-outline-variant")} />)}
           </div>
-          <div className={cn("mt-1 type-body-s", !open && "text-on-surface-variant")}>{open ? "Every minister at 90% or more." : `${xp.near} of 5 ministers at 90% · all five open it`}</div>
+          <div className={cn("mt-1 type-body-s", !open && "text-on-surface-variant")}>{open ? (xp.rest ? "Faith, Knowledge and Purity at 90% or more." : "Every minister at 90% or more.")
+            : `${xp.near} of ${xp.need} ministers at 90% · ${xp.rest ? "the three that count" : "all five"} open it`}</div>
         </div>
         <XP plus={`+${PERFECT_BONUS}`} earned={xp.perfect.earned} max={PERFECT_BONUS} />
       </div>
@@ -381,9 +397,10 @@ function Sessions({ s, r }) {
   const ms = matchDay(s), standing = ms.filter((m) => m.status !== "cancelled"), off = ms.length - standing.length;
   const label = (m) => ({ done: `${fmtMin(m.done || m.planned)} done`, partial: `${fmtMin(m.done)} of ${fmtMin(m.planned)}`, live: `${fmtMin(m.done)} so far`, missed: "Missed", upcoming: "Upcoming", cancelled: "Cancelled" }[m.status]);
   const wks = r.workoutsDetail || []; // every workout WHOOP recorded, matched to a slot or not
+  const rest = isRestDay(s);
   const summary = r.away ? "Paused today" : ms.length
-    ? (standing.length ? `${standing.filter((m) => m.status === "done").length} of ${standing.length} done` : "All cancelled · rest day") + (off && standing.length ? ` · ${off} cancelled` : "")
-    : hasSchedule() ? "Rest day" : "No schedule";
+    ? (standing.length ? `${standing.filter((m) => m.status === "done").length} of ${standing.length} done` : "All cancelled") + (off && standing.length ? ` · ${off} cancelled` : "") + (rest ? " · extra" : "")
+    : rest ? "Rest day" : hasSchedule() ? "No session today" : "No schedule";
   // Calling a session off (or putting it back): it stops counting either way, and its reminder and calendar event go too.
   const toggle = (m) => {
     const c = { ...(r.cancelled || {}) }, was = !!c[m.slot.id];

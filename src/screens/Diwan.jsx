@@ -1,6 +1,6 @@
 // Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, FatSecret, account.
 import { useEffect, useState } from "react";
-import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName } from "@/lib/logic.js";
+import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName, restDayName } from "@/lib/logic.js";
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
 import { bump, themePref, setTheme } from "@/lib/app-state.js";
 import { soundOn, setSound, play } from "@/lib/sound.js";
@@ -60,6 +60,7 @@ export default function Diwan() {
         <Field label="Current book" k="book" placeholder="Book title" />
       </Section>
       <Profile />
+      <RestDay />
       <Training />
       <ChecklistEdit />
       <Section title="The daily schedule" ar="جدول اليوم" desc="Drives your reminders and the Apple Calendar blocks.">
@@ -118,6 +119,16 @@ function Profile() {
 }
 
 const WEEK = [["SAT", "Saturday"], ["SUN", "Sunday"], ["MON", "Monday"], ["TUE", "Tuesday"], ["WED", "Wednesday"], ["THU", "Thursday"], ["FRI", "Friday"]];
+// One day a week counts only Faith, Knowledge and Purity; whatever else you do on it pays as extra.
+function RestDay() {
+  return (
+    <Section title="Rest day" ar="يوم الراحة" desc="One day a week asks only for Faith, Knowledge and Purity. Order, Body, the checklist and the vitals still pay XP on it, as extra, and never count against you.">
+      <Connected value={S.settings.restDay || "SUN"} onChange={(v) => setSetting("restDay", v)} label="Rest day" dense
+        options={WEEK.map(([d, name]) => ({ value: d, label: name.slice(0, 3) }))} />
+      <Hint className="mt-3">{restDayName()} is your rest day. Streaks for sleep, vitals and the checklist step over it when it’s missed.</Hint>
+    </Section>
+  );
+}
 // The week, day by day: every session that day (two tennis sessions on Saturday are two rows), each removable, and a "+"
 // that opens the sheet with that day already picked.
 function Training() {
@@ -141,7 +152,8 @@ function Training() {
               <div className="flex items-center gap-3">
                 <span className={cn("grid size-10 shrink-0 place-items-center rounded-full type-label-l em", list.length ? "bg-primary-container text-on-primary-container" : "bg-surface-container-highest text-on-surface-variant")}>{name.slice(0, 2)}</span>
                 <span className={cn("min-w-0 flex-1 type-title-m", !list.length && "font-normal text-on-surface-variant")}>
-                  {name}{!list.length && <span className="type-body-m"> · rest</span>}{list.length > 1 && <span className="type-body-m text-on-surface-variant"> · {list.length} sessions</span>}
+                  {name}{d === S.settings.restDay ? <span className="type-body-m font-normal text-on-surface-variant"> · rest day{list.length ? ", sessions are extra" : ""}</span>
+                    : !list.length && <span className="type-body-m"> · no training</span>}{list.length > 1 && <span className="type-body-m text-on-surface-variant"> · {list.length} sessions</span>}
                 </span>
                 <IconButton icon="add" variant="tonal" size="xs" label={`Add a session on ${name}`} onClick={() => openSheet({ type: "slot", day: d })} />
               </div>

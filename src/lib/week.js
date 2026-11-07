@@ -2,7 +2,7 @@
 // everything since tracking began. Pure like logic.js: it reads the engine's state and returns numbers and findings.
 // It only reads the rules, so the game function's copy of logic.js is untouched by it.
 import { S, PRAYERS, FLOOR, addDays, range, diff, parse, fmt, today, inOffice, manual, score, dayXP, dayMinisters, matchDay, slotsOn,
-  slotName, deficitOf, sportOf, levelFor, rankFor, termInfo, weighIn, minHM, hmMin } from "./logic.js";
+  slotName, deficitOf, sportOf, levelFor, rankFor, termInfo, weighIn, minHM, hmMin, isRestDay } from "./logic.js";
 
 export const weekStart = (s) => addDays(s, -parse(s).getDay()); // the Sunday that opens s's week
 export const lastWeek = (s = today()) => addDays(weekStart(s), -7); // the latest week that has ended
@@ -31,7 +31,7 @@ export function dayRow(s, protein = {}) {
   const d = S.days[s] || {}, pr = d.prayers || {}, office = inOffice(s);
   const did = [...new Set((d.workoutsDetail || []).map((w) => sportOf(w.a)).filter((k) => k && k !== "walk"))];
   return {
-    date: s, office, logged: manual(d), away: !!d.away,
+    date: s, office, logged: manual(d), away: !!d.away, rest: isRestDay(s),
     // A day with no record earns nothing, as in the engine's totals (and the HUD).
     xp: office ? (S.days[s] ? dayXP(s) : 0) : null, ministers: dayMinisters(s),
     prayers: { on: PRAYERS.filter(([k]) => pr[k] === "on").length, late: PRAYERS.filter(([k]) => pr[k] === "late").length, logged: Object.keys(pr).length > 0 },
@@ -103,8 +103,9 @@ export function findings(rows, sum) {
         (big.length === 2 ? ` The two biggest deficits (${big.map((r) => Math.round(r.deficit).toLocaleString("en")).join(" and ")} kcal) came with ${big.map((r) => Math.round(r.protein)).join(" g and ")} g.` : "") });
   }
   // Training against the schedule: sessions on days with no slot for that sport, slots called off, slots too long to meet.
+  // A session on the rest day is extra, never off the schedule.
   const off = [];
-  for (const r of rows) if (!r.away) for (const k of r.did) if (!slotsOn(r.date).some((x) => x.sport === k)) off.push([k, r.date]);
+  for (const r of rows) if (!r.away && !r.rest) for (const k of r.did) if (!slotsOn(r.date).some((x) => x.sport === k)) off.push([k, r.date]);
   const cancelled = rows.flatMap((r) => r.slots.filter((x) => x.status === "cancelled").map((x) => [x.name, r.date]));
   const long = (S.settings.training || []).filter((x) => { const a = hmMin(x.start), b = hmMin(x.end); return a != null && b != null && (b > a ? b - a : b + 1440 - a) > 240; });
   const parts = [], bySport = {};
