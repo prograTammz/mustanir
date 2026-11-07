@@ -68,13 +68,23 @@ describe("a day's XP", () => {
     fresh({ "2026-11-02": { prayers: { fajr: "late" } } });
     expect(G.day("2026-11-02").faith).toBeCloseTo(0.1);
   });
-  test("purity starts clean; a logged slip takes Purity and the abstain bonus away", () => {
+  test("purity starts clean; porn costs 15 of its 20 and the abstain bonus", () => {
     fresh({ "2026-11-02": { pages: 20 } });
     const clean = G.dayXP("2026-11-02");
     expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(20);
     G.S.days["2026-11-02"].pornFree = false;
+    expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(5);
+    expect(G.xpParts("2026-11-02").abstain.earned).toBe(0);
+    expect(clean - G.dayXP("2026-11-02")).toBe(G.PORN_COST + G.ABSTAIN_XP);
+  });
+  test("masturbation alone costs Purity 5, not the whole 20; both slips take all of it", () => {
+    fresh({ "2026-11-02": { pages: 20, mast: true } });
+    expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(20 - G.MAST_COST);
+    expect(G.xpParts("2026-11-02").abstain.earned).toBe(0);
+    expect(G.score(["2026-11-02"]).purity).toBeCloseTo(0.75);
+    G.S.days["2026-11-02"].pornFree = false;
     expect(G.xpParts("2026-11-02").ministers.purity.earned).toBe(0);
-    expect(clean - G.dayXP("2026-11-02")).toBe(20 + G.ABSTAIN_XP);
+    expect(G.score(["2026-11-02"]).purity).toBe(0);
   });
   test("days before the term never count", () => {
     fresh({ "2026-10-31": PERFECT, "2026-11-02": { pages: 20 } });

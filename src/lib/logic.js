@@ -259,15 +259,18 @@ export function day(s) {
     logged: true, faith, habits,
     knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
     diet: dietMet(d) ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
-    // Purity starts every day at full marks and only a slip takes them away (porn, or masturbation).
+    // Purity starts every day at full marks and only a slip takes them away: porn costs 15 of its 20, masturbation 5.
     porn: d.pornFree === false ? 0 : 1, plan: d.mast === true ? 0 : 1,
   };
 }
 
+// Purity's verdict, 0 to 1: porn-free carries PORN_COST of its 20 XP and masturbation-free MAST_COST, so each slip costs only its own share.
+const purityOf = (porn, plan) => (PORN_COST * porn + MAST_COST * plan) / XP_PER_MINISTER;
+
 // Each minister's verdict on one day, 0 to 1. Used for XP and the decrees rings.
 export function dayMinisters(s) {
   const x = day(s);
-  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: x.porn * x.plan };
+  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: purityOf(x.porn, x.plan) };
   const all = matchDay(s), ms = all.filter((m) => m.status !== "cancelled");
   // No session today, or every one called off: a rest day. Otherwise the sessions that stand, on average.
   const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() || all.length ? 1 : (x.trained || x.rest));
@@ -276,7 +279,7 @@ export function dayMinisters(s) {
     knowledge: x.knowledge >= 1 ? 1 : x.knowledge,
     faith: x.faith,
     habits: x.habits,
-    purity: x.porn * x.plan,
+    purity: purityOf(x.porn, x.plan),
   };
 }
 
@@ -302,7 +305,7 @@ export function score(dates) {
     avgDeficit: defs.length ? Math.round(defs.reduce((a, b) => a + b, 0) / defs.length) : null,
     logged: ds.filter((x) => x.logged).length,
     body: (training + diet) / 2, faith: sum("faith") / n, knowledge: ds.reduce((a, x) => a + (x.knowledge >= 1 ? 1 : 0), 0) / n,
-    purity: (porn + plan) / 2, habits: sum("habits") / n,
+    purity: purityOf(porn, plan), habits: sum("habits") / n,
   };
   r.overall = (r.body + r.faith + r.knowledge + r.purity + r.habits) / 5;
   return r;
@@ -328,6 +331,7 @@ export function currentApproval(s = today()) {
 
 /* ---------- XP, levels, ranks ---------- */
 export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, ABSTAIN_XP = 10, WEIGH_IN_XP = 40, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20 + 10;
+export const PORN_COST = 15, MAST_COST = 5; // what each slip takes from Purity's 20 XP
 
 /* ---------- the Sunday weigh-in ----------
    Every Sunday morning this week's weight is set against last Sunday's (each the latest reading in the

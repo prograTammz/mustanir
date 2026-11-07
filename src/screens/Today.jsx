@@ -2,7 +2,7 @@
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
+  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
@@ -225,19 +225,19 @@ function TaskQuest({ r, c, pay, done }) {
   );
 }
 
-// Purity runs the other way: every day starts with the shield up and full marks; only a logged slip takes them away.
+// Purity runs the other way: every day starts with the shield up and full marks; only a logged slip takes its own share away.
 function PurityQuest({ s, r, xp }) {
   const slipped = r.pornFree === false || r.mast === true, [open, setOpen] = useState(false);
   const toggle = (k, v) => set(k, r[k] === v ? null : v);
   const total = xp.ministers.purity.earned + xp.abstain.earned, run = streak(T.abstain);
   return (
     <Quest k="purity" title={slipped ? "Shield down today" : "Purity shield"} sub={slipped ? "A slip is data, not defeat" : `Up · ${run}-day streak · full marks unless a slip is logged`}
-      pay={<XP earned={total} max={20 + ABSTAIN_XP} plus={slipped ? "0" : undefined} />} done={!slipped}>
+      pay={<XP earned={total} max={20 + ABSTAIN_XP} />} done={!slipped}>
       {!slipped && !open && <Button variant="text" size="xs" icon="flag" className="-ml-2" onClick={() => setOpen(true)}>Log a slip</Button>}
       {(open || slipped) && (
         <div className="flex flex-wrap items-center gap-2">
-          <Chip tone="error" selected={r.pornFree === false} onClick={() => toggle("pornFree", false)}>Porn</Chip>
-          <Chip tone="error" selected={r.mast === true} onClick={() => toggle("mast", true)}>Masturbation</Chip>
+          <Chip tone="error" selected={r.pornFree === false} onClick={() => toggle("pornFree", false)}>Porn −{PORN_COST}</Chip>
+          <Chip tone="error" selected={r.mast === true} onClick={() => toggle("mast", true)}>Masturbation −{MAST_COST}</Chip>
           {!slipped && <Button variant="text" size="xs" onClick={() => setOpen(false)}>Close</Button>}
         </div>
       )}

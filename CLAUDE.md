@@ -31,6 +31,6 @@ for where the work last stood.
 - Gamification first: XP, levels, ranks, medals lead the experience. The term started 2026-11-01.
 - WHOOP is the only body-data source (sleep, Fajr wake, strain, steps, workouts, weight); food comes only from FatSecret.
   No manual entry for food or exercise; everything syncs on its own every 10 minutes.
-- A day with no masturbation and no porn is rewarded every day; purity starts at full marks and only a logged slip costs it.
+- A day with no masturbation and no porn is rewarded every day; purity starts at full marks and only a logged slip costs it: porn −15, masturbation −5 of its 20.
 - Sleep is judged by WHOOP alone (hours, up for Fajr, consistency); no bedtime check. Every Sunday weight drop pays XP.
 - A training session can be cancelled from Today: it isn't judged, gets no reminder, and leaves the calendar feed.
