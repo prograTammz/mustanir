@@ -2,16 +2,20 @@
 // At build time vite.config.ts fills in BUILD (a fresh id per deploy) and PRECACHE (every built file).
 const BUILD = "__BUILD__";
 const PRECACHE = self.__PRECACHE || [];
-const CACHE = "mustanir-" + BUILD;
+const CACHE = "mustanir-2-" + BUILD; // "2": the app asks for the swap itself (see install)
 const SHELL = "./index.html";
 const RUNTIME = ["fonts.googleapis.com", "fonts.gstatic.com"]; // the Arabic fonts
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", SHELL, ...PRECACHE])).then(async () => {
-    // First install, or replacing the pre-redesign worker: take over at once. Later updates wait for the app to close;
-    // only the rescue on the stuck and error screens (index.html) sends SKIP_WAITING.
-    const legacy = (await caches.keys()).some((k) => /^mustanir-v\d+$/.test(k));
-    if (!self.registration.active || legacy) return self.skipWaiting();
+  // The shell comes from the server, never the HTTP cache (Pages keeps index.html 10 minutes): an older one would point at
+  // assets the last deploy deleted, and the app would open blank. Hashed assets can't be stale, so they may come from cache.
+  const fresh = (u) => new Request(u, { cache: "reload" });
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll([fresh("./"), fresh(SHELL), ...PRECACHE])).then(async () => {
+    // Updates wait for the app to send SKIP_WAITING: main.jsx does when you leave the app or as it opens, and so does the
+    // rescue on the stuck screen (index.html). Take over at once on a first install, or over a worker from before the app
+    // asked (a cache not named mustanir-2-…): that app would never ask, and it reloads itself when the new one takes over.
+    const older = (await caches.keys()).some((k) => k.startsWith("mustanir") && !k.startsWith("mustanir-2-"));
+    if (!self.registration.active || older) return self.skipWaiting();
   }));
 });
 
