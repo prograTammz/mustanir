@@ -4,17 +4,23 @@ on:
     branches: [main, redesign]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: write # the release tag and the GitHub Release
   pages: write
   id-token: write
+  pull-requests: write # "Shipped in Update N" on the PRs a release includes
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  # A release on main is never cut off halfway (its number is already in the build); the next push waits its turn and
+  # carries anything a newer push replaced. Preview builds just take the newest.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release number and notes come from the tags and the commits since the last one
+          fetch-tags: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -24,7 +30,13 @@ jobs:
         env:
           TZ: Africa/Cairo
       - run: npm install --no-audit --no-fund
+      # scripts/release.mjs numbers this build and writes its notes (from PR summaries, or commit subjects).
       - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_SINCE: ${{ github.event.before }}
+      - name: Release notes
+        run: node scripts/release.mjs --summary dist/version.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -52,3 +64,24 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+  # Once it's live: the annotated tag v<major>.<N> (the record the next build reads), the GitHub Release, and a note on
+  # each PR it shipped. Skipped when nothing reached the phone (docs, tests, Edge Functions).
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - run: node scripts/release.mjs --publish dist/version.json
+        env:
+          GH_TOKEN: ${{ github.token }}

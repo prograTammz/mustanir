@@ -1,4 +1,5 @@
-// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, FatSecret, account.
+// Diwan: settings. Appearance, targets, body profile, training, checklist, schedule, notifications, calendar, WHOOP, FatSecret, account,
+// and last, updates: the release on this phone, Check for updates, and the release notes.
 import { useEffect, useState } from "react";
 import { S, DEFAULTS, vitalsFor, usesWhoop, SPORTS, today, addDays, fmt, syncBed, hmMin, slotName, restDayName } from "@/lib/logic.js";
 import { SESSION, PALACE_URL, loadWhoop, whoopConnect, whoopSync, loadFatsecret, fatsecretConnect, fatsecretSync, saveSettings, signOut, newCalendarLink, newShortcutKey, pushSupported, pushState, enablePush, disablePush, testPush } from "@/lib/store.js";
@@ -14,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { Updates } from "@/components/updates.jsx";
+import { RELEASE } from "@/lib/update.js";
 
 const hmOf = (s) => { const m = String(s || "").match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : 0; };
 const toHM = (m) => { const x = ((m % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
@@ -79,7 +82,8 @@ export default function Diwan() {
         <Row label="Signed in as"><span className="type-title-s">{SESSION?.email || ""}</span></Row>
         <Button variant="outline" className="mt-3 w-full" onClick={() => { signOut(); S.tab = "palace"; bump(); }}><Icon name="logout" size={20} />Sign out</Button>
       </Section>
-      <div className="flex flex-col items-center gap-2 py-4"><Shape name="verySunny" size={28} color="var(--md-sys-color-tertiary)" /><Hint className="text-center">Al-Mustanir · Ahmed 2.0</Hint></div>
+      <Updates />
+      <div className="flex flex-col items-center gap-2 py-4"><Shape name="verySunny" size={28} color="var(--md-sys-color-tertiary)" /><Hint className="text-center tnum">Al-Mustanir · Ahmed 2.0 · v{RELEASE.version}</Hint></div>
     </>
   );
 }

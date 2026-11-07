@@ -1,7 +1,9 @@
 // Al-Mustanir service worker. The app shell works offline; your data never passes through the cache.
-// At build time vite.config.ts fills in BUILD (a fresh id per deploy) and PRECACHE (every built file).
+// At build time vite.config.ts fills in BUILD (the release number and a hash of the built files), PRECACHE (every built
+// file) and RELEASE (which update this is, its notes, and the lowest release allowed to keep running: see src/lib/update.js).
 const BUILD = "__BUILD__";
 const PRECACHE = self.__PRECACHE || [];
+const RELEASE = self.__RELEASE || null;
 const CACHE = "mustanir-2-" + BUILD; // "2": the app asks for the swap itself (see install)
 const SHELL = "./index.html";
 const RUNTIME = ["fonts.googleapis.com", "fonts.gstatic.com"]; // the Arabic fonts
@@ -26,7 +28,12 @@ self.addEventListener("activate", (e) => {
   })());
 });
 
-self.addEventListener("message", (e) => { if (e.data === "SKIP_WAITING") self.skipWaiting(); });
+// "SKIP_WAITING" from the app (src/lib/update.js) and the boot screen's rescue; VERSION so the app can say what a waiting
+// update is ("Update 16 is ready", with its notes) without the network.
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
+  else if (e.data && e.data.type === "VERSION" && e.ports[0]) e.ports[0].postMessage({ ...(RELEASE || { number: 0 }), build: BUILD });
+});
 
 const put = (key, res) => { if (res && (res.ok || res.type === "opaque")) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(key, copy)); } return res; };
 
@@ -34,6 +41,8 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  // What's live, and the worker itself: always the network (Check for updates fetches both past every cache).
+  if (url.origin === self.location.origin && /\/(version\.json|sw\.js)$/.test(url.pathname)) return;
   if (req.mode === "navigate") {
     // The shell of this version, instantly (it matches its own assets); the network only if it's missing.
     e.respondWith(caches.match(SHELL).then((hit) => hit || fetch(req).then((r) => put(SHELL, r))).catch(() => caches.match("./")));

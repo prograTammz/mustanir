@@ -13,6 +13,11 @@ for where the work last stood.
 ## Shipping
 - A push to `main` deploys to Pages through `.github/workflows/deploy.yml`.
 - A push to `redesign` publishes a preview build to the `build-preview` branch.
+- Each push to `main` that changes the app is a numbered release (`Update N`, tag `v2.N`, a GitHub Release), made by CI
+  through `scripts/release.mjs`. The commit subject (or a PR's `## Summary` bullets) is the note Tammz reads in Settings, so
+  write it for him. `Release-Note: <text>` / `Release-Note: none` / `Update: urgent` override it, as trailers next to
+  `Co-Authored-By` (in a PR body, on a line of their own). Never create
+  `v*` tags by hand.
 - Check a deploy: `gh api repos/prograTammz/mustanir/deployments -q '.[0]'`.
 - Edge Functions live in `supabase/functions/` (game, palace, whoop, fatsecret, health). Deploy them with
   `supabase functions deploy <name> --no-verify-jwt`, or through the Supabase MCP server.
