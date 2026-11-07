@@ -329,3 +329,28 @@ describe("the rest day", () => {
     expect(G.bestStreak(G.T.fajr)).toBe(1);
   });
 });
+
+describe("marking the rest day", () => {
+  test("a day marked rest takes the week's rest from Sunday; the next week rests on Sunday again", () => {
+    fresh({ "2026-11-04": { rest: true } }); // a Wednesday in the week of Sunday 1 November
+    expect(G.isRestDay("2026-11-04")).toBe(true);
+    expect(G.isRestDay("2026-11-01")).toBe(false);
+    expect(G.restDayOf("2026-11-07")).toBe("2026-11-04");
+    expect(G.isRestDay("2026-11-08")).toBe(true);
+    expect(G.manual(G.S.days["2026-11-04"])).toBe(true); // marking it logs the day
+  });
+  test("unmarking Sunday leaves the week without a rest day", () => {
+    fresh({ "2026-11-01": { rest: false, prayers: PERFECT.prayers, pages: 20 } });
+    expect(G.isRestDay("2026-11-01")).toBe(false);
+    expect(G.restDayOf("2026-11-03")).toBeNull();
+    expect(G.xpParts("2026-11-01").max).toBe(G.MAX_DAY_XP + G.WEIGH_IN_XP);
+    expect(G.xpParts("2026-11-01").perfect.earned).toBe(0); // all five count again
+  });
+  test("a marked day scores as the rest day: three ministers open the chest", () => {
+    fresh({ "2026-11-04": { rest: true, prayers: PERFECT.prayers, pages: 20 } });
+    const p = G.xpParts("2026-11-04");
+    expect(p.rest).toBe(true);
+    expect(p.max).toBe(G.REST_MAX_XP);
+    expect(p.perfect.earned).toBe(G.PERFECT_BONUS);
+  });
+});

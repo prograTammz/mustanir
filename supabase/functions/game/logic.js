@@ -224,7 +224,7 @@ export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix ||
-    (d.checks && Object.values(d.checks).some(Boolean)) || d.away ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || d.away || d.rest === true ||
     (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
 // Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
@@ -345,12 +345,23 @@ export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALI
 export const PORN_COST = 15, MAST_COST = 5; // what each slip takes from Purity's 20 XP
 
 /* ---------- the weekly rest day ----------
-   One day a week (settings.restDay, Sunday unless changed) counts only Faith, Knowledge and Purity: they make the day's
-   target and open the perfect-day chest. Order and Body, the checklist, the vitals and the weigh-in still pay what they
-   earn, as extra: never required, never held against you in the approval, and a miss doesn't break their streaks. */
+   One day a week counts only Faith, Knowledge and Purity: they make the day's target and open the perfect-day chest.
+   Order and Body, the checklist, the vitals and the weigh-in still pay what they earn, as extra: never required, never
+   held against you in the approval, and a miss doesn't break their streaks.
+   You mark the day yourself from Today (day.rest = true). A week (Sunday to Saturday) with no day marked rests on its
+   default day (settings.restDay, Sunday unless changed), and day.rest = false on that day takes the rest away. */
 export const REST_COUNTS = ["faith", "knowledge", "purity"];
 export const DAY_NAMES = { SUN: "Sunday", MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday", SAT: "Saturday" };
-export const isRestDay = (s) => !!S.settings.restDay && DOW[parse(s).getDay()] === S.settings.restDay;
+export const weekOf = (s) => addDays(s, -parse(s).getDay()); // the Sunday that opens s's week
+export const weekDays = (s) => range(weekOf(s), addDays(weekOf(s), 7));
+export const isDefaultRest = (s) => !!S.settings.restDay && DOW[parse(s).getDay()] === S.settings.restDay;
+export function isRestDay(s) {
+  const mark = (S.days[s] || {}).rest;
+  if (mark != null) return mark === true;
+  return isDefaultRest(s) && !weekDays(s).some((k) => k !== s && (S.days[k] || {}).rest === true);
+}
+// The rest day of s's week, if it has one.
+export const restDayOf = (s) => weekDays(s).find(isRestDay) || null;
 export const restDayName = () => DAY_NAMES[S.settings.restDay] || null;
 // The ministers a day is judged on: all five, or the three that count on the rest day.
 export const counted = (s) => (isRestDay(s) ? REST_COUNTS : MINISTERS.map((m) => m.key));

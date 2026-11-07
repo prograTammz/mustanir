@@ -123,13 +123,14 @@ function Profile() {
 }
 
 const WEEK = [["SAT", "Saturday"], ["SUN", "Sunday"], ["MON", "Monday"], ["TUE", "Tuesday"], ["WED", "Wednesday"], ["THU", "Thursday"], ["FRI", "Friday"]];
-// One day a week counts only Faith, Knowledge and Purity; whatever else you do on it pays as extra.
+// One day a week counts only Faith, Knowledge and Purity; whatever else you do on it pays as extra. You mark it from Today;
+// this is the day a week rests on when nothing is marked.
 function RestDay() {
   return (
-    <Section title="Rest day" ar="يوم الراحة" desc="One day a week asks only for Faith, Knowledge and Purity. Order, Body, the checklist and the vitals still pay XP on it, as extra, and never count against you.">
+    <Section title="Rest day" ar="يوم الراحة" desc="One day a week asks only for Faith, Knowledge and Purity. Order, Body, the checklist and the vitals still pay XP on it, as extra, and never count against you. Mark the day from Today; this is the day a week rests on when you don’t.">
       <Connected value={S.settings.restDay || "SUN"} onChange={(v) => setSetting("restDay", v)} label="Rest day" dense
         options={WEEK.map(([d, name]) => ({ value: d, label: name.slice(0, 3) }))} />
-      <Hint className="mt-3">{restDayName()} is your rest day. Streaks for sleep, vitals and the checklist step over it when it’s missed.</Hint>
+      <Hint className="mt-3">{restDayName()} by default. Marking another day on Today moves that week’s rest there. Streaks for sleep, vitals and the checklist step over a missed rest day.</Hint>
     </Section>
   );
 }

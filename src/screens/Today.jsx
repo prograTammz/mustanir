@@ -2,7 +2,7 @@
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useRef, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP, isRestDay } from "@/lib/logic.js";
+  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP, isRestDay, isDefaultRest, restDayOf, weekDays } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
@@ -39,6 +39,7 @@ export default function Today() {
       <BodyCard s={s} r={r} xp={xp} />
       <Bounties />
       <Reflect s={s} r={r} />
+      <Rest s={s} r={r} />
       <Away s={s} r={r} />
     </>
   );
@@ -507,6 +508,33 @@ function Reflect({ s, r }) {
           ))}
         </div>
       </Fold>
+    </Card>
+  );
+}
+
+// Marking the day as rest: one a week, so it takes the rest from any other day that week (Sunday by default).
+// Switching it off on the default day leaves the week without one.
+function Rest({ s, r }) {
+  const on = isRestDay(s), other = on ? null : restDayOf(s);
+  const toggle = (v) => {
+    set("rest", v ? true : isDefaultRest(s) ? false : null); // first, so the XP that moves shows on this day
+    if (v) for (const k of weekDays(s)) if (k !== s && S.days[k]?.rest === true) { S.days[k].rest = null; saveDay(k); }
+    bump();
+  };
+  return (
+    <Card className={cn("rise p-4", on && "bg-secondary-container text-on-secondary-container")}>
+      <div className="flex items-center gap-4">
+        <Icon name="weekend" size={24} fill={on} className={on ? "" : "text-on-surface-variant"} />
+        <div className="min-w-0 flex-1">
+          <div className="type-title-m">Rest day</div>
+          <div className={cn("type-body-s", !on && "text-on-surface-variant")}>
+            {on ? "Faith, Knowledge and Purity count. Order and Body pay extra."
+              : other ? `This week rests on ${fmt(other, { weekday: "long" })}. Marking today moves it here.`
+              : "One a week: only Faith, Knowledge and Purity count that day."}
+          </div>
+        </div>
+        <Switch checked={on} onCheckedChange={toggle} label="Rest today" />
+      </div>
     </Card>
   );
 }
