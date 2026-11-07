@@ -212,6 +212,9 @@
 .m3-btn:active:not(:disabled) { border-radius: var(--rp); }
 .m3-btn[data-selected="true"] { --r: var(--rs, 12px); }
 .m3-btn:disabled { opacity: .38; cursor: default; }
+/* A button group: each button takes its share (--g) of the row, and the one under the finger widens as its neighbours give way. */
+.m3-group > .m3-btn { flex: var(--g, 1) 1 0; transition: flex-grow var(--spring-fast), border-radius var(--spring-fast), background-color var(--effect), color var(--effect); }
+.m3-group > .m3-btn:active:not(:disabled) { flex-grow: calc(var(--g, 1) * 1.18); }
 
 /* ---------- M3 switch ---------- */
 .m3-switch { position: relative; width: 52px; height: 32px; flex-shrink: 0; border-radius: 999px; border: 2px solid var(--md-sys-color-outline); background: var(--md-sys-color-surface-container-highest); transition: background-color var(--effect), border-color var(--effect); }
@@ -241,7 +244,12 @@
 @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.985); } }
 .pop { animation: pop var(--spring-fast) both; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .rise, .pop { animation: none; } }
+/* A counter rolls like an odometer: the new number slides up into place, or down when it drops. */
+.roll-up { animation: roll-up var(--spring-fast) both; }
+.roll-down { animation: roll-down var(--spring-fast) both; }
+@keyframes roll-up { from { transform: translateY(55%); opacity: 0; } }
+@keyframes roll-down { from { transform: translateY(-55%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rise, .pop, .roll-up, .roll-down { animation: none; } }
 
 /* ---------- snackbars (sonner): M3 snackbar on the inverse surface; rewards on gold ---------- */
 [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px) + 84px) !important; }

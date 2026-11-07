@@ -11,9 +11,10 @@ const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-
    a scripted click (tested on the phone). So when a finger lands on a control, an invisible label holding a hidden switch goes
    over it and the touch lands on that. One touch makes one tick, so on iOS a reward can't buzz on its own. ---------- */
 let lastTick = 0;
+/** `ms` is one buzz, or a pattern like [12, 45, 12] (buzz, pause, buzz). A pattern replaces whatever is buzzing. */
 export function haptic(ms = 8) {
   const now = Date.now();
-  if (ms < 12 && now - lastTick < 40) return; // the app-wide tap and a control's own call land together: one tick
+  if (typeof ms === "number" && ms < 12 && now - lastTick < 40) return; // the app-wide tap and a control's own call land together: one tick
   lastTick = now;
   try { navigator.vibrate?.(ms); } catch { /* no haptics here */ }
 }

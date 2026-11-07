@@ -1,12 +1,12 @@
 // Today: the quest board. The day's run (XP ring, the five ministers as stats, the perfect-day chest), the quests you
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, dayXP, MAX_DAY_XP, streak, T, matchDay, hasSchedule,
   slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, fajrTime, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleptEnough, consistent } from "@/lib/logic.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
 import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
-import { Ar, Fold, Hero, Tile, Hint, Stepper, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
+import { Ar, Fold, Hero, Tile, Hint, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
 import { Icon, Shape, Button, IconButton, Chip, Checkbox, Switch, Card, SectionTitle, Progress, Ring, XP, haptic } from "@/components/m3/index.jsx";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -145,16 +145,67 @@ function PrayerQuest({ pr, pay, done }) {
   );
 }
 
+// Pages as they're read: a big +1 for a page at a time, +5 and +10 for a sitting, − for a slip of the thumb, and tap the count
+// to type it. Every tap ticks; on Android +5 ticks twice, +10 three times, and reaching the goal gets a buzz of its own
+// (iOS can only tick once per touch). A chip adds up a run of taps, so you can see what this sitting came to.
+const PAGE_STEPS = [[1, 1.7], [5, 1], [10, 1]];
+const PAGE_BUZZ = { 5: [12, 45, 12], 10: [12, 40, 12, 40, 12] }, GOAL_BUZZ = [20, 60, 20, 60, 60];
 function ReadingQuest({ r, pay, done }) {
   const goal = S.settings.pagesPerDay, p = r.pages || 0;
+  const [dir, setDir] = useState("up"), [run, setRun] = useState(0), [typing, setTyping] = useState(false), runT = useRef(0);
+  useEffect(() => () => clearTimeout(runT.current), []);
+  const next = allMedals().find((m) => m.id.startsWith("pages") && !m.won);
+  const to = (v, buzz) => {
+    const was = rec().pages || 0; v = Math.max(0, v);
+    if (v === was) return;
+    setDir(v > was ? "up" : "down");
+    set("pages", v); // after set(): its +XP chip buzzes too, and the pattern should be the one you feel
+    const pattern = was < goal && v >= goal ? GOAL_BUZZ : buzz;
+    if (pattern) haptic(pattern);
+    return v - was;
+  };
+  const tap = (n) => {
+    const d = to((rec().pages || 0) + n, PAGE_BUZZ[n]);
+    if (!d) return;
+    setRun((x) => x + d); clearTimeout(runT.current); runT.current = setTimeout(() => setRun(0), 1600);
+  };
+  const commit = (e) => { setTyping(false); const v = parseInt(e.target.value, 10); if (!isNaN(v)) to(v); };
+  const status = p < goal ? `${goal - p} to go` : p === goal ? "Goal met" : `Goal met · ${p - goal} more`;
   return (
     <Quest k="knowledge" title={`Read ${goal} pages`} sub={S.settings.book || "Your current book"} pay={<XP {...pay} />} done={done}>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-1"><span className="type-headline-m em-x tnum">{p}</span><span className="type-body-m text-on-surface-variant tnum">/ {goal} pages</span></div>
-          <Progress value={p / goal} wavy color={mColor("knowledge")} className="mt-1.5" />
-        </div>
-        <Stepper label="pages" value={r.pages} step={5} onChange={(v) => set("pages", v)} />
+      <div className="flex items-end gap-2">
+        {typing ? (
+          <input autoFocus type="number" inputMode="numeric" min="0" defaultValue={p || ""} aria-label="Pages read" onFocus={(e) => e.target.select()} onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.value = String(p); e.currentTarget.blur(); } }}
+            className="-ml-2 h-[52px] w-28 rounded-2xl bg-surface-container-highest px-2 type-display-m em-x tnum outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+        ) : (
+          <button type="button" onClick={() => setTyping(true)} aria-label={`${p} of ${goal} pages. Tap to type the number.`}
+            className="state -ml-2 h-[52px] overflow-hidden rounded-2xl px-2 text-left">
+            <span key={p} className={cn("block type-display-m em-x tnum", dir === "up" ? "roll-up" : "roll-down")}>{p}</span>
+          </button>
+        )}
+        <span className="pb-2 type-body-l text-on-surface-variant tnum">/ {goal}</span>
+        {run !== 0 && (
+          <span key={run} aria-hidden className="pop mb-2.5 rounded-full px-2.5 py-0.5 type-label-l em tnum"
+            style={{ background: mContainer("knowledge"), color: "var(--md-custom-color-on-knowledge-container)" }}>{run > 0 ? "+" : "−"}{Math.abs(run)}</span>
+        )}
+        <IconButton icon="remove" label="One page less" variant="outlined" disabled={!p} onClick={() => tap(-1)} className="mb-1.5 ml-auto" />
+      </div>
+      <Progress value={p / goal} wavy color={mColor("knowledge")} className="mt-2" label="Reading goal" />
+      <div className="mt-1.5 flex items-center gap-3 type-body-s text-on-surface-variant">
+        <span className="shrink-0 tnum" aria-live="polite">{status}</span>
+        {next && <span className="ml-auto flex min-w-0 items-center gap-1 tnum"><Icon name="military_tech" size={16} className="shrink-0" /><span className="truncate">{next.en}</span><span className="shrink-0">· {fmtN(next.cur)} / {fmtN(next.goal)}</span></span>}
+      </div>
+      <div role="group" aria-label="Add pages" className="m3-group mt-4 flex gap-2">
+        {PAGE_STEPS.map(([n, g]) => (
+          <button key={n} type="button" onClick={() => tap(n)} aria-label={n === 1 ? "Add 1 page" : `Add ${n} pages`} style={{ "--g": g, "--rp": "18px" }}
+            className={cn("m3-btn state flex h-16 min-w-0 items-center justify-center gap-1.5 px-3",
+              n === 1 ? "bg-[var(--md-custom-color-knowledge)] text-[var(--md-custom-color-on-knowledge)]" : "bg-[var(--md-custom-color-knowledge-container)] text-[var(--md-custom-color-on-knowledge-container)]")}>
+            {n === 1 && <Icon name="menu_book" fill size={22} />}
+            <span className={cn("em-x tnum", n === 1 ? "type-headline-s" : "type-title-l")}>+{n}</span>
+            {n === 1 && <span className="type-label-l">page</span>}
+          </button>
+        ))}
       </div>
     </Quest>
   );

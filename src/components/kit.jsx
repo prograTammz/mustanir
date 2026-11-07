@@ -1,7 +1,7 @@
 // Small building blocks shared by every screen, on Material 3 (see src/components/m3 for the primitives).
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Icon, Shape, Ring as M3Ring, Progress, Checkbox, Chip as M3Chip, IconButton, haptic } from "@/components/m3/index.jsx";
+import { Icon, Shape, Ring as M3Ring, Progress, Checkbox, Chip as M3Chip, haptic } from "@/components/m3/index.jsx";
 
 // Each minister's identity: a color (M3 custom color), an expressive shape and a symbol.
 export const MIN = {
@@ -123,18 +123,6 @@ export function Row({ label, sub, children, className }) {
         {sub && <div className="type-body-m text-on-surface-variant">{sub}</div>}
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
-    </div>
-  );
-}
-
-// A number with tonal − and + buttons either side (M3 Expressive button group feel).
-export function Stepper({ value = 0, step = 1, onChange, label, color }) {
-  return (
-    <div className="flex items-center gap-1">
-      <IconButton icon="remove" label={`Less ${label || ""}`} variant="tonal" size="s" onClick={() => onChange(Math.max(0, (value || 0) - step))} />
-      <input aria-label={label} type="number" inputMode="numeric" min="0" value={value || 0} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
-        className="h-10 w-14 rounded-xl bg-transparent text-center type-title-l em tnum outline-none [appearance:textfield] focus:bg-surface-container-highest [&::-webkit-inner-spin-button]:appearance-none" style={color ? { color } : undefined} />
-      <IconButton icon="add" label={`More ${label || ""}`} variant="filled" size="s" onClick={() => onChange((value || 0) + step)} />
     </div>
   );
 }
