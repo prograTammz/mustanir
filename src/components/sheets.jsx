@@ -1,6 +1,6 @@
 // Every bottom sheet in the app: one controlled M3 bottom sheet, its content picked by S.sheet.type.
 import { useEffect, useState } from "react";
-import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart, restDayName } from "@/lib/logic.js";
+import { S, MINISTERS, SPORTS, today, rankFor, RANKS, streak, bestStreak, T, verdict, currentApproval, hmMin, minHM, levelStart, restDayName, BOOK_XP } from "@/lib/logic.js";
 import { saveSettings, loadMetricSeries } from "@/lib/store.js";
 import { go, allTotals, allMedals, openSheet, closeSheet } from "@/lib/app-state.js";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
@@ -10,6 +10,7 @@ import { Ar, Emblem, Ring, Hint, Subhead, Stat, Seal, MIN, mColor, mContainer, m
 import { Icon, Shape, Button, IconButton, Chip, Connected, Progress } from "@/components/m3/index.jsx";
 import { TrendChart } from "./charts";
 import { WeekSheet } from "./report";
+import { BooksSheet } from "./books";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ export default function Sheets() {
         {sh?.type === "slot" && <SlotSheet pre={sh} />}
         {sh?.type === "metric" && <MetricSheet m={sh.meta} r={sh.row} fmtVal={sh.fmtVal} />}
         {sh?.type === "week" && <WeekSheet start={sh.start} />}
+        {sh?.type === "books" && <BooksSheet add={!!sh.add} />}
       </DrawerContent>
     </Drawer>
   );
@@ -47,7 +49,7 @@ function MinisterSheet({ k }) {
             </div>
           ))}
         </div>
-        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10. On the rest day ({restDayName() || "none set"}) only Faith, Knowledge and Purity count; the rest pays as extra.</Hint>
+        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, a day with no masturbation and no porn adds 10, and each book you finish adds {BOOK_XP}. On the rest day ({restDayName() || "none set"}) only Faith, Knowledge and Purity count; the rest pays as extra.</Hint>
       </>
     );
   }
@@ -57,7 +59,7 @@ function MinisterSheet({ k }) {
   const detail = r ? {
     body: `Training ${pctTxt(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions${r.plannedMin ? `, ${fmtMin(r.trainMin)} of ${fmtMin(r.plannedMin)}` : ""}), diet on target ${pctTxt(r.diet)} of days.`,
     faith: "Average share of the five prayers kept; a made-up prayer counts half.",
-    knowledge: `Days at ${S.settings.pagesPerDay} pages or more.`,
+    knowledge: `Days at ${S.settings.pagesPerDay} pages or more. A finished book pays +${BOOK_XP} XP on top, and counts toward the book medals.`,
     purity: `Porn-free ${pctTxt(r.porn)} of days, masturbation-free ${pctTxt(r.plan)}. Every day starts clean; a logged slip of porn costs 15 of the 20, masturbation 5.`,
     habits: "WHOOP’s sleep score pays half, in whole points of its 10 XP (75% earns 8); the five routines and wearing the watch share the other 10.",
   }[k] : "No days in this council period yet.";

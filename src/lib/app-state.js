@@ -1,8 +1,8 @@
 // React bridge for the plain-JS state in logic.js/store.js: one version counter, bumped on every change.
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
-import { S, dayXP, totals, rankFor, today, medals, dayMinisters, checklistFor, MINISTERS, isPerfect, counted, isRestDay } from "./logic.js";
-import { saveDay, setRenderer, setRemoteHandler, LS } from "./store.js";
+import { S, dayXP, totals, rankFor, today, medals, dayMinisters, checklistFor, MINISTERS, isPerfect, counted, isRestDay, finishedOn, bookById, BOOK_XP } from "./logic.js";
+import { saveDay, saveSettings, setRenderer, setRemoteHandler, LS } from "./store.js";
 import { xpFloat, levelUp, burst } from "./fx.js";
 import { play } from "./sound.js";
 import { haptic } from "@/components/m3/index.jsx";
@@ -36,23 +36,61 @@ const wonIds = () => new Set(medals().filter((m) => m.won).map((m) => m.id));
 // What a finished quest is called when its minister reaches full marks (Body is filled in by the watch, Purity starts full).
 const QUESTS = { faith: "The five prayers", knowledge: "Today’s reading", habits: "Routines and sleep" };
 const REWARD = "m3-snack m3-reward";
-export function set(k, v) {
+export function set(k, v) { update({ [k]: v }); }
+// Several keys of the selected day at once (pages and the book they belong to), as one save and one reward.
+export function update(patch) {
   const s = S.selected, before = dayXP(s), lvBefore = totals().level, had = wonIds(), wasPerfect = isPerfect(s), mBefore = dayMinisters(s), cBefore = checklistFor(s);
-  rec()[k] = v; saveDay(s);
+  const booksBefore = finishedOn(s);
+  Object.assign(rec(), patch); saveDay(s);
   const after = dayXP(s), t = totals(), mAfter = dayMinisters(s), cAfter = checklistFor(s);
   bump();
   if (after !== before) xpFloat(lastPt.x, lastPt.y - 10, after - before);
+  // A book finished: its own moment, before any medal it brings.
+  const closed = finishedOn(s).filter((id) => !booksBefore.includes(id));
+  closed.forEach((id, i) => setTimeout(() => {
+    const b = bookById(id);
+    burst(innerWidth / 2, innerHeight / 3, 56); play("chest"); haptic([20, 60, 20, 60, 60]);
+    toast(`Book finished · +${BOOK_XP} XP`, { className: REWARD, description: `${b?.title || "A book"}${b?.pages ? ` · ${(+b.pages).toLocaleString("en")} pages` : ""} · ${t.books} finished in office`,
+      action: { label: "Undo", onClick: () => unfinishBook(id) } });
+  }, 300 + i * 900));
   // Quest complete: a minister reaches full marks, or the last task is ticked.
   const done = Object.keys(QUESTS).filter((m) => mBefore[m] < 1 && mAfter[m] >= 1).map((m) => QUESTS[m]);
   if (cAfter.total && cAfter.done === cAfter.total && cBefore.done < cBefore.total) done.push("The day’s work");
   done.forEach((q, i) => setTimeout(() => { play("quest"); haptic(12); toast(`Quest complete · ${q}`, { className: REWARD, description: `${counted(s).filter((m) => mAfter[m] >= 0.9).length} of ${counted(s).length} ministers at 90% today.` }); }, 250 + i * 600));
   // The moments worth a fanfare: a perfect day, a new medal, a new level.
   if (!wasPerfect && isPerfect(s)) setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 48); play("chest"); haptic(30); toast("Perfect day · chest opened · +25 XP", { className: REWARD, description: isRestDay(s) ? "Rest day: Faith, Knowledge and Purity at 90% or more." : "Every minister at 90% or more." }); }, 400);
-  const fresh = medals().filter((m) => m.won && !had.has(m.id));
-  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); play("medal"); haptic(30); toast(`Medal won · ${m.en}`, { className: REWARD, description: `${m.ar} · ${m.how}` }); }, 800 + i * 900));
-  if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level)), 600 + fresh.length * 900);
+  const fresh = medals().filter((m) => m.won && !had.has(m.id)), wait = closed.length * 900;
+  fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); play("medal"); haptic(30); toast(`Medal won · ${m.en}`, { className: REWARD, description: `${m.ar} · ${m.how}` }); }, 800 + wait + i * 900));
+  if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level)), 600 + wait + fresh.length * 900);
 }
 export function setQuiet(k, v) { rec()[k] = v; saveDay(S.selected); }
+
+/* ---------- the bookshelf: the books are settings.books; their pages and finishes are on the days ---------- */
+// Finished on the day you're looking at: it pays BOOK_XP there (update() celebrates it) and leaves the reading list.
+export function finishBook(id) {
+  if (S.settings.bookNow === id) { S.settings.bookNow = null; saveSettings(); }
+  update({ finished: [...finishedOn(S.selected).filter((x) => x !== id), id] });
+}
+// Not finished after all: off whichever day it was finished on, with its XP. It goes back on the reading list.
+export function unfinishBook(id) {
+  let took = 0;
+  for (const k of Object.keys(S.days)) {
+    const f = S.days[k].finished;
+    if (!f?.includes(id)) continue;
+    const before = dayXP(k), rest = f.filter((x) => x !== id);
+    S.days[k].finished = rest.length ? rest : undefined; saveDay(k);
+    took += before - dayXP(k);
+  }
+  bump();
+  if (took) toast(`Back on your shelf · −${took} XP`, { description: bookById(id)?.title });
+}
+// The shelf itself (titles, lengths, where you started), and optionally the book the page buttons count toward.
+export function saveBooks(books, now) {
+  S.settings.books = books;
+  if (now !== undefined) S.settings.bookNow = now;
+  saveSettings(); bump();
+}
+export const pickBook = (id) => saveBooks(S.settings.books || [], id);
 
 // Data the server sent (WHOOP, FatSecret, another device): apply it, then celebrate what it earned, as if you'd tapped.
 const lastWorkout = (d) => (d?.workoutsDetail || []).slice(-1)[0];
