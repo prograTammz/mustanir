@@ -2,7 +2,7 @@
 // everything since tracking began. Pure like logic.js: it reads the engine's state and returns numbers and findings.
 // It only reads the rules, so the game function's copy of logic.js is untouched by it.
 import { S, PRAYERS, FLOOR, addDays, range, diff, parse, fmt, today, inOffice, manual, score, dayXP, dayMinisters, matchDay, slotsOn,
-  slotName, deficitOf, sportOf, levelFor, rankFor, termInfo, weighIn, minHM, hmMin, isRestDay } from "./logic.js";
+  slotName, deficitOf, sportOf, levelFor, rankFor, termInfo, weighIn, minHM, hmMin, isRestDay, finishedOn, bookById } from "./logic.js";
 
 export const weekStart = (s) => addDays(s, -parse(s).getDay()); // the Sunday that opens s's week
 export const lastWeek = (s = today()) => addDays(weekStart(s), -7); // the latest week that has ended
@@ -35,7 +35,7 @@ export function dayRow(s, protein = {}) {
     // A day with no record earns nothing, as in the engine's totals (and the HUD).
     xp: office ? (S.days[s] ? dayXP(s) : 0) : null, ministers: dayMinisters(s),
     prayers: { on: PRAYERS.filter(([k]) => pr[k] === "on").length, late: PRAYERS.filter(([k]) => pr[k] === "late").length, logged: Object.keys(pr).length > 0 },
-    pages: d.pages || 0,
+    pages: d.pages || 0, finished: office ? finishedOn(s) : [],
     sleepH: d.sleepH ?? null, night: nightOf(d), nap: d.sleepH == null ? null : d.napMin || 0, bed: clockOf(d.sleepStart), up: clockOf(d.sleepEnd), fajr: d.wake ?? null,
     deficit: d.dietaryKcal ? deficitOf(d) : null, eaten: d.dietaryKcal ?? null, protein: protein[s] ?? null, weight: d.weight ?? null,
     steps: d.steps ?? null, recovery: d.recovery ?? null, hrv: d.hrv ?? null, restingHR: d.restingHR ?? null, strain: d.strain ?? null, exercise: d.exerciseMin ?? null,
@@ -67,7 +67,7 @@ export function summarize(rows) {
     clean: rows.filter((r) => !r.slip).length, slips: rows.filter((r) => r.slip).map((r) => r.date), bestClean: best,
     steps: avg("steps"), recovery: avg("recovery"), hrv: avg("hrv"), restingHR: avg("restingHR"), strain: avg("strain"), exercise: avg("exercise"),
     sessions: rows.reduce((a, r) => a + r.did.length, 0), trainingDays: rows.filter((r) => r.did.length).length,
-    pages: rows.reduce((a, r) => a + r.pages, 0),
+    pages: rows.reduce((a, r) => a + r.pages, 0), books: rows.flatMap((r) => r.finished.map((id) => ({ id, date: r.date }))),
   };
 }
 
@@ -119,6 +119,11 @@ export function findings(rows, sum) {
     parts.push(`The ${list((x.days || []).map((d) => DAY[d] || d))} ${slotName(x).toLowerCase()} slot runs ${h} hours (${x.start}–${x.end}), so it can never be met.`);
   }
   if (parts.length) out.push({ key: "schedule", tone: "warn", icon: "event_busy", title: "The schedule and the way you train", text: parts.join(" ") });
+  // Books finished.
+  if (sum.books.length) {
+    const named = sum.books.map(({ id, date }) => { const b = bookById(id); return `${b ? `“${b.title}”` : "a book"}${b?.pages ? ` (${(+b.pages).toLocaleString("en")} pages)` : ""} on ${dayName(date)}`; });
+    out.push({ key: "books", tone: "good", icon: "menu_book", title: sum.books.length === 1 ? "A book finished" : `${sum.books.length} books finished`, text: `You finished ${list(named)}.` });
+  }
   // Knowledge at zero.
   if (sum.office && !rows.some((r) => r.office && r.pages >= (S.settings.pagesPerDay || 20))) out.push({ key: "pages", tone: "warn", icon: "menu_book", title: "Knowledge is at zero",
     text: `${sum.pages} page${sum.pages === 1 ? "" : "s"} in ${sum.office} day${sum.office === 1 ? "" : "s"} against ${S.settings.pagesPerDay} a day. A chapter ticked as a task earns nothing here; its page count does.` });

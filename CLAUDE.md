@@ -44,3 +44,6 @@ for where the work last stood.
   pay on it as extra and are never held against you. Tammz marks the day on Today; a week with none marked rests on
   Sunday (the default, set in Settings), and marking another day moves that week's rest there.
 - A training session can be cancelled from Today: it isn't judged, gets no reminder, and leaves the calendar feed.
+- Books: several can be on the go at once. Pages are counted per book on Today (the chips pick which one); the bookshelf
+  only sets books up. A finished book pays 100 XP on the day it's finished, as extra past the ring, and counts toward
+  the book medals (1, 5, 12, 25, 50 books, and a 500-page tome).

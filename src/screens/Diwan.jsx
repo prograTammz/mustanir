@@ -60,7 +60,6 @@ export default function Diwan() {
         <Field label="Wake for Fajr" k="wake" type="time" />
         <Field label="Sleep window (hours)" k="windowHours" type="number" min="6" max="10" step="0.5" hint={`Bedtime, set by the window: ${S.settings.bedtime}.`} />
         <Field label="Impeachment line (%)" k="threshold" type="number" min="0" max="100" />
-        <Field label="Current book" k="book" placeholder="Book title" />
       </Section>
       <Profile />
       <RestDay />

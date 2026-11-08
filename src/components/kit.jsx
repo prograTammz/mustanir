@@ -191,7 +191,7 @@ export function medalKind(id) {
   if (/^(fajr|regular|slept|green)/.test(id)) return "habits";
   if (/^(weigh|under|iron|deficit|steps|vital)/.test(id)) return "body";
   if (/^(pure|abstain)/.test(id)) return "purity";
-  if (/^(read|pages|chancellor)/.test(id)) return "knowledge";
+  if (/^(read|pages|book|chancellor)/.test(id)) return "knowledge";
   return "president";
 }
 export const fmtN = (x) => (x == null ? "—" : x >= 1000 ? Math.round(x).toLocaleString("en") : Math.round(x * 10) / 10);

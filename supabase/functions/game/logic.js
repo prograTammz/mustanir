@@ -4,7 +4,10 @@
 
 export const DEFAULTS = {
   termStart: "2026-11-01", sessionsPerWeek: 4, pagesPerDay: 20, bedtime: "21:00", wake: "05:00",
-  windowHours: 8, sleepTarget: 7, deficitMin: 700, threshold: 70, book: "", revNotes: {},
+  windowHours: 8, sleepTarget: 7, deficitMin: 700, threshold: 70, revNotes: {},
+  // The bookshelf: { id, title, pages (its length), start (the page you were on when you added it), added }. bookNow is the
+  // one the +1/+5/+10 buttons count toward. What you read of each lives on the days (see "books" below).
+  books: [], bookNow: null,
   trainingDays: "SAT,MON,WED,THU", trainingTime: "18:00", trainingMin: 60, readingTime: "05:30", readingMin: 30,
   windDownMin: 45, checkinTime: "20:00", advisorNotes: "",
   // The weekly rest day (a DOW code): only Faith, Knowledge and Purity count on it; the rest pays as extra.
@@ -224,7 +227,7 @@ export function manual(d) {
   if (!d) return false;
   return !!((d.prayers && Object.keys(d.prayers).length) || d.pages > 0 || d.pornFree != null || d.mast != null ||
     d.hair || d.skinAm || d.skinPm || d.teethAm || d.teethPm || d.good || d.fix ||
-    (d.checks && Object.values(d.checks).some(Boolean)) || d.away || d.rest === true ||
+    (d.checks && Object.values(d.checks).some(Boolean)) || d.away || d.rest === true || (d.finished && d.finished.length) ||
     (d.train && !isMeasured(d)) || d.diet != null && d.deficit == null);
 }
 // Filled by a device (Apple Health before November 2026, WHOOP since), not typed by hand.
@@ -387,6 +390,19 @@ export function weighIn(s) {
   return { now, before, drop, won: drop >= 0.1 };
 }
 const weighInXP = (s) => (inOffice(s) && weighIn(s)?.won ? WEIGH_IN_XP : 0);
+
+/* ---------- books ----------
+   The shelf is settings.books; what you read is on the days, like everything else you log. day.pagesBy[bookId] is that
+   day's pages of each book, and day.pages stays the day's total (Knowledge and the page medals count it, whatever the
+   book). day.finished lists the books finished that day: each pays BOOK_XP on it, as extra past the day's target, and
+   counts toward the book medals. */
+export const BOOK_XP = 100, TOME_PAGES = 500;
+export const finishedOn = (s) => ((S.days[s] || {}).finished || []);
+const bookXP = (s) => (inOffice(s) ? finishedOn(s).length * BOOK_XP : 0);
+// Every book finished in office, oldest first: { id, date }.
+export const booksFinished = () => Object.keys(S.days).filter(inOffice).sort().flatMap((k) => finishedOn(k).map((id) => ({ id, date: k })));
+export const bookById = (id) => (S.settings.books || []).find((b) => b.id === id) || null;
+const longestFinished = () => Math.max(0, ...booksFinished().map((x) => +bookById(x.id)?.pages || 0));
 // A day with no masturbation and no porn earns a bonus on top of Purity's verdict, logged or not: only a slip takes it away.
 export const abstained = (d) => !!d && d.mast !== true && d.pornFree !== false; // clean unless a slip is logged
 const abstainPaid = (s) => (manual(S.days[s]) || shieldUp(s)) && abstained(S.days[s] || {});
@@ -397,7 +413,7 @@ export function dayXP(s) {
   const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
   const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
   const a = abstainPaid(s) ? ABSTAIN_XP : 0;
-  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s);
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s) + bookXP(s);
 }
 
 /* ---------- vitality: the five things WHOOP keeps every day ----------
@@ -506,15 +522,16 @@ export function levelFor(xp) {
 export const rankFor = (L) => RANKS.filter((r) => L >= r.from).pop();
 export function totals() {
   let xp = 0, logged = 0, perfect = 0;
-  let drops = 0;
+  let drops = 0, books = 0;
   for (const k of Object.keys(S.days)) {
     if (!inOffice(k)) continue;
     if (weighIn(k)?.won) drops++;
+    books += finishedOn(k).length;
     if (!manual(S.days[k])) { xp += dayXP(k); continue; } // Purity and a Sunday drop count even on an unlogged day
     logged++; const x = dayXP(k); xp += x;
     if (isPerfect(k)) perfect++;
   }
-  return { xp, logged, perfect, drops, ...levelFor(xp) };
+  return { xp, logged, perfect, drops, books, ...levelFor(xp) };
 }
 
 // Consecutive days ending today (or yesterday, if today isn't logged yet) that satisfy `test`.
@@ -619,6 +636,12 @@ export const MEDALS = [
   { id: "read30", ar: "القارئ", en: "The Reader", how: "Hit your pages 30 days in a row", cur: () => bestStreak(T.read), goal: 30, test: () => bestStreak(T.read) >= 30 },
   { id: "pages1000", ar: "ألف صفحة", en: "A thousand pages", how: "Read 1,000 pages in office", cur: () => sumOf("pages"), goal: 1000, test: () => sumOf("pages") >= 1000 },
   { id: "pages5000", ar: "خمسة آلاف صفحة", en: "Five thousand pages", how: "Read 5,000 pages in office", cur: () => sumOf("pages"), goal: 5000, test: () => sumOf("pages") >= 5000 },
+  { id: "book1", ar: "الكتاب الأول", en: "First book", how: "Finish a book", cur: (t) => t.books, goal: 1, test: (t) => t.books >= 1 },
+  { id: "book5", ar: "صديق الكتب", en: "Friend of books", how: "Finish 5 books", cur: (t) => t.books, goal: 5, test: (t) => t.books >= 5 },
+  { id: "book12", ar: "خير جليس", en: "The best companion", how: "Finish 12 books", cur: (t) => t.books, goal: 12, test: (t) => t.books >= 12 },
+  { id: "book25", ar: "أمين المكتبة", en: "Keeper of the library", how: "Finish 25 books", cur: (t) => t.books, goal: 25, test: (t) => t.books >= 25 },
+  { id: "book50", ar: "بيت الحكمة", en: "House of Wisdom", how: "Finish 50 books", cur: (t) => t.books, goal: 50, test: (t) => t.books >= 50 },
+  { id: "bookTome", ar: "المجلَّد", en: "The tome", how: `Finish a book of ${TOME_PAGES} pages or more`, cur: () => longestFinished(), goal: TOME_PAGES, test: () => longestFinished() >= TOME_PAGES },
   { id: "chancellor", ar: "المُنجِز", en: "The Achiever", how: "80% of the checklist 7 days in a row", cur: () => bestStreak(T.productive), goal: 7, test: () => bestStreak(T.productive) >= 7 },
   { id: "chancellor30", ar: "آلة الإنجاز", en: "The Engine", how: "80% of the checklist 30 days in a row", cur: () => bestStreak(T.productive), goal: 30, test: () => bestStreak(T.productive) >= 30 },
 ];
@@ -650,11 +673,14 @@ export function xpParts(s) {
     vitality: { earned: on ? Math.round((v.frac || 0) * VITALITY_XP) : 0, max: VITALITY_XP, extra: rest },
     abstain: { earned: abstainPaid(s) ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
     weighIn: isSunday(s) ? { earned: inOffice(s) && w?.won ? WEIGH_IN_XP : 0, max: WEIGH_IN_XP, extra: rest } : null,
+    // A finished book is always extra: it never fills the ring, it goes past it.
+    book: finishedOn(s).length ? { earned: bookXP(s), n: finishedOn(s).length, extra: true } : null,
     logged: on,
   };
-  // The day's XP split in two: what fills the ring toward `max`, and what the rest day pays on top of it.
+  // The day's XP split in two: what fills the ring toward `max`, and what's paid on top of it (a finished book, and on the
+  // rest day Order, Body and the rest).
   parts.total = dayXP(s);
-  parts.extra = rest ? [ministers.body, ministers.habits, parts.checklist, parts.vitality, parts.weighIn].reduce((a, x) => a + (x?.earned || 0), 0) : 0;
+  parts.extra = (rest ? [ministers.body, ministers.habits, parts.checklist, parts.vitality, parts.weighIn].reduce((a, x) => a + (x?.earned || 0), 0) : 0) + (parts.book?.earned || 0);
   parts.earned = Math.max(0, parts.total - parts.extra);
   return parts;
 }

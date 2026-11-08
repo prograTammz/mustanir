@@ -2,9 +2,10 @@
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useRef, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, streak, T, matchDay, hasSchedule,
-  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP, isRestDay, isDefaultRest, restDayOf, weekDays } from "@/lib/logic.js";
+  slotName, ABSTAIN_XP, PORN_COST, MAST_COST, checklistFor, vitalityFor, isSunday, weighIn, WEIGH_IN_XP, awayRun, FLOOR, xpParts, PERFECT_BONUS, sleepPoints, SLEEP_XP, isRestDay, isDefaultRest, restDayOf, weekDays, BOOK_XP } from "@/lib/logic.js";
+import { reading, currentBook } from "@/lib/books.js";
 import { SESSION, loadMeals, saveDay, saveSettings } from "@/lib/store.js";
-import { useApp, set, rec, bump, go, allMedals } from "@/lib/app-state.js";
+import { useApp, set, update, rec, bump, go, allMedals, finishBook, pickBook } from "@/lib/app-state.js";
 import { openSheet } from "@/lib/app-state.js";
 import { Ar, Fold, Hero, Tile, Hint, Emblem, MIN, mColor, mContainer, medalKind, fmtN, fmtMin } from "@/components/kit";
 import { Icon, Shape, Button, IconButton, Chip, Checkbox, Switch, Card, SectionTitle, Progress, Ring, XP, haptic } from "@/components/m3/index.jsx";
@@ -167,16 +168,32 @@ function PrayerQuest({ pr, pay, done }) {
 // (iOS can only tick once per touch). A chip adds up a run of taps, so you can see what this sitting came to.
 const PAGE_STEPS = [[1, 1.7], [5, 1], [10, 1]];
 const PAGE_BUZZ = { 5: [12, 45, 12], 10: [12, 40, 12, 40, 12] }, GOAL_BUZZ = [20, 60, 20, 60, 60];
+// With books on the shelf, every page goes to the one you're reading (day.pagesBy) as well as the day's total: pick another
+// from the chips when you read more than one. Its last page brings up the finish.
 function ReadingQuest({ r, pay, done }) {
   const goal = S.settings.pagesPerDay, p = r.pages || 0;
   const [dir, setDir] = useState("up"), [run, setRun] = useState(0), [typing, setTyping] = useState(false), runT = useRef(0);
   useEffect(() => () => clearTimeout(runT.current), []);
   const next = allMedals().find((m) => m.id.startsWith("pages") && !m.won);
+  const books = reading(), cur = currentBook(books), chipsRef = useRef(null);
+  // The current book's chip in view (sideways only: the page itself never moves).
+  useEffect(() => {
+    const row = chipsRef.current, chip = row?.querySelector(`[data-book="${cur?.id}"]`);
+    if (!chip) return;
+    const left = chip.offsetLeft - row.offsetLeft, right = left + chip.offsetWidth;
+    if (left < row.scrollLeft + 16 || right > row.scrollLeft + row.clientWidth - 16) row.scrollTo({ left: Math.max(0, left - 16), behavior: "smooth" });
+  }, [cur?.id]);
   const to = (v, buzz) => {
     const was = rec().pages || 0; v = Math.max(0, v);
     if (v === was) return;
     setDir(v > was ? "up" : "down");
-    set("pages", v); // after set(): its +XP chip buzzes too, and the pattern should be the one you feel
+    const patch = { pages: v };
+    if (cur) {
+      const by = { ...(rec().pagesBy || {}) }, n = Math.max(0, (by[cur.id] || 0) + v - was);
+      if (n) by[cur.id] = n; else delete by[cur.id];
+      patch.pagesBy = Object.keys(by).length ? by : undefined;
+    }
+    update(patch); // after update(): its +XP chip buzzes too, and the pattern should be the one you feel
     const pattern = was < goal && v >= goal ? GOAL_BUZZ : buzz;
     if (pattern) haptic(pattern);
     return v - was;
@@ -188,8 +205,16 @@ function ReadingQuest({ r, pay, done }) {
   };
   const commit = (e) => { setTyping(false); const v = parseInt(e.target.value, 10); if (!isNaN(v)) to(v); };
   const status = p < goal ? `${goal - p} to go` : p === goal ? "Goal met" : `Goal met · ${p - goal} more`;
+  const shelfLink = (
+    <button type="button" onClick={() => openSheet({ type: "books", add: !cur })} className="state -mx-1 inline-flex max-w-full items-center gap-0.5 rounded-lg px-1 text-left"
+      aria-label={cur ? `${cur.title}, page ${cur.at}${cur.pages ? ` of ${cur.pages}` : ""}. Open the bookshelf.` : "Add the book you’re reading"}>
+      {cur ? <><span className="truncate">{cur.title}</span><span className="shrink-0 tnum">&nbsp;· p. {cur.at}{cur.pages ? `/${cur.pages}` : ""}</span></>
+        : <span className="truncate">Add the book you’re reading</span>}
+      <Icon name={cur ? "chevron_right" : "add"} size={16} className="shrink-0" />
+    </button>
+  );
   return (
-    <Quest k="knowledge" title={`Read ${goal} pages`} sub={S.settings.book || "Your current book"} pay={<XP {...pay} />} done={done}>
+    <Quest k="knowledge" title={`Read ${goal} pages`} sub={shelfLink} pay={<XP {...pay} />} done={done}>
       <div className="flex items-end gap-2">
         {typing ? (
           <input autoFocus type="number" inputMode="numeric" min="0" defaultValue={p || ""} aria-label="Pages read" onFocus={(e) => e.target.select()} onBlur={commit}
@@ -213,6 +238,16 @@ function ReadingQuest({ r, pay, done }) {
         <span className="shrink-0 tnum" aria-live="polite">{status}</span>
         {next && <span className="ml-auto flex min-w-0 items-center gap-1 tnum"><Icon name="military_tech" size={16} className="shrink-0" /><span className="truncate">{next.en}</span><span className="shrink-0">· {fmtN(next.cur)} / {fmtN(next.goal)}</span></span>}
       </div>
+      {books.length > 1 && (
+        <div ref={chipsRef} role="group" aria-label="The book you’re reading" className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
+          {books.map((b) => (
+            <Chip key={b.id} data-book={b.id} selected={b.id === cur.id} onClick={() => pickBook(b.id)} className="max-w-[11rem]"
+              trailing={b.pages ? <span className="tnum opacity-70">{Math.floor(b.frac * 100)}%</span> : null}>
+              <span className="min-w-0 truncate">{b.title}</span>
+            </Chip>
+          ))}
+        </div>
+      )}
       <div role="group" aria-label="Add pages" className="m3-group mt-4 flex gap-2">
         {PAGE_STEPS.map(([n, g]) => (
           <button key={n} type="button" onClick={() => tap(n)} aria-label={n === 1 ? "Add 1 page" : `Add ${n} pages`} style={{ "--g": g, "--rp": "18px" }}
@@ -224,6 +259,13 @@ function ReadingQuest({ r, pay, done }) {
           </button>
         ))}
       </div>
+      {cur?.end && (
+        <div className="pop mt-3 flex items-center gap-3 rounded-[20px] bg-tertiary-container py-2 pr-2 pl-3 text-on-tertiary-container">
+          <Icon name="auto_stories" fill size={22} className="shrink-0" />
+          <p className="min-w-0 flex-1 type-body-m"><b className="type-title-s em">Last page.</b> Finished it?</p>
+          <Button size="xs" icon="check" onClick={() => finishBook(cur.id)}>Finished · +{BOOK_XP}</Button>
+        </div>
+      )}
     </Quest>
   );
 }
