@@ -278,8 +278,9 @@ export function dayMinisters(s) {
   const x = day(s);
   if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: purityOf(x.porn, x.plan) };
   const all = matchDay(s), ms = all.filter((m) => m.status !== "cancelled");
-  // No session today, or every one called off: a day off training. Otherwise the sessions that stand, on average.
-  const training = ms.length ? ms.reduce((a, m) => a + m.frac, 0) / ms.length : (hasSchedule() || all.length ? 1 : (x.trained || x.rest));
+  // No session today, or every one called off: a day off training. Otherwise the share of the sessions that stand that
+  // were done. Each one is yes or no: the slot's times are for the calendar, so a done session pays in full however long it ran.
+  const training = ms.length ? ms.filter((m) => m.status === "done").length / ms.length : (hasSchedule() || all.length ? 1 : (x.trained || x.rest));
   return {
     body: 0.6 * x.diet + 0.4 * training,
     knowledge: x.knowledge >= 1 ? 1 : x.knowledge,

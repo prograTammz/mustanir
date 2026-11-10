@@ -44,3 +44,5 @@ for where the work last stood.
   pay on it as extra and are never held against you. Tammz marks the day on Today; a week with none marked rests on
   Sunday (the default, set in Settings), and marking another day moves that week's rest there.
 - A training session can be cancelled from Today: it isn't judged, gets no reminder, and leaves the calendar feed.
+- A training session is yes or no: its slot times are for the calendar, so once WHOOP marks it done (half the slot's time)
+  it pays Body's full training share, however long it ran.

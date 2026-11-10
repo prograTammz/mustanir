@@ -220,6 +220,25 @@ describe("cancelled sessions", () => {
   });
 });
 
+describe("a session is yes or no", () => {
+  const gym = { id: "gym", sport: "gym", days: ["TUE"], start: "07:00", end: "08:30" };
+  test("a done session pays in full, however much shorter than its calendar slot", () => {
+    setSystemTime(new Date(2026, 10, 10, 23)); // Tuesday night
+    fresh({ "2026-11-10": { pages: 20, totalKcal: 2174, dietaryKcal: 844, workoutsDetail: [{ a: "Elliptical", s: "12:46", e: "13:12" }, { a: "Powerlifting", s: "13:17", e: "13:53" }] } }, { training: [gym] });
+    const m = G.matchSlot("2026-11-10", gym);
+    expect(m.status).toBe("done");
+    expect(m.done).toBe(62);
+    expect(G.dayMinisters("2026-11-10").body).toBeCloseTo(1);
+    expect(G.xpParts("2026-11-10").ministers.body.earned).toBe(20);
+  });
+  test("a session short of done pays nothing for training", () => {
+    setSystemTime(new Date(2026, 10, 10, 23));
+    fresh({ "2026-11-10": { pages: 20, totalKcal: 3000, dietaryKcal: 2000, workoutsDetail: [{ a: "Weightlifting", s: "07:00", e: "07:20" }] } }, { training: [gym] });
+    expect(G.matchSlot("2026-11-10", gym).status).toBe("partial");
+    expect(G.dayMinisters("2026-11-10").body).toBeCloseTo(0.6);
+  });
+});
+
 describe("streaks and medals", () => {
   test("streaks count back from today, or from yesterday if today isn't logged yet", () => {
     setSystemTime(new Date(2026, 10, 4, 12));
