@@ -47,7 +47,7 @@ export function set(k, v) {
   if (cAfter.total && cAfter.done === cAfter.total && cBefore.done < cBefore.total) done.push("The day’s work");
   done.forEach((q, i) => setTimeout(() => { play("quest"); haptic(12); toast(`Quest complete · ${q}`, { className: REWARD, description: `${counted(s).filter((m) => mAfter[m] >= 0.9).length} of ${counted(s).length} ministers at 90% today.` }); }, 250 + i * 600));
   // The moments worth a fanfare: a perfect day, a new medal, a new level.
-  if (!wasPerfect && isPerfect(s)) setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 48); play("chest"); haptic(30); toast("Perfect day · chest opened · +25 XP", { className: REWARD, description: isRestDay(s) ? "Rest day: Faith, Knowledge and Purity at 90% or more." : "Every minister at 90% or more." }); }, 400);
+  if (!wasPerfect && isPerfect(s)) setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 48); play("chest"); haptic(30); toast("Perfect day · chest opened · +25 XP", { className: REWARD, description: isRestDay(s) ? "Rest day: Faith, Knowledge and Purity at 90% or more." : "5 of the 6 ministers at 90% or more." }); }, 400);
   const fresh = medals().filter((m) => m.won && !had.has(m.id));
   fresh.forEach((m, i) => setTimeout(() => { burst(innerWidth / 2, innerHeight / 3, 40); play("medal"); haptic(30); toast(`Medal won · ${m.en}`, { className: REWARD, description: `${m.ar} · ${m.how}` }); }, 800 + i * 900));
   if (t.level > lvBefore) setTimeout(() => levelUp(t.level, rankFor(t.level)), 600 + fresh.length * 900);

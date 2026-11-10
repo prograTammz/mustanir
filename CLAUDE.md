@@ -40,7 +40,9 @@ for where the work last stood.
 - Sleep is judged by WHOOP's sleep score alone, not hours: it pays half of Order's 20 XP in whole points (75% → 8 of 10).
   Up for Fajr and consistency no longer pay there; no bedtime check. Vitality's five are steps, exercise, sleep score,
   recovery and strain (4 of 5 for the medal). Every Sunday weight drop pays XP.
-- One rest day a week counts only Faith, Knowledge and Purity; Order and Body (and the checklist, vitals and weigh-in)
+- Six ministers: Body, Knowledge, Faith, Order, Purity and Productivity (the daily checklist, the share ticked, up to 20 XP).
+  The perfect-day chest (+25 XP) opens with 5 of the 6 at 90% or more, and those are the days the perfect-day medals count.
+- One rest day a week counts only Faith, Knowledge and Purity; Order, Body and Productivity (and the vitals and weigh-in)
   pay on it as extra and are never held against you. Tammz marks the day on Today; a week with none marked rests on
   Sunday (the default, set in Settings), and marking another day moves that week's rest there.
 - A training session can be cancelled from Today: it isn't judged, gets no reminder, and leaves the calendar feed.

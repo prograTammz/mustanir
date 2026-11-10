@@ -47,21 +47,22 @@ function MinisterSheet({ k }) {
             </div>
           ))}
         </div>
-        <Hint className="pb-6">Every minister earns up to 20 XP a day; a perfect day adds 25, the checklist and the vitals up to 20 each, and a day with no masturbation and no porn adds 10. On the rest day ({restDayName() || "none set"}) only Faith, Knowledge and Purity count; the rest pays as extra.</Hint>
+        <Hint className="pb-6">Each of the six ministers earns up to 20 XP a day (Productivity pays the share of the checklist you tick); a perfect day, 5 of the 6 at 90% or more, adds 25, the vitals up to 20, and a day with no masturbation and no porn adds 10. On the rest day ({restDayName() || "none set"}) only Faith, Knowledge and Purity count, and all three open the chest; the rest pays as extra.</Hint>
       </>
     );
   }
-  // Order and Body skip the rest day: a period of only that day has no verdict for them.
+  // Order, Body and Productivity skip the rest day: a period of only that day has no verdict for them.
   const m = M[k], v = r ? r[k] : null, [cls, txt] = v == null && r ? ["", "Not judged on the rest day"] : verdict(v, m.immune);
-  const rest = r?.rest && (k === "body" || k === "habits") ? ` The rest day (${restDayName()}) isn’t judged here; what you do on it pays extra XP.` : "";
+  const rest = r?.rest && (k === "body" || k === "habits" || k === "productivity") ? ` The rest day (${restDayName()}) isn’t judged here; what you do on it pays extra XP.` : "";
   const detail = r ? {
     body: `Training ${pctTxt(r.training)} (${r.sessions} of ${Math.round(r.planned * 10) / 10} sessions${r.plannedMin ? `, ${fmtMin(r.trainMin)} of ${fmtMin(r.plannedMin)}` : ""}), diet on target ${pctTxt(r.diet)} of days.`,
     faith: "Average share of the five prayers kept; a made-up prayer counts half.",
     knowledge: `Days at ${S.settings.pagesPerDay} pages or more.`,
     purity: `Porn-free ${pctTxt(r.porn)} of days, masturbation-free ${pctTxt(r.plan)}. Every day starts clean; a logged slip of porn costs 15 of the 20, masturbation 5.`,
     habits: "WHOOP’s sleep score pays half, in whole points of its 10 XP (75% earns 8); the five routines and wearing the watch share the other 10.",
+    productivity: "The average share of the day’s checklist ticked: your standing items from Settings and the tasks you add for the day.",
   }[k] : "No days in this council period yet.";
-  const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure] }[k];
+  const st = { faith: ["All five prayers", T.prayers], knowledge: ["Reading", T.read], purity: ["Porn-free", T.pure], productivity: ["80% of the checklist", T.productive] }[k];
   return (
     <>
       <DrawerHeader className="flex-row items-center gap-4"><Emblem k={k} size={64} /><div className="min-w-0"><Ar className="block text-left text-[26px] leading-tight" style={{ color: mColor(k) }}>{m.ar}</Ar><DrawerTitle className="type-title-l">{m.en}</DrawerTitle><DrawerDescription>{m.agenda}</DrawerDescription></div></DrawerHeader>

@@ -44,9 +44,10 @@ export const MINISTERS = [
   { key: "faith", ar: "وزير الإيمان", en: "Minister of Faith", agenda: "The five prayers", color: "faith", immune: true },
   { key: "habits", ar: "وزير النظام", en: "Minister of Order", agenda: "Sleep and routines", color: "habits" },
   { key: "purity", ar: "وزير الطهارة", en: "Minister of Purity", agenda: "No porn, keep the schedule", color: "purity" },
+  { key: "productivity", ar: "وزير الإنتاجية", en: "Minister of Productivity", agenda: "The day’s work", color: "productivity" },
 ];
 // The order ministers appear on the decrees page (the agenda's own order).
-export const DECREE_ORDER = ["faith", "body", "knowledge", "purity", "habits"];
+export const DECREE_ORDER = ["faith", "body", "knowledge", "purity", "habits", "productivity"];
 
 export const RANKS = [
   { from: 1, ar: "مُرشَّح", en: "Candidate" },
@@ -256,7 +257,7 @@ const shieldUp = (s) => inOffice(s) && s <= today();
 
 export function day(s) {
   const d = S.days[s];
-  if (!manual(d)) { const up = shieldUp(s) ? 1 : 0; return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: up, plan: up, habits: 0, rest: 0 }; }
+  if (!manual(d)) { const up = shieldUp(s) ? 1 : 0; return { logged: false, faith: 0, knowledge: 0, diet: 0, trained: 0, porn: up, plan: up, habits: 0, productivity: 0, rest: 0 }; }
   const pr = d.prayers || {};
   const faith = PRAYERS.reduce((a, [k]) => a + (pr[k] === "on" ? 1 : pr[k] === "late" ? 0.5 : 0), 0) / 5;
   // Sleep is judged by WHOOP's sleep score alone (half the minister); the five routines and the watch share the other half.
@@ -264,6 +265,8 @@ export function day(s) {
   return {
     logged: true, faith, habits,
     knowledge: Math.min(1, (d.pages || 0) / S.settings.pagesPerDay),
+    // Productivity is the daily checklist: the share of the day's tasks ticked.
+    productivity: checklistFor(s).frac || 0,
     diet: dietMet(d) ? 1 : 0, trained: TRAINED.includes(d.train) ? 1 : 0, rest: d.train === "rest" ? 1 : 0,
     // Purity starts every day at full marks and only a slip takes them away: porn costs 15 of its 20, masturbation 5.
     porn: d.pornFree === false ? 0 : 1, plan: d.mast === true ? 0 : 1,
@@ -276,7 +279,7 @@ const purityOf = (porn, plan) => (PORN_COST * porn + MAST_COST * plan) / XP_PER_
 // Each minister's verdict on one day, 0 to 1. Used for XP and the decrees rings.
 export function dayMinisters(s) {
   const x = day(s);
-  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: purityOf(x.porn, x.plan) };
+  if (!x.logged) return { body: 0, knowledge: 0, faith: 0, habits: 0, purity: purityOf(x.porn, x.plan), productivity: 0 };
   const all = matchDay(s), ms = all.filter((m) => m.status !== "cancelled");
   // No session today, or every one called off: a day off training. Otherwise the share of the sessions that stand that
   // were done. Each one is yes or no: the slot's times are for the calendar, so a done session pays in full however long it ran.
@@ -287,12 +290,13 @@ export function dayMinisters(s) {
     faith: x.faith,
     habits: x.habits,
     purity: purityOf(x.porn, x.plan),
+    productivity: x.productivity,
   };
 }
 
-// Approval over a period, the measure impeachment is judged on. Order and Body are judged on the working days only:
-// the rest day never counts against them, and a session done on it is an extra one. A period of nothing but the rest
-// day has no verdict for them (null), and the overall approval is the other three.
+// Approval over a period, the measure impeachment is judged on. Order, Body and Productivity are judged on the working
+// days only: the rest day never counts against them, and a session done on it is an extra one. A period of nothing but
+// the rest day has no verdict for them (null), and the overall approval is the other three.
 export function score(dates) {
   const n = dates.length; if (!n) return null;
   const ds = dates.map(day); const sum = (f, xs = ds) => xs.reduce((a, x) => a + x[f], 0);
@@ -316,9 +320,9 @@ export function score(dates) {
     avgDeficit: defs.length ? Math.round(defs.reduce((a, b) => a + b, 0) / defs.length) : null,
     logged: ds.filter((x) => x.logged).length,
     body: w ? (training + diet) / 2 : null, faith: sum("faith") / n, knowledge: ds.reduce((a, x) => a + (x.knowledge >= 1 ? 1 : 0), 0) / n,
-    purity: purityOf(porn, plan), habits: w ? sum("habits", work) / w : null,
+    purity: purityOf(porn, plan), habits: w ? sum("habits", work) / w : null, productivity: w ? sum("productivity", work) / w : null,
   };
-  const judged = [r.body, r.faith, r.knowledge, r.purity, r.habits].filter((x) => x != null);
+  const judged = [r.body, r.faith, r.knowledge, r.purity, r.habits, r.productivity].filter((x) => x != null);
   r.overall = judged.reduce((a, x) => a + x, 0) / judged.length;
   return r;
 }
@@ -342,12 +346,13 @@ export function currentApproval(s = today()) {
 }
 
 /* ---------- XP, levels, ranks ---------- */
-export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, CHECKLIST_XP = 20, VITALITY_XP = 20, ABSTAIN_XP = 10, WEIGH_IN_XP = 40, MAX_DAY_XP = 5 * 20 + 25 + 20 + 20 + 10;
+// Six ministers at 20 each (Productivity is the checklist's 20), the perfect-day chest, the vitals and the abstinence bonus.
+export const XP_PER_MINISTER = 20, PERFECT_BONUS = 25, VITALITY_XP = 20, ABSTAIN_XP = 10, WEIGH_IN_XP = 40, MAX_DAY_XP = 6 * 20 + 25 + 20 + 10;
 export const PORN_COST = 15, MAST_COST = 5; // what each slip takes from Purity's 20 XP
 
 /* ---------- the weekly rest day ----------
    One day a week counts only Faith, Knowledge and Purity: they make the day's target and open the perfect-day chest.
-   Order and Body, the checklist, the vitals and the weigh-in still pay what they earn, as extra: never required, never
+   Order, Body and Productivity, the vitals and the weigh-in still pay what they earn, as extra: never required, never
    held against you in the approval, and a miss doesn't break their streaks.
    You mark the day yourself from Today (day.rest = true). A week (Sunday to Saturday) with no day marked rests on its
    default day (settings.restDay, Sunday unless changed), and day.rest = false on that day takes the rest away. */
@@ -364,13 +369,16 @@ export function isRestDay(s) {
 // The rest day of s's week, if it has one.
 export const restDayOf = (s) => weekDays(s).find(isRestDay) || null;
 export const restDayName = () => DAY_NAMES[S.settings.restDay] || null;
-// The ministers a day is judged on: all five, or the three that count on the rest day.
+// The ministers a day is judged on: all six, or the three that count on the rest day.
 export const counted = (s) => (isRestDay(s) ? REST_COUNTS : MINISTERS.map((m) => m.key));
 export const REST_MAX_XP = REST_COUNTS.length * XP_PER_MINISTER + PERFECT_BONUS + ABSTAIN_XP;
 // The day's target: what fills the ring. Extra XP on the rest day goes past it.
 export const dayMax = (s) => (isRestDay(s) ? REST_MAX_XP : MAX_DAY_XP + (isSunday(s) ? WEIGH_IN_XP : 0));
-// Every minister that counts at 90% or more.
-export function isPerfect(s, m = dayMinisters(s)) { return counted(s).every((k) => m[k] >= 0.9); }
+// The perfect-day chest opens with 5 of the 6 ministers at 90% or more; on the rest day, with all three that count.
+export const PERFECT_OF_SIX = 5;
+export const perfectNeed = (s) => (isRestDay(s) ? REST_COUNTS.length : PERFECT_OF_SIX);
+export const nearPerfect = (s, m = dayMinisters(s)) => counted(s).filter((k) => m[k] >= 0.9).length;
+export function isPerfect(s, m = dayMinisters(s)) { return nearPerfect(s, m) >= perfectNeed(s); }
 
 /* ---------- the Sunday weigh-in ----------
    Every Sunday morning this week's weight is set against last Sunday's (each the latest reading in the
@@ -393,12 +401,11 @@ export const abstained = (d) => !!d && d.mast !== true && d.pornFree !== false; 
 const abstainPaid = (s) => (manual(S.days[s]) || shieldUp(s)) && abstained(S.days[s] || {});
 export function dayXP(s) {
   const m = dayMinisters(s);
-  const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0); // all five pay, counted or extra
+  const base = Object.values(m).reduce((a, v) => a + v * XP_PER_MINISTER, 0); // all six pay, counted or extra
   const perfect = isPerfect(s, m);
-  const c = manual(S.days[s]) ? checklistFor(s).frac || 0 : 0;
   const v = manual(S.days[s]) ? vitalityFor(s).frac || 0 : 0;
   const a = abstainPaid(s) ? ABSTAIN_XP : 0;
-  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + c * CHECKLIST_XP + v * VITALITY_XP + a) + weighInXP(s);
+  return Math.round(base + (perfect ? PERFECT_BONUS : 0) + v * VITALITY_XP + a) + weighInXP(s);
 }
 
 /* ---------- vitality: the five things WHOOP keeps every day ----------
@@ -537,7 +544,7 @@ export function bestStreak(test) {
   }
   return best;
 }
-// Order and Body (and the checklist): extra on the rest day.
+// Order, Body and Productivity (the checklist): extra on the rest day.
 function extra(f) { f.extra = true; return f; }
 export const T = {
   productive: extra((d, s) => (checklistFor(s).frac || 0) >= 0.8),
@@ -575,7 +582,7 @@ export const MEDALS = [
   { id: "office30", ar: "شهر في الحكم", en: "A month in office", how: "Log 30 days in a row", cur: () => bestStreak(T.office), goal: 30, test: () => bestStreak(T.office) >= 30 },
   { id: "office90", ar: "ولاية بلا انقطاع", en: "Unbroken term", how: "Log 90 days in a row", cur: () => bestStreak(T.office), goal: 90, test: () => bestStreak(T.office) >= 90 },
   { id: "term", ar: "إتمام الولاية", en: "Term complete", how: "Reach the end of a term", cur: () => Math.max(0, Math.min(termLength(), termDay(today()) - 1)), goal: () => termLength(), test: () => today() >= termEnd() && Object.keys(S.days).some((k) => k >= addDays(termEnd(), -7) && manual(S.days[k])) },
-  { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "Every minister at 90% or more in one day", cur: (t) => t.perfect, goal: 1, test: (t) => t.perfect >= 1 },
+  { id: "perfect", ar: "يوم كامل", en: "Perfect day", how: "5 of the 6 ministers at 90% or more in one day", cur: (t) => t.perfect, goal: 1, test: (t) => t.perfect >= 1 },
   { id: "perfect7", ar: "أسبوع ذهبي", en: "Golden week", how: "7 perfect days", cur: (t) => t.perfect, goal: 7, test: (t) => t.perfect >= 7 },
   { id: "perfect30", ar: "العصر الذهبي", en: "Golden age", how: "30 perfect days", cur: (t) => t.perfect, goal: 30, test: (t) => t.perfect >= 30 },
   { id: "lvl5", ar: "النائب", en: "Deputy", how: "Reach level 5", cur: (t) => t.level, goal: 5, test: (t) => t.level >= 5 },
@@ -639,15 +646,15 @@ export function medals() {
 export function xpParts(s) {
   const d = S.days[s], m = dayMinisters(s), on = manual(d);
   const ministers = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { earned: Math.round(v * XP_PER_MINISTER), max: XP_PER_MINISTER, frac: v }]));
-  // On the rest day Order and Body are marked extra: they pay, but the ring and the chest only ask for the three that count.
+  // On the rest day Order, Body and Productivity are marked extra: they pay, but the ring and the chest only ask for the three that count.
   const keys = counted(s), rest = isRestDay(s);
   for (const k in ministers) ministers[k].extra = !keys.includes(k);
-  const perfect = isPerfect(s, m), near = keys.filter((k) => m[k] >= 0.9).length;
-  const c = checklistFor(s), v = vitalityFor(s), w = weighIn(s);
+  // The chest: `near` of the `of` ministers that count are at 90%, and `need` of them open it (5 of 6, or 3 of 3 on the rest day).
+  const perfect = isPerfect(s, m), near = nearPerfect(s, m);
+  const v = vitalityFor(s), w = weighIn(s);
   const parts = {
-    ministers, near, need: keys.length, rest, max: dayMax(s),
+    ministers, near, need: perfectNeed(s), of: keys.length, rest, max: dayMax(s),
     perfect: { earned: perfect ? PERFECT_BONUS : 0, max: PERFECT_BONUS },
-    checklist: { earned: on ? Math.round((c.frac || 0) * CHECKLIST_XP) : 0, max: CHECKLIST_XP, extra: rest },
     vitality: { earned: on ? Math.round((v.frac || 0) * VITALITY_XP) : 0, max: VITALITY_XP, extra: rest },
     abstain: { earned: abstainPaid(s) ? ABSTAIN_XP : 0, max: ABSTAIN_XP },
     weighIn: isSunday(s) ? { earned: inOffice(s) && w?.won ? WEIGH_IN_XP : 0, max: WEIGH_IN_XP, extra: rest } : null,
@@ -655,7 +662,7 @@ export function xpParts(s) {
   };
   // The day's XP split in two: what fills the ring toward `max`, and what the rest day pays on top of it.
   parts.total = dayXP(s);
-  parts.extra = rest ? [ministers.body, ministers.habits, parts.checklist, parts.vitality, parts.weighIn].reduce((a, x) => a + (x?.earned || 0), 0) : 0;
+  parts.extra = rest ? [ministers.body, ministers.habits, ministers.productivity, parts.vitality, parts.weighIn].reduce((a, x) => a + (x?.earned || 0), 0) : 0;
   parts.earned = Math.max(0, parts.total - parts.extra);
   return parts;
 }

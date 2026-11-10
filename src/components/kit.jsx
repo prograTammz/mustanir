@@ -10,12 +10,12 @@ export const MIN = {
   faith: { shape: "flower", icon: "mosque" },
   habits: { shape: "clover4", rot: 45, icon: "routine" },
   purity: { shape: "gem", icon: "shield" },
+  productivity: { shape: "cookie9", icon: "task_alt" },
   president: { shape: "verySunny", icon: "crown" },
-  tasks: { shape: "cookie9", icon: "task_alt" },
 };
-export const mColor = (key) => (key === "president" || key === "tasks" ? "var(--md-sys-color-tertiary)" : `var(--md-custom-color-${key}-vivid)`);
-export const mContainer = (key) => (key === "president" || key === "tasks" ? "var(--md-sys-color-tertiary-container)" : `var(--md-custom-color-${key}-container)`);
-export const mOnContainer = (key) => (key === "president" || key === "tasks" ? "var(--md-sys-color-on-tertiary-container)" : `var(--md-custom-color-on-${key}-container)`);
+export const mColor = (key) => (key === "president" ? "var(--md-sys-color-tertiary)" : `var(--md-custom-color-${key}-vivid)`);
+export const mContainer = (key) => (key === "president" ? "var(--md-sys-color-tertiary-container)" : `var(--md-custom-color-${key}-container)`);
+export const mOnContainer = (key) => (key === "president" ? "var(--md-sys-color-on-tertiary-container)" : `var(--md-custom-color-on-${key}-container)`);
 
 /** A minister's emblem: its shape in its container color, its symbol on top. `solid` fills with the vivid color instead. */
 export function Emblem({ k, size = 40, solid = false, className, done = false }) {
@@ -191,7 +191,8 @@ export function medalKind(id) {
   if (/^(fajr|regular|slept|green)/.test(id)) return "habits";
   if (/^(weigh|under|iron|deficit|steps|vital)/.test(id)) return "body";
   if (/^(pure|abstain)/.test(id)) return "purity";
-  if (/^(read|pages|chancellor)/.test(id)) return "knowledge";
+  if (/^(read|pages)/.test(id)) return "knowledge";
+  if (/^chancellor/.test(id)) return "productivity";
   return "president";
 }
 export const fmtN = (x) => (x == null ? "—" : x >= 1000 ? Math.round(x).toLocaleString("en") : Math.round(x * 10) / 10);

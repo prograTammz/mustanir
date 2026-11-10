@@ -220,6 +220,52 @@ describe("cancelled sessions", () => {
   });
 });
 
+// Prayed and read, nothing else: what the rest day asks for.
+const PRAYED = { prayers: PERFECT.prayers, pages: 20 };
+
+describe("the Minister of Productivity", () => {
+  test("pays the share of the day's checklist ticked, out of 20, in place of the old checklist XP", () => {
+    fresh({ "2026-11-02": { ...PERFECT, checks: { plan: true, deep: true, ship: true }, extraTasks: [{ id: "x1", text: "Call the bank" }] } });
+    const p = G.xpParts("2026-11-02");
+    expect(p.ministers.productivity.earned).toBe(10); // 3 of 6 tasks
+    expect(p.checklist).toBe(undefined);
+    expect(G.MAX_DAY_XP).toBe(6 * 20 + G.PERFECT_BONUS + G.VITALITY_XP + G.ABSTAIN_XP);
+    expect(G.MINISTERS.map((m) => m.key)).toContain("productivity");
+  });
+  test("is judged in the approval on working days, like Order and Body", () => {
+    fresh({ "2026-11-01": PRAYED, "2026-11-02": { ...PERFECT, checks: { plan: true, deep: true } } });
+    const r = G.score(["2026-11-01", "2026-11-02"]);
+    expect(r.productivity).toBeCloseTo(2 / 5);
+    expect(G.score(["2026-11-01"]).productivity).toBeNull();
+  });
+});
+
+describe("the perfect-day chest", () => {
+  test("opens with 5 of the 6 ministers at 90%", () => {
+    fresh({ "2026-11-02": { ...PERFECT, checks: {} } }); // everything but the checklist
+    const p = G.xpParts("2026-11-02");
+    expect(p.near).toBe(5);
+    expect(p.need).toBe(5);
+    expect(p.of).toBe(6);
+    expect(p.perfect.earned).toBe(G.PERFECT_BONUS);
+    expect(G.totals().perfect).toBe(1); // and it counts toward the perfect-day medals
+  });
+  test("stays shut with 4 of 6", () => {
+    fresh({ "2026-11-02": { ...PERFECT, checks: {}, pages: 5 } });
+    const p = G.xpParts("2026-11-02");
+    expect(p.near).toBe(4);
+    expect(p.perfect.earned).toBe(0);
+    expect(G.totals().perfect).toBe(0);
+  });
+  test("on the rest day it still asks for all three that count", () => {
+    fresh({ "2026-11-01": { ...PRAYED, pages: 5 } });
+    const p = G.xpParts("2026-11-01");
+    expect(p.need).toBe(3);
+    expect(p.of).toBe(3);
+    expect(p.perfect.earned).toBe(0);
+  });
+});
+
 describe("a session is yes or no", () => {
   const gym = { id: "gym", sport: "gym", days: ["TUE"], start: "07:00", end: "08:30" };
   test("a done session pays in full, however much shorter than its calendar slot", () => {
@@ -297,12 +343,13 @@ describe("the rest day", () => {
     expect(G.xpParts("2026-11-02").max).toBe(G.MAX_DAY_XP);
     expect(G.totals().perfect).toBe(1);
   });
-  test("Order, Body, the checklist and the vitals still pay, as extra", () => {
+  test("Order, Body, Productivity and the vitals still pay, as extra", () => {
     fresh({ "2026-11-01": PERFECT, "2026-11-02": PERFECT });
     const sun = G.xpParts("2026-11-01");
     expect(G.dayXP("2026-11-01")).toBe(G.dayXP("2026-11-02")); // nothing is lost on the rest day
     expect(sun.ministers.body.extra).toBe(true);
     expect(sun.ministers.habits.extra).toBe(true);
+    expect(sun.ministers.productivity.extra).toBe(true);
     expect(sun.ministers.faith.extra).toBe(false);
     expect(sun.earned).toBe(G.REST_MAX_XP);
     expect(sun.extra).toBe(G.dayXP("2026-11-01") - G.REST_MAX_XP);
@@ -363,7 +410,7 @@ describe("marking the rest day", () => {
     expect(G.isRestDay("2026-11-01")).toBe(false);
     expect(G.restDayOf("2026-11-03")).toBeNull();
     expect(G.xpParts("2026-11-01").max).toBe(G.MAX_DAY_XP + G.WEIGH_IN_XP);
-    expect(G.xpParts("2026-11-01").perfect.earned).toBe(0); // all five count again
+    expect(G.xpParts("2026-11-01").perfect.earned).toBe(0); // all six count again, and only 3 are at 90%
   });
   test("a marked day scores as the rest day: three ministers open the chest", () => {
     fresh({ "2026-11-04": { rest: true, prayers: PERFECT.prayers, pages: 20 } });

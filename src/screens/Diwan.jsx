@@ -127,7 +127,7 @@ const WEEK = [["SAT", "Saturday"], ["SUN", "Sunday"], ["MON", "Monday"], ["TUE",
 // this is the day a week rests on when nothing is marked.
 function RestDay() {
   return (
-    <Section title="Rest day" ar="يوم الراحة" desc="One day a week asks only for Faith, Knowledge and Purity. Order, Body, the checklist and the vitals still pay XP on it, as extra, and never count against you. Mark the day from Today; this is the day a week rests on when you don’t.">
+    <Section title="Rest day" ar="يوم الراحة" desc="One day a week asks only for Faith, Knowledge and Purity. Order, Body, Productivity and the vitals still pay XP on it, as extra, and never count against you. Mark the day from Today; this is the day a week rests on when you don’t.">
       <Connected value={S.settings.restDay || "SUN"} onChange={(v) => setSetting("restDay", v)} label="Rest day" dense
         options={WEEK.map(([d, name]) => ({ value: d, label: name.slice(0, 3) }))} />
       <Hint className="mt-3">{restDayName()} by default. Marking another day on Today moves that week’s rest there. Streaks for sleep, vitals and the checklist step over a missed rest day.</Hint>
@@ -200,7 +200,7 @@ function ChecklistEdit() {
   const move = (i, d) => { const n = [...list]; const [x] = n.splice(i, 1); n.splice(i + d, 0, x); save(n); };
   const add = () => { const text = txt.trim(); if (text) { save([...list, { id: "c" + Date.now().toString(36), text }]); setTxt(""); } };
   return (
-    <Section title="Daily checklist" ar="قائمة الإنجاز" desc="What a productive day means for you. Each day’s score is the share you tick.">
+    <Section title="Daily checklist" ar="قائمة الإنجاز" desc="What a productive day means for you. The Minister of Productivity pays the share you tick each day, up to 20 XP.">
       {list.map((x, i) => (
         <div key={x.id} className="flex min-h-12 items-center gap-1">
           <Icon name="task_alt" size={20} className="mr-2 text-tertiary" />

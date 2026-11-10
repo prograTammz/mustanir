@@ -52,6 +52,7 @@
   --m-faith: var(--md-custom-color-faith-vivid);
   --m-habits: var(--md-custom-color-habits-vivid);
   --m-purity: var(--md-custom-color-purity-vivid);
+  --m-productivity: var(--md-custom-color-productivity-vivid);
   --grid: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
 }
 
@@ -114,6 +115,9 @@
   --color-purity: var(--md-custom-color-purity-vivid);
   --color-purity-container: var(--md-custom-color-purity-container);
   --color-on-purity-container: var(--md-custom-color-on-purity-container);
+  --color-productivity: var(--md-custom-color-productivity-vivid);
+  --color-productivity-container: var(--md-custom-color-productivity-container);
+  --color-on-productivity-container: var(--md-custom-color-on-productivity-container);
   --color-success: var(--md-custom-color-success);
   --color-success-container: var(--md-custom-color-success-container);
   --color-on-success-container: var(--md-custom-color-on-success-container);

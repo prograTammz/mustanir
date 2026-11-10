@@ -51,9 +51,9 @@ const ROLES = {
   "surface-container": [N, 94, 12], "surface-container-high": [N, 92, 17], "surface-container-highest": [N, 90, 22],
   "inverse-surface": [N, 20, 90], "inverse-on-surface": [N, 95, 20], "surface-tint": [P, 40, 80], shadow: [N, 0, 0], scrim: [N, 0, 0],
 };
-// Custom colors (M3 "custom colors"): the five ministers, plus success, warning and the streak's fire. Each with its
+// Custom colors (M3 "custom colors"): the six ministers, plus success, warning and the streak's fire. Each with its
 // color, on-color, container and on-container, and a vivid tone for rings and fills that reads on any surface.
-const CUSTOM = { body: ["#D5573B", 62], knowledge: ["#3B7BD5", 56], faith: ["#1F9D63", 54], habits: ["#D59A1F", 60], purity: ["#8E62D0", 58], success: ["#2BA562", 56], warning: ["#E0A33A", 62], fire: ["#F07A1A", 80] };
+const CUSTOM = { body: ["#D5573B", 62], knowledge: ["#3B7BD5", 56], faith: ["#1F9D63", 54], habits: ["#D59A1F", 60], purity: ["#8E62D0", 58], productivity: ["#C9487F", 58], success: ["#2BA562", 56], warning: ["#E0A33A", 62], fire: ["#F07A1A", 80] };
 const CUSTOM_TONES = { "": [40, 80], "on-": [100, 20], container: [90, 30], "on-container": [10, 90], vivid: [55, 72] };
 
 /* ---------- M3 Expressive springs (damping ratio, stiffness) -> linear() ---------- */

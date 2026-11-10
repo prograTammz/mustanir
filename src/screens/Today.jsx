@@ -1,4 +1,4 @@
-// Today: the quest board. The day's run (XP ring, the five ministers as stats, the perfect-day chest), the quests you
+// Today: the quest board. The day's run (XP ring, the six ministers as stats, the perfect-day chest), the quests you
 // complete by hand (each one shows what it pays), what WHOOP and FatSecret fill in for you, the medals within reach.
 import { useEffect, useRef, useState } from "react";
 import { S, PRAYERS, MINISTERS, today, addDays, fmt, hijri, termDay, termInfo, streak, T, matchDay, hasSchedule,
@@ -21,7 +21,7 @@ export default function Today() {
   // The rest day asks only for prayers, reading and purity; routines and tasks move under "Extra today".
   const counts = xp.rest ? [0, 1, 4] : [0, 1, 2, 3, 4];
   const prayer = <PrayerQuest pr={pr} pay={xp.ministers.faith} done={quests[0]} />, reading = <ReadingQuest r={r} pay={xp.ministers.knowledge} done={quests[1]} />;
-  const routine = <RoutineQuest r={r} pay={xp.ministers.habits} done={quests[2]} />, tasks = <TaskQuest r={r} c={c} pay={xp.checklist} done={quests[3]} />;
+  const routine = <RoutineQuest r={r} pay={xp.ministers.habits} done={quests[2]} />, tasks = <TaskQuest r={r} c={c} pay={xp.ministers.productivity} done={quests[3]} />;
   const purity = <PurityQuest s={s} r={r} xp={xp} />;
   return (
     <>
@@ -65,9 +65,9 @@ function DayBar({ s, isToday }) {
   );
 }
 
-/* ---------- the day's run: XP ring, five stats, the perfect-day chest ---------- */
+/* ---------- the day's run: XP ring, six stats, the perfect-day chest ---------- */
 function RunCard({ s, xp }) {
-  // The ring fills with what counts toward the day's target. On the rest day Order, Body, the checklist, the vitals and the
+  // The ring fills with what counts toward the day's target. On the rest day Order, Body, Productivity, the vitals and the
   // weigh-in are extra: they show as "+N extra" under the number instead of filling the ring.
   const { earned, extra, max } = xp, open = xp.perfect.earned > 0, when = s === today() ? "today" : "that day";
   return (
@@ -76,7 +76,7 @@ function RunCard({ s, xp }) {
       {xp.rest && (
         <div className="relative mb-4 flex items-center gap-3 rounded-[20px] bg-secondary-container px-3 py-2.5 text-on-secondary-container">
           <Icon name="weekend" fill size={22} className="shrink-0" />
-          <p className="min-w-0 type-body-s"><b className="type-title-s em">Rest day.</b> Faith, Knowledge and Purity count. Order and Body pay extra.</p>
+          <p className="min-w-0 type-body-s"><b className="type-title-s em">Rest day.</b> Faith, Knowledge and Purity count. Order, Body and Productivity pay extra.</p>
         </div>
       )}
       <div className="relative flex items-center gap-4">
@@ -108,11 +108,11 @@ function RunCard({ s, xp }) {
         </Shape>
         <div className="min-w-0 flex-1">
           <div className="type-title-s em">{open ? "Perfect day · chest opened" : "Perfect-day chest"}</div>
-          <div className="mt-1 flex items-center gap-1" aria-label={`${xp.near} of ${xp.need} ministers at 90%`}>
-            {Array.from({ length: xp.need }, (_, i) => <span key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i < xp.near ? "bg-tertiary" : "bg-outline-variant")} />)}
+          <div className="mt-1 flex items-center gap-1" aria-label={`${xp.near} of ${xp.of} ministers at 90%, ${xp.need} open the chest`}>
+            {Array.from({ length: xp.of }, (_, i) => <span key={i} className={cn("h-1.5 flex-1 rounded-full transition-colors", i < xp.near ? "bg-tertiary" : "bg-outline-variant")} />)}
           </div>
-          <div className={cn("mt-1 type-body-s", !open && "text-on-surface-variant")}>{open ? (xp.rest ? "Faith, Knowledge and Purity at 90% or more." : "Every minister at 90% or more.")
-            : `${xp.near} of ${xp.need} ministers at 90% · ${xp.rest ? "the three that count" : "all five"} open it`}</div>
+          <div className={cn("mt-1 type-body-s", !open && "text-on-surface-variant")}>{open ? (xp.rest ? "Faith, Knowledge and Purity at 90% or more." : `${xp.near} of the ${xp.of} ministers at 90% or more.`)
+            : `${xp.near} of ${xp.of} ministers at 90% · ${xp.rest ? "the three that count" : `any ${xp.need}`} open it`}</div>
         </div>
         <XP plus={`+${PERFECT_BONUS}`} earned={xp.perfect.earned} max={PERFECT_BONUS} />
       </div>
@@ -276,11 +276,11 @@ function TaskQuest({ r, c, pay, done }) {
     else { S.settings.checklist = swap(S.settings.checklist || []); saveSettings(); bump(); }
   };
   return (
-    <Quest k="tasks" title="The day’s work" sub={c.total ? `${c.done} of ${c.total} done` : "Add what today is for"} pay={<XP {...pay} />} done={done}>
+    <Quest k="productivity" title="The day’s work" sub={c.total ? `${c.done} of ${c.total} done` : "Add what today is for"} pay={<XP {...pay} />} done={done}>
       <div className="flex flex-col">
         {c.items.map((x) => (
           <div key={x.id} className="flex min-h-11 items-center gap-3">
-            <Checkbox checked={!!c.checks[x.id]} onChange={() => toggle(x.id)} label={x.text} color="var(--md-sys-color-tertiary)" />
+            <Checkbox checked={!!c.checks[x.id]} onChange={() => toggle(x.id)} label={x.text} color={mColor("productivity")} />
             <TaskText text={x.text} done={!!c.checks[x.id]} onSave={(t) => rename(x.id, t)} />
             {extra(x.id) &&<IconButton icon="close" label="Remove task" size="xs" onClick={() => set("extraTasks", r.extraTasks.filter((t) => t.id !== x.id))} />}
           </div>
